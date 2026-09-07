@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-label="Placeholder foto pasangan">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#e7e0d5"/><stop offset="1" stop-color="#b8c9c2"/></linearGradient>
+    <radialGradient id="sun"><stop stop-color="#fff8dc" stop-opacity=".95"/><stop offset="1" stop-color="#fff8dc" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="880" cy="180" r="260" fill="url(#sun)"/>
+  <path d="M0 690c160-130 320-120 465-20 120 84 234 61 345-11 135-88 260-69 390 21v220H0Z" fill="#7e9b8e" opacity=".55"/>
+  <path d="M0 760c181-70 360-68 541 9 174 74 403 43 659-49v180H0Z" fill="#627f73" opacity=".6"/>
+  <g fill="#4c5f58">
+    <circle cx="535" cy="385" r="54"/>
+    <path d="M450 665c8-148 30-225 87-225s83 77 88 225Z"/>
+    <circle cx="674" cy="374" r="50"/>
+    <path d="M601 665c4-139 29-215 75-215 54 0 78 76 83 215Z"/>
+  </g>
+  <path d="M571 479c31 36 57 36 85 0" fill="none" stroke="#4c5f58" stroke-width="18" stroke-linecap="round"/>
+  <g fill="#fff" opacity=".75" font-family="Georgia,serif" text-anchor="middle">
+    <text x="600" y="810" font-size="28" letter-spacing="8">YOUR BEAUTIFUL MOMENT</text>
+  </g>
+</svg>

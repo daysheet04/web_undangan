@@ -1,0 +1,8 @@
+/config/config.php
+/public/uploads/*
+!/public/uploads/.htaccess
+!/public/uploads/index.html
+/storage/logs/*.log
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+/.test-runtime/
