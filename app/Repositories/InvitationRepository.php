@@ -49,10 +49,13 @@ final class InvitationRepository
     {
         $stmt = $this->db->prepare(
             'SELECT i.*, o.order_code, o.editor_token, o.status AS order_status, o.payment_status,
-                    o.template_id, t.code AS template_code, t.name AS template_name, t.category AS template_category
+                    o.template_id, o.package_id, t.code AS template_code, t.name AS template_name, t.category AS template_category,
+                    p.code AS package_code, p.name AS package_name, p.price AS package_price,
+                    p.gallery_limit, p.has_music, p.has_gift, p.has_wishes
              FROM invitations i
              JOIN orders o ON o.id = i.order_id
              JOIN templates t ON t.id = o.template_id
+             JOIN template_packages p ON p.id = o.package_id
              WHERE o.editor_token = ? LIMIT 1'
         );
         $stmt->execute([$token]);
@@ -62,10 +65,13 @@ final class InvitationRepository
     public function findPublishedBySlug(string $slug): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT i.*, o.template_id, t.code AS template_code, t.name AS template_name
+            'SELECT i.*, o.template_id, o.package_id, t.code AS template_code, t.name AS template_name,
+                    p.code AS package_code, p.name AS package_name, p.price AS package_price,
+                    p.gallery_limit, p.has_music, p.has_gift, p.has_wishes
              FROM invitations i
              JOIN orders o ON o.id = i.order_id
              JOIN templates t ON t.id = o.template_id
+             JOIN template_packages p ON p.id = o.package_id
              WHERE i.slug = ? AND i.published_at IS NOT NULL AND o.status = \'published\' LIMIT 1'
         );
         $stmt->execute([$slug]);

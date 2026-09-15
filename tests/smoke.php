@@ -44,7 +44,7 @@ $requiredFiles = array(
     'public/assets/js/builder.js',
     'public/assets/js/preview.js',
     'public/assets/js/greeting.js',
-    'public/assets/images/brand/temuara-mark.svg',
+    'public/assets/images/brand/daymoment-mark.svg',
     'public/favicon.svg',
     'public/uploads/.htaccess',
 );
@@ -108,9 +108,9 @@ foreach (glob($root . '/app/Controllers/*.php') as $controller) {
     $branding .= file_get_contents($controller);
 }
 check(stripos($branding, 'Janji' . 'Kita') === false, 'Brand lama tidak tersisa pada tampilan dan metadata');
-check(substr_count($branding, 'Temuara') >= 10, 'Brand Temuara diterapkan konsisten');
-check(substr_count($branding, 'Tempat kisah baik dimulai.') >= 5, 'Tagline Temuara tersedia pada halaman utama dan publik');
-$brandLogo = file_get_contents($root . '/public/assets/images/brand/temuara-mark.svg');
+check(substr_count($branding, 'Daymoment') >= 10, 'Brand Daymoment diterapkan konsisten');
+check(substr_count($branding, 'Tempat kisah baik dimulai.') >= 5, 'Tagline Daymoment tersedia pada halaman utama dan publik');
+$brandLogo = file_get_contents($root . '/public/assets/images/brand/daymoment-mark.svg');
 check(strpos($brandLogo, '#102B4A') !== false && strpos($brandLogo, '#C9A46A') !== false, 'Logo lokal memakai warna navy dan gold');
 check(substr_count($brandLogo, '<ellipse') === 2, 'Logo lokal membentuk dua elemen yang saling bertemu');
 

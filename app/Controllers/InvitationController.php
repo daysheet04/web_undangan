@@ -9,6 +9,7 @@ use App\Repositories\GreetingRepository;
 use App\Repositories\InvitationRepository;
 use App\Repositories\InviteeRepository;
 use App\Repositories\TemplateRepository;
+use App\Repositories\TemplatePackageRepository;
 
 final class InvitationController
 {
@@ -21,11 +22,14 @@ final class InvitationController
         }
         $embed = ($_GET['embed'] ?? '') === '1';
         if (!$embed) {
+            $packages = (new TemplatePackageRepository(db()))->allForTemplate((int) $template['id']);
             view('invitation/preview', [
-                'title' => 'Preview ' . $template['name'] . ' — Temuara',
+                'title' => 'Preview ' . $template['name'] . ' — Daymoment',
                 'template' => $template,
+                'packages' => $packages,
                 'pageClass' => 'preview-page',
                 'styles' => ['homepage.css'],
+                'scripts' => ['package-preview.js'],
             ]);
             return;
         }
@@ -37,8 +41,29 @@ final class InvitationController
             return;
         }
         $media = $invitation ? $repo->media((int) $invitation['id']) : [];
-        $previewData = $invitation ? $this->withPreviewFallbacks($invitation) : $this->sample();
-        $giftAccounts = $invitation ? (new GiftAccountRepository(db()))->all((int) $invitation['id']) : [];
+        if ($invitation) {
+            $previewData = $this->withPreviewFallbacks($invitation);
+            $giftAccounts = !empty($invitation['has_gift']) ? (new GiftAccountRepository(db()))->all((int) $invitation['id']) : [];
+        } else {
+            $packageRepo = new TemplatePackageRepository(db());
+            $packageCode = strtolower(trim((string) ($_GET['package'] ?? 'signature')));
+            $package = $packageRepo->findForTemplate((int) $template['id'], $packageCode)
+                ?: $packageRepo->findForTemplate((int) $template['id'], 'signature');
+            $previewData = array_merge($this->sample(), [
+                'package_code' => $package['code'],
+                'package_name' => $package['name'],
+                'gallery_limit' => (int) $package['gallery_limit'],
+                'has_music' => (int) $package['has_music'],
+                'has_gift' => (int) $package['has_gift'],
+                'has_wishes' => (int) $package['has_wishes'],
+            ]);
+            $giftAccounts = !empty($package['has_gift']) ? [[
+                'provider' => 'BCA',
+                'account_number' => '1234 5678 90',
+                'account_name' => 'Andi & Nisa',
+                'label' => 'Hadiah pernikahan',
+            ]] : [];
+        }
         $this->renderTemplate($template['code'], $previewData, $media, [], [
             'isPreview' => true,
             'embed' => $embed,
@@ -69,13 +94,13 @@ final class InvitationController
             }
         }
         $media = $repo->media((int) $invitation['id']);
-        $greetings = (new GreetingRepository(db()))->latest((int) $invitation['id']);
+        $greetings = !empty($invitation['has_wishes']) ? (new GreetingRepository(db()))->latest((int) $invitation['id']) : [];
         $this->renderTemplate($invitation['template_code'], $invitation, $media, $greetings, [
             'isPreview' => false,
             'embed' => false,
             'guestName' => $guestName,
             'guestSalutation' => $guestSalutation,
-            'giftAccounts' => (new GiftAccountRepository(db()))->all((int) $invitation['id']),
+            'giftAccounts' => !empty($invitation['has_gift']) ? (new GiftAccountRepository(db()))->all((int) $invitation['id']) : [],
             'template' => ['code' => $invitation['template_code'], 'name' => $invitation['template_name']],
         ]);
     }
@@ -128,6 +153,12 @@ final class InvitationController
             'bride_photo' => null,
             'music_file' => null,
             'music_title' => null,
+            'package_code' => 'prestige',
+            'package_name' => 'Prestige',
+            'gallery_limit' => 5,
+            'has_music' => 1,
+            'has_gift' => 1,
+            'has_wishes' => 1,
             'published_at' => null,
         ];
     }

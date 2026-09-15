@@ -11,6 +11,8 @@
             <div><dt>Kode order</dt><dd><?= e($order['order_code']) ?></dd></div>
             <div><dt>Nama pemesan</dt><dd><?= e($order['customer_name']) ?></dd></div>
             <div><dt>Template</dt><dd><?= e($order['template_name']) ?></dd></div>
+            <div><dt>Paket</dt><dd><?= e($order['package_name']) ?></dd></div>
+            <div><dt>Total</dt><dd>Rp<?= e(number_format((float) $order['package_price'], 0, ',', '.')) ?></dd></div>
             <div><dt>Status pembayaran</dt><dd><?= e(ucfirst($payment['status'] ?? 'pending')) ?></dd></div>
         </dl>
         <div class="demo-note"><strong>Mode demonstrasi</strong><span>Tidak ada tagihan atau transaksi yang dibuat.</span></div>
@@ -21,4 +23,3 @@
         <small class="secure-note">🔒 Token editor pribadi dibuat otomatis dan aman.</small>
     </div>
 </section>
-

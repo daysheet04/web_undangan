@@ -19,6 +19,30 @@
             <form method="post" action="/order" class="stack-form" novalidate>
                 <?= csrf_field() ?>
                 <input type="hidden" name="template_code" value="<?= e($template['code']) ?>">
+                <fieldset class="package-picker">
+                    <legend>Pilih paket undangan</legend>
+                    <p>Desainnya tetap sama cantiknya. Pilih kelengkapan fitur yang kamu butuhkan.</p>
+                    <div class="package-options">
+                        <?php $selectedPackage = $old['package_code'] ?? 'signature'; ?>
+                        <?php foreach ($packages as $package): ?>
+                            <label class="package-option <?= $package['code'] === 'signature' ? 'recommended' : '' ?>">
+                                <input type="radio" name="package_code" value="<?= e($package['code']) ?>" <?= $selectedPackage === $package['code'] ? 'checked' : '' ?>>
+                                <span class="package-card">
+                                    <?php if ($package['code'] === 'signature'): ?><small class="package-badge">Paling populer</small><?php endif; ?>
+                                    <span class="package-name"><strong><?= e($package['name']) ?></strong><b>Rp<?= e(number_format((float) $package['price'], 0, ',', '.')) ?></b></span>
+                                    <small><?= e($package['tagline']) ?></small>
+                                    <span class="package-features">
+                                        <i><?= (int) $package['gallery_limit'] ?> foto momen</i>
+                                        <i><?= $package['has_music'] ? 'Musik undangan' : 'Tanpa musik' ?></i>
+                                        <i><?= $package['has_wishes'] ? 'Ucapan & RSVP' : 'Tanpa ucapan & RSVP' ?></i>
+                                        <i><?= $package['has_gift'] ? 'Amplop digital' : 'Tanpa amplop digital' ?></i>
+                                    </span>
+                                </span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if (isset($errors['package_code'])): ?><small class="field-error"><?= e($errors['package_code']) ?></small><?php endif; ?>
+                </fieldset>
                 <label>
                     <span>Nama lengkap pemesan</span>
                     <input type="text" name="customer_name" value="<?= e($old['customer_name'] ?? '') ?>" maxlength="120" autocomplete="name" placeholder="Contoh: Dandi Pratama" required aria-describedby="customerNameError">

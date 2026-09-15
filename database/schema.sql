@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS invitation_media;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS invitations;
 DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS template_packages;
 DROP TABLE IF EXISTS templates;
 
 CREATE TABLE templates (
@@ -24,10 +25,31 @@ CREATE TABLE templates (
     KEY idx_templates_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE template_packages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    template_id BIGINT UNSIGNED NOT NULL,
+    code VARCHAR(30) NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    tagline VARCHAR(180) NOT NULL,
+    price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    gallery_limit TINYINT UNSIGNED NOT NULL DEFAULT 2,
+    has_music TINYINT(1) NOT NULL DEFAULT 0,
+    has_gift TINYINT(1) NOT NULL DEFAULT 0,
+    has_wishes TINYINT(1) NOT NULL DEFAULT 0,
+    sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_template_package_code (template_id, code),
+    KEY idx_template_packages_active (template_id, is_active, sort_order),
+    CONSTRAINT fk_template_packages_template FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE orders (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_code VARCHAR(32) NOT NULL,
     template_id BIGINT UNSIGNED NOT NULL,
+    package_id BIGINT UNSIGNED NOT NULL,
     customer_name VARCHAR(120) NOT NULL,
     customer_phone VARCHAR(24) NOT NULL,
     editor_token VARCHAR(128) NOT NULL,
@@ -38,8 +60,10 @@ CREATE TABLE orders (
     UNIQUE KEY uq_orders_order_code (order_code),
     UNIQUE KEY uq_orders_editor_token (editor_token),
     KEY idx_orders_template (template_id),
+    KEY idx_orders_package (package_id),
     KEY idx_orders_status (status, payment_status),
-    CONSTRAINT fk_orders_template FOREIGN KEY (template_id) REFERENCES templates(id)
+    CONSTRAINT fk_orders_template FOREIGN KEY (template_id) REFERENCES templates(id),
+    CONSTRAINT fk_orders_package FOREIGN KEY (package_id) REFERENCES template_packages(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE invitations (

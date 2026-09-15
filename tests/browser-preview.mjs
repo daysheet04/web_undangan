@@ -252,14 +252,14 @@ try {
             oldBrand: document.documentElement.innerHTML.toLowerCase().includes('janjikita')
         };
     })()`);
-    check(homepageBrand.title.includes('Temuara') && homepageBrand.description.includes('Tempat kisah baik dimulai.'), 'homepage memakai judul dan metadata Temuara');
-    check(homepageBrand.hero === 'Tempat kisah baik dimulai.' && homepageBrand.navbar.includes('Temuara') && homepageBrand.footer.includes('Temuara'), 'navbar, hero, dan footer memakai branding Temuara');
+    check(homepageBrand.title.includes('Daymoment') && homepageBrand.description.includes('Tempat kisah baik dimulai.'), 'homepage memakai judul dan metadata Daymoment');
+    check(homepageBrand.hero === 'Tempat kisah baik dimulai.' && homepageBrand.navbar.includes('Daymoment') && homepageBrand.footer.includes('Daymoment'), 'navbar, hero, dan footer memakai branding Daymoment');
     check(homepageBrand.logo && homepageBrand.navy === '#102b4a' && homepageBrand.gold === '#c9a46a', 'logo lokal dan warna navy–gold berhasil dimuat');
     check(!homepageBrand.oldBrand && consoleErrors.length === 0 && requestFailures.length === 0 && badResponses.length === 0, 'homepage tidak menyisakan brand lama atau error browser');
 
     await navigate('/order?template=elegant_navy', 390, 844);
     const orderBrand = await evaluate(`(() => ({ title: document.title, brand: document.querySelector('.brand')?.innerText || '', logo: document.querySelector('.brand-logo')?.complete }))()`);
-    check(orderBrand.title.includes('Temuara') && orderBrand.brand.includes('Tempat kisah baik dimulai.') && orderBrand.logo, 'halaman order memakai logo, title, dan tagline Temuara');
+    check(orderBrand.title.includes('Daymoment') && orderBrand.brand.includes('Tempat kisah baik dimulai.') && orderBrand.logo, 'halaman order memakai logo, title, dan tagline Daymoment');
 
     for (const template of ['elegant_navy', 'soft_garden', 'javanese_heritage']) {
         for (const width of [360, 390, 430]) await directPreview(template, width);
@@ -290,13 +290,13 @@ try {
             const frame = document.querySelector('#livePreview');
             const doc = frame?.contentDocument;
             return !!document.querySelector('#invitationForm')
-                && document.title.includes('Temuara')
-                && /Temuara/.test(document.querySelector('.builder-brand')?.innerText || '')
+                && document.title.includes('Daymoment')
+                && /Daymoment/.test(document.querySelector('.builder-brand')?.innerText || '')
                 && document.querySelector('.builder-brand .brand-logo')?.complete
                 && doc?.readyState === 'complete'
                 && /Buka Undangan/i.test(doc.querySelector('.opening-cover')?.innerText || '');
         })()`);
-        check(builderReady, 'route /edit/{token} memuat branding Temuara, builder, dan live preview');
+        check(builderReady, 'route /edit/{token} memuat branding Daymoment, builder, dan live preview');
         await evaluate(`document.querySelector('#livePreview').contentWindow.postMessage({ type: 'invitation:update', data: { groom_nickname: 'Raka', bride_nickname: '', venue_name: '' } }, location.origin)`);
         await delay(250);
         const liveResult = await evaluate(`(() => {
@@ -323,7 +323,7 @@ try {
             brandLogo: document.querySelector('footer .template-brand-lockup img')?.complete
         }))()`);
         check(publicReady.button && publicReady.stylesheetCount >= 2 && publicReady.scriptCount >= 3 && publicReady.overflow, 'route /{slug} memuat template, CSS, JS, dan layout mobile');
-        check(publicReady.title.includes('Temuara') && publicReady.footer.includes('Tempat kisah baik dimulai.') && publicReady.brandLogo, 'route /{slug} memakai metadata dan footer Temuara');
+        check(publicReady.title.includes('Daymoment') && publicReady.footer.includes('Tempat kisah baik dimulai.') && publicReady.brandLogo, 'route /{slug} memakai metadata dan footer Daymoment');
         await evaluate(`document.querySelector('[data-open-invitation]').click()`);
         await delay(1200);
         const publicOpened = await evaluate(`document.querySelector('[data-template-root]').classList.contains('invitation-open') && Number(getComputedStyle(document.querySelector('.invitation-content')).opacity) > .99`);
@@ -332,8 +332,8 @@ try {
 
         if (editorToken) {
             await navigate(`/success/${encodeURIComponent(editorToken)}`, 390, 844);
-            const successBrand = await evaluate(`document.title.includes('Temuara') && /Temuara/.test(document.querySelector('.brand')?.innerText || '')`);
-            check(successBrand, 'halaman success memakai title dan navbar Temuara');
+            const successBrand = await evaluate(`document.title.includes('Daymoment') && /Daymoment/.test(document.querySelector('.brand')?.innerText || '')`);
+            check(successBrand, 'halaman success memakai title dan navbar Daymoment');
         }
     }
 } catch (error) {

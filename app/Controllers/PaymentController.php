@@ -24,7 +24,7 @@ final class PaymentController
         $payment = (new PaymentRepository(db()))->findByOrder((int) $order['id']);
         $stub = (new PaymentService())->createTransaction($order);
         view('payment/show', [
-            'title' => 'Pembayaran ' . $order['order_code'] . ' — Temuara',
+            'title' => 'Pembayaran ' . $order['order_code'] . ' — Daymoment',
             'order' => $order,
             'payment' => $payment,
             'paymentStub' => $stub,

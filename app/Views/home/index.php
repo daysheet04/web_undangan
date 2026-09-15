@@ -46,9 +46,10 @@
                     <div class="collection-mini"><span><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span><i></i><small>The Wedding of</small><strong>A <em>&amp;</em> N</strong><b><?= e($template['name']) ?></b></div>
                 </div>
                 <div class="template-card-body">
-                    <div class="template-meta"><span><?= e($template['category']) ?></span><span>Responsif</span></div>
+                    <div class="template-meta"><span><?= e($template['category']) ?></span><span><?= (int) ($template['package_count'] ?? 3) ?> paket</span></div>
                     <h3><?= e($template['name']) ?></h3>
                     <p><?= e($template['description']) ?></p>
+                    <?php if (!empty($template['starting_price'])): ?><p class="template-starting-price">Mulai Rp<?= e(number_format((float) $template['starting_price'], 0, ',', '.')) ?></p><?php endif; ?>
                     <div class="card-actions">
                         <a class="button button-secondary" href="/template/<?= e($template['code']) ?>">Lihat Preview</a>
                         <a class="button button-primary" href="/order?template=<?= e($template['code']) ?>">Pilih Template</a>
@@ -80,7 +81,7 @@
 </section>
 
 <footer class="site-footer">
-    <a class="brand brand-light" href="/"><img class="brand-logo" src="<?= e(asset('images/brand/temuara-mark.svg')) ?>" alt=""><span class="brand-copy"><strong>Temuara</strong><small>by Daysheet Group</small></span></a>
+    <a class="brand brand-light" href="/"><img class="brand-logo" src="<?= e(asset('images/brand/daymoment-mark.svg')) ?>" alt=""><span class="brand-copy"><strong>Daymoment</strong><small>by Daysheet Group</small></span></a>
     <p>Dibuat untuk merayakan cerita yang tumbuh menjadi selamanya.</p>
-    <small>© <?= date('Y') ?> Temuara by Daysheet Group. Semua hak dilindungi.</small>
+    <small>© <?= date('Y') ?> Daymoment by Daysheet Group. Semua hak dilindungi.</small>
 </footer>

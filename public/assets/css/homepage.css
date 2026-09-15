@@ -87,14 +87,36 @@
 .choice-summary .summary-mini { position: relative; overflow: hidden; display: grid; width: min(350px, 100%); aspect-ratio: 4/3; place-items: center; margin: 10px 0 25px; border-radius: 20px; box-shadow: var(--shadow-lg); }
 .choice-summary h1 { margin: 9px 0 3px; font-family: var(--font-display); font-size: 2.1rem; }
 .choice-summary > p { color: var(--muted); }
+.template-starting-price { margin-top: -5px !important; color: var(--brand) !important; font-size: .8rem !important; font-weight: 800; }
 .category-pill { display: inline-block; padding: 5px 10px; color: var(--brand); border-radius: 999px; background: #edf2f7; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 
-.preview-showcase { display: grid; width: min(1040px, calc(100% - 40px)); min-height: calc(100vh - 76px); grid-template-columns: 1fr 420px; align-items: center; gap: 80px; margin: auto; padding: 35px 0 70px; }
+.preview-showcase { display: grid; width: min(1240px, calc(100% - 40px)); min-height: calc(100vh - 76px); grid-template-columns: minmax(0, 1fr) 380px; align-items: start; gap: 56px; margin: auto; padding: 35px 0 70px; }
 .preview-info h1 { margin: 14px 0 8px; font-family: var(--font-display); font-size: clamp(2.8rem, 6vw, 4.8rem); font-weight: 500; letter-spacing: -.04em; line-height: 1; }
 .preview-info > p { color: var(--muted); }
-.preview-info ul { display: grid; gap: 10px; margin: 25px 0 30px; padding: 0; color: #53625f; list-style: none; font-size: .88rem; }
-.preview-info li::before { margin-right: 10px; color: var(--brand); content: "✓"; font-weight: 800; }
-.preview-phone-wrap { display: grid; justify-items: center; }
+.preview-package-heading { margin-top: 27px; }
+.preview-package-heading > span { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; }
+.preview-package-heading p { margin: 2px 0 14px; color: var(--muted); font-size: .8rem; }
+.preview-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
+.preview-package-card { position: relative; display: flex; min-width: 0; flex-direction: column; padding: 15px; border: 1px solid #dde2df; border-radius: 17px; background: #fff; box-shadow: 0 9px 26px rgba(20,36,58,.05); transition: transform .2s, border-color .2s, box-shadow .2s; }
+.preview-package-card.active { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 14px 34px rgba(20,36,58,.11), 0 0 0 2px rgba(201,164,106,.13); }
+.preview-package-badge { position: absolute; top: -10px; right: 10px; padding: 3px 8px; color: #fff; border-radius: 99px; background: var(--brand); font-size: .55rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.preview-package-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.preview-package-name strong { font-family: var(--font-display); font-size: 1.18rem; }
+.preview-package-name b { color: var(--brand); font-size: .72rem; white-space: nowrap; }
+.preview-package-card > p { min-height: 38px; margin: 3px 0 10px; color: var(--muted); font-size: .68rem; line-height: 1.4; }
+.preview-package-card ul { display: grid; gap: 4px; margin: 10px 0 13px; padding: 0; color: #53625f; list-style: none; font-size: .66rem; }
+.preview-package-card li::before { margin-right: 5px; color: var(--accent); content: "✓"; font-weight: 900; }
+.preview-package-card .preview-package-button { width: 100%; min-height: 36px; margin-top: auto; padding: 8px; font-size: .7rem; }
+.package-photo-demo { display: grid; height: 72px; grid-auto-flow: dense; gap: 3px; padding: 4px; overflow: hidden; border-radius: 10px; background: #f1eee8; }
+.package-photo-demo-2 { grid-template-columns: repeat(2, 1fr); }
+.package-photo-demo-3, .package-photo-demo-5 { grid-template-columns: repeat(3, 1fr); }
+.package-photo-demo i { position: relative; display: grid; overflow: hidden; place-items: center; border-radius: 6px; background: linear-gradient(145deg, #b8c6bd, #e6d7c5 55%, #9a7c86); }
+.package-photo-demo i::before { position: absolute; width: 28px; height: 36px; border-radius: 50% 50% 42% 42%; background: rgba(255,255,255,.45); content: ""; transform: translateY(13px); }
+.package-photo-demo i span { position: relative; z-index: 1; display: grid; width: 18px; height: 18px; place-items: center; color: #fff; border-radius: 50%; background: rgba(16,43,74,.62); font-size: .55rem; font-style: normal; font-weight: 800; }
+.package-photo-demo-3 i:first-child { grid-row: span 2; }
+.package-photo-demo-5 i:first-child { grid-column: span 2; }
+.preview-order-button { margin-top: 17px; }
+.preview-phone-wrap { position: sticky; top: 24px; display: grid; justify-items: center; }
 .preview-phone-label { display: flex; width: 310px; justify-content: space-between; margin-bottom: 10px; font-size: .72rem; }
 .preview-phone-label small { color: var(--muted); }
 .phone-mockup.preview-phone { width: 322px; height: 644px; padding: 7px; border-width: 5px; transform: none; }
@@ -104,6 +126,10 @@
     .hero { min-height: auto; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; }
     .hero-copy h1 { font-size: clamp(3rem, 7vw, 4.8rem); }
     .template-grid { grid-template-columns: repeat(2, 1fr); }
+    .preview-showcase { grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; }
+    .preview-package-grid { grid-template-columns: 1fr; }
+    .preview-package-card > p { min-height: 0; }
+    .package-photo-demo { height: 60px; }
 }
 @media (max-width: 720px) {
     .hero { width: min(560px, calc(100% - 32px)); grid-template-columns: minmax(0, 1fr); padding: 60px 0 70px; text-align: center; }
@@ -123,7 +149,9 @@
     .home-cta .button { width: 100%; }
     .choice-summary .summary-mini { margin-inline: auto; }
     .preview-showcase { grid-template-columns: 1fr; gap: 38px; padding-top: 30px; text-align: center; }
-    .preview-info ul { justify-items: start; width: fit-content; margin-inline: auto; text-align: left; }
+    .preview-package-heading { text-align: left; }
+    .preview-package-grid { grid-template-columns: 1fr; text-align: left; }
+    .preview-order-button { width: 100%; }
     .preview-phone-wrap { width: 100%; }
     .phone-mockup.preview-phone { width: min(322px, calc(100vw - 46px)); height: min(644px, calc((100vw - 46px) * 2)); }
 }

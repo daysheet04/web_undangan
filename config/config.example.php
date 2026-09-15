@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 return [
     'app' => [
-        'name' => 'Temuara',
+        'name' => 'Daymoment',
         'base_url' => 'http://localhost:8080',
         'timezone' => 'Asia/Jakarta',
         'debug' => true,

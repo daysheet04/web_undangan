@@ -17,7 +17,12 @@ final class TemplateRepository
 
     public function allActive(): array
     {
-        return $this->db->query("SELECT * FROM templates WHERE code = 'puspa_jawi' AND is_active = 1 ORDER BY id")->fetchAll();
+        return $this->db->query(
+            "SELECT t.*,
+                    (SELECT COUNT(*) FROM template_packages p WHERE p.template_id = t.id AND p.is_active = 1) AS package_count,
+                    (SELECT MIN(p.price) FROM template_packages p WHERE p.template_id = t.id AND p.is_active = 1) AS starting_price
+             FROM templates t WHERE t.code = 'puspa_jawi' AND t.is_active = 1 ORDER BY t.id"
+        )->fetchAll();
     }
 
     public function findByCode(string $code): ?array
@@ -25,7 +30,12 @@ final class TemplateRepository
         if ($code !== 'puspa_jawi') {
             return null;
         }
-        $stmt = $this->db->prepare('SELECT * FROM templates WHERE code = ? AND is_active = 1 LIMIT 1');
+        $stmt = $this->db->prepare(
+            'SELECT t.*,
+                    (SELECT COUNT(*) FROM template_packages p WHERE p.template_id = t.id AND p.is_active = 1) AS package_count,
+                    (SELECT MIN(p.price) FROM template_packages p WHERE p.template_id = t.id AND p.is_active = 1) AS starting_price
+             FROM templates t WHERE t.code = ? AND t.is_active = 1 LIMIT 1'
+        );
         $stmt->execute([$code]);
         return $stmt->fetch() ?: null;
     }

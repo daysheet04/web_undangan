@@ -1,8 +1,8 @@
-# Temuara — Platform Undangan Pernikahan Digital
+# Daymoment — Platform Undangan Pernikahan Digital
 
 **Tempat kisah baik dimulai.**
 
-Temuara adalah platform undangan digital end-to-end dengan PHP native, MySQL, HTML/CSS, dan JavaScript vanilla. Project ini mencakup pemilihan template, order, placeholder pembayaran, editor bertahap, live preview, autosave, upload foto, publish ke URL personal, serta form kehadiran dan ucapan.
+Daymoment adalah platform undangan digital end-to-end dari Daysheet Group dengan PHP native, MySQL, HTML/CSS, dan JavaScript vanilla. Project ini mencakup pemilihan template, paket fitur, order, placeholder pembayaran, editor bertahap, live preview, autosave, upload foto, publish ke URL personal, serta form kehadiran dan ucapan.
 
 ## Fitur
 

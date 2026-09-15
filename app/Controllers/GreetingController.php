@@ -21,6 +21,9 @@ final class GreetingController
         if (!$invitation) {
             json_response(['ok' => false, 'message' => 'Undangan tidak ditemukan.'], 404);
         }
+        if (empty($invitation['has_wishes'])) {
+            json_response(['ok' => false, 'message' => 'Fitur ucapan tidak tersedia untuk undangan ini.'], 403);
+        }
         $name = text_value($input, 'guest_name', 120);
         $attendance = (string) ($input['attendance_status'] ?? '');
         $guestCount = max(1, min(10, (int) ($input['guest_count'] ?? 1)));

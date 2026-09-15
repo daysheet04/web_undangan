@@ -8,6 +8,7 @@ use App\Repositories\InvitationRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\TemplateRepository;
+use App\Repositories\TemplatePackageRepository;
 use App\Services\OrderService;
 
 final class OrderController
@@ -21,7 +22,12 @@ final class OrderController
             redirect('/#templates');
         }
         $_SESSION['selected_template'] = $template['code'];
-        $this->render($template);
+        $packages = (new TemplatePackageRepository(db()))->allForTemplate((int) $template['id']);
+        $selectedPackage = strtolower(trim((string) ($_GET['package'] ?? 'signature')));
+        if (!(new TemplatePackageRepository(db()))->findForTemplate((int) $template['id'], $selectedPackage)) {
+            $selectedPackage = 'signature';
+        }
+        $this->render($template, $packages, [], ['package_code' => $selectedPackage]);
     }
 
     public function store(): void
@@ -30,12 +36,19 @@ final class OrderController
         $code = trim((string) ($_POST['template_code'] ?? $_SESSION['selected_template'] ?? ''));
         $templateRepo = new TemplateRepository(db());
         $template = $templateRepo->findByCode($code);
+        $packageCode = strtolower(trim((string) ($_POST['package_code'] ?? '')));
+        $packageRepo = new TemplatePackageRepository(db());
+        $packages = $template ? $packageRepo->allForTemplate((int) $template['id']) : [];
+        $package = $template ? $packageRepo->findForTemplate((int) $template['id'], $packageCode) : null;
         $name = text_value($_POST, 'customer_name', 120);
         $phone = text_value($_POST, 'customer_phone', 24);
         $errors = [];
 
         if (!$template) {
             $errors['template'] = 'Template tidak valid. Silakan pilih kembali.';
+        }
+        if (!$package) {
+            $errors['package_code'] = 'Pilih salah satu paket undangan.';
         }
         if (mb_strlen($name) < 3) {
             $errors['customer_name'] = 'Nama lengkap minimal 3 karakter.';
@@ -52,7 +65,11 @@ final class OrderController
                 flash('error', $errors['template'] ?? 'Template tidak tersedia.');
                 redirect('/#templates');
             }
-            $this->render($template, $errors, ['customer_name' => $name, 'customer_phone' => $phone]);
+            $this->render($template, $packages, $errors, [
+                'customer_name' => $name,
+                'customer_phone' => $phone,
+                'package_code' => $packageCode,
+            ]);
             return;
         }
 
@@ -63,18 +80,19 @@ final class OrderController
             new InvitationRepository(db()),
             new PaymentRepository(db())
         );
-        $order = $service->create($code, $name, normalize_phone($phone));
+        $order = $service->create($code, $packageCode, $name, normalize_phone($phone));
         session_regenerate_id(true);
         $_SESSION['last_order_code'] = $order['order_code'];
         unset($_SESSION['selected_template']);
         redirect('/payment/' . rawurlencode($order['order_code']));
     }
 
-    private function render(array $template, array $errors = [], array $old = []): void
+    private function render(array $template, array $packages, array $errors = [], array $old = []): void
     {
         view('order/form', [
-            'title' => 'Data Pemesan — Temuara',
+            'title' => 'Data Pemesan — Daymoment',
             'template' => $template,
+            'packages' => $packages,
             'errors' => $errors,
             'old' => $old,
             'pageClass' => 'order-page',

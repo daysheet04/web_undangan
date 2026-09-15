@@ -12,7 +12,7 @@ final class HomeController
     {
         $templates = (new TemplateRepository(db()))->allActive();
         view('home/index', [
-            'title' => 'Temuara — Tempat kisah baik dimulai.',
+            'title' => 'Daymoment — Tempat kisah baik dimulai.',
             'templates' => $templates,
             'pageClass' => 'homepage',
             'styles' => ['homepage.css'],

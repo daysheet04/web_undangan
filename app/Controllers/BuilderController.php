@@ -9,6 +9,7 @@ use App\Repositories\InvitationRepository;
 use App\Repositories\InviteeRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\TemplateRepository;
+use App\Repositories\TemplatePackageRepository;
 use App\Services\InvitationService;
 use App\Services\SlugService;
 use App\Services\UploadService;
@@ -32,7 +33,7 @@ final class BuilderController
             redirect('/payment/' . rawurlencode($invitation['order_code']));
         }
         view('builder/edit', [
-            'title' => 'Editor Undangan — Temuara',
+            'title' => 'Editor Undangan — Daymoment',
             'invitation' => $invitation,
             'media' => $repo->media((int) $invitation['id']),
             'giftAccounts' => (new GiftAccountRepository(db()))->all((int) $invitation['id']),
@@ -64,8 +65,12 @@ final class BuilderController
         }
         $repo = new InvitationRepository(db());
         $media = $repo->media((int) $invitation['id']);
-        if ($kind === 'gallery' && count($media) >= 5) {
-            json_response(['ok' => false, 'message' => 'Galeri maksimal lima foto.'], 422);
+        $galleryLimit = max(1, (int) ($invitation['gallery_limit'] ?? 2));
+        if ($kind === 'gallery' && count($media) >= $galleryLimit) {
+            json_response(['ok' => false, 'message' => 'Paket ' . $invitation['package_name'] . ' maksimal ' . $galleryLimit . ' foto galeri.'], 422);
+        }
+        if ($kind === 'music' && empty($invitation['has_music'])) {
+            json_response(['ok' => false, 'message' => 'Fitur musik tidak tersedia pada paket ' . $invitation['package_name'] . '.'], 403);
         }
         try {
             $upload = new UploadService();
@@ -102,6 +107,9 @@ final class BuilderController
         $input = $this->jsonInput();
         verify_csrf((string) ($input['_csrf'] ?? ''));
         $invitation = $this->authorized((string) ($input['editor_token'] ?? ''));
+        if (empty($invitation['has_gift'])) {
+            json_response(['ok' => false, 'message' => 'Amplop digital hanya tersedia pada paket Prestige.'], 403);
+        }
         $items = is_array($input['accounts'] ?? null) ? array_slice($input['accounts'], 0, 10) : [];
         $clean = [];
         foreach ($items as $index => $item) {
@@ -181,7 +189,11 @@ final class BuilderController
         if (!$template) {
             json_response(['ok' => false, 'message' => 'Template tidak tersedia.'], 422);
         }
-        (new OrderRepository(db()))->updateTemplate((int) $invitation['order_id'], (int) $template['id']);
+        $package = (new TemplatePackageRepository(db()))->findForTemplate((int) $template['id'], (string) $invitation['package_code']);
+        if (!$package) {
+            json_response(['ok' => false, 'message' => 'Paket yang sama belum tersedia pada template ini.'], 422);
+        }
+        (new OrderRepository(db()))->updateTemplate((int) $invitation['order_id'], (int) $template['id'], (int) $package['id']);
         json_response([
             'ok' => true,
             'message' => 'Template berhasil diganti tanpa mengubah data.',
@@ -238,7 +250,7 @@ final class BuilderController
         $guestPage = max(1, (int) ($_GET['page'] ?? 1));
         $guestPage = min($guestPage, $guestPages);
         view('builder/success', [
-            'title' => 'Undangan Berhasil Diterbitkan — Temuara',
+            'title' => 'Undangan Berhasil Diterbitkan — Daymoment',
             'invitation' => $invitation,
             'publicUrl' => base_url($invitation['slug']),
             'editorUrl' => base_url('edit/' . $invitation['editor_token']),

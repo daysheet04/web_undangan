@@ -5,6 +5,11 @@ $coverPhoto = upload_url($invitation['cover_image']);
 $bridePhoto = !empty($invitation['bride_photo']) ? upload_url($invitation['bride_photo']) : (!empty($media[0]['file_path']) ? upload_url($media[0]['file_path']) : $coverPhoto);
 $groomPhoto = !empty($invitation['groom_photo']) ? upload_url($invitation['groom_photo']) : (!empty($media[1]['file_path']) ? upload_url($media[1]['file_path']) : $coverPhoto);
 $giftAccounts = $giftAccounts ?? [];
+$galleryLimit = max(1, (int) ($invitation['gallery_limit'] ?? 5));
+$media = array_slice($media, 0, $galleryLimit);
+$hasMusic = !empty($invitation['has_music']);
+$hasGift = !empty($invitation['has_gift']);
+$hasWishes = !empty($invitation['has_wishes']);
 $guestSalutation = $guestSalutation ?? 'Kepada Yth.';
 $eventDate = $invitation['reception_date'] ?: date('Y-m-d', strtotime('+45 days'));
 $eventTime = substr($invitation['reception_start_time'] ?: '11:00', 0, 5);
@@ -18,7 +23,7 @@ $assetRoot = 'images/templates/puspa-jawi/';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#6B3B4C">
-    <meta name="description" content="Undangan pernikahan <?= e($groom . ' dan ' . $bride) ?> di Temuara.">
+    <meta name="description" content="Undangan pernikahan <?= e($groom . ' dan ' . $bride) ?> di Daymoment.">
     <title><?= e($groom . ' & ' . $bride) ?> — Puspa Jawi</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -125,11 +130,13 @@ $assetRoot = 'images/templates/puspa-jawi/';
                 <div class="jawi-heading jawi-reveal"><small>Potret Bahagia</small><h2>Galeri Kisah Kami</h2></div>
                 <div class="jawi-gallery-track">
                     <?php if ($media): foreach ($media as $index => $photo): ?><figure class="jawi-reveal" data-reveal="<?= $index % 2 ? 'right' : 'left' ?>"><img class="gallery-image" loading="lazy" src="<?= e(upload_url($photo['file_path'])) ?>" alt="Momen pasangan <?= $index + 1 ?>"><figcaption>Kenangan <?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></figcaption></figure><?php endforeach; else: ?>
-                        <?php foreach (['Pertemuan', 'Perjalanan', 'Selamanya'] as $index => $caption): ?><figure class="gallery-empty jawi-reveal" data-reveal="<?= $index % 2 ? 'right' : 'left' ?>"><span><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span><figcaption><?= e($caption) ?></figcaption></figure><?php endforeach; ?>
+                        <?php $sampleCaptions = ['Pertemuan', 'Perjalanan', 'Lamaran', 'Hari Bahagia', 'Selamanya']; ?>
+                        <?php for ($index = 0; $index < $galleryLimit; $index++): ?><figure class="gallery-empty jawi-reveal" data-reveal="<?= $index % 2 ? 'right' : 'left' ?>"><span><?= str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) ?></span><figcaption><?= e($sampleCaptions[$index]) ?></figcaption></figure><?php endfor; ?>
                     <?php endif; ?>
                 </div>
             </section>
 
+            <?php if ($hasGift): ?>
             <section class="jawi-section jawi-gift-section">
                 <div class="gift-emblem" aria-hidden="true"><img src="<?= e(asset($assetRoot . 'gunungan-line.svg')) ?>" alt=""><span></span></div>
                 <div class="moving-clouds clouds-back" aria-hidden="true"><div><?php for ($i = 0; $i < 6; $i++): ?><img src="<?= e(asset($assetRoot . 'cloud-line.svg')) ?>" alt=""><?php endfor; ?></div></div>
@@ -151,7 +158,9 @@ $assetRoot = 'images/templates/puspa-jawi/';
                 </div>
                 <div class="moving-clouds clouds-front" aria-hidden="true"><div><?php for ($i = 0; $i < 6; $i++): ?><img src="<?= e(asset($assetRoot . 'cloud-line.svg')) ?>" alt=""><?php endfor; ?></div></div>
             </section>
+            <?php endif; ?>
 
+            <?php if ($hasWishes): ?>
             <section class="jawi-section jawi-rsvp-section" id="rsvp">
                 <div class="rsvp-ornament rsvp-ornament-left" aria-hidden="true"><img src="<?= e(asset($assetRoot . 'cloud-line.svg')) ?>" alt=""></div>
                 <div class="rsvp-ornament rsvp-ornament-right" aria-hidden="true"><img src="<?= e(asset($assetRoot . 'cloud-line.svg')) ?>" alt=""></div>
@@ -163,16 +172,19 @@ $assetRoot = 'images/templates/puspa-jawi/';
                 <div class="greeting-list jawi-wishes" data-greeting-list><?php if ($greetings): foreach ($greetings as $greeting): ?><article class="greeting-item"><div class="greeting-head"><strong><?= e($greeting['guest_name']) ?></strong><small><?= e(attendance_label($greeting['attendance_status'])) ?></small></div><p><?= e($greeting['message']) ?></p></article><?php endforeach; else: ?><div class="greeting-empty" data-empty-greeting>Belum ada ucapan. Jadilah yang pertama mengirimkan doa hangat.</div><?php endif; ?></div>
                 </div>
             </section>
+            <?php endif; ?>
 
             <section class="jawi-section jawi-closing-section">
                 <div class="section-botanical botanical-full botanical-closing" aria-hidden="true"><img class="decor-janur" src="<?= e(asset($assetRoot . 'janur-arch-v2.png')) ?>" alt=""><img class="decor-floral" src="<?= e(asset($assetRoot . 'floral-frame-v2.png')) ?>" alt=""></div>
                 <div class="closing-gate jawi-reveal" data-reveal="scale"><small>Matur Nuwun</small><h2><span data-live="bride_nickname"><?= e($bride) ?></span><i>&amp;</i><span data-live="groom_nickname"><?= e($groom) ?></span></h2><p>Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir serta memberikan doa restu.</p><time data-date-field="reception_date"><?= e(id_date($eventDate, false)) ?></time><?php if (!$isPreview): ?><button class="share-button jawi-button" type="button" data-share data-share-url="<?= e(base_url($invitation['slug'])) ?>">Bagikan Undangan <svg><use href="#jawi-arrow"/></svg></button><?php endif; ?></div>
             </section>
-            <footer class="template-footer jawi-footer"><div class="template-brand-lockup"><img src="<?= e(asset('images/brand/temuara-mark.svg')) ?>" alt=""><strong>Temuara</strong></div><small>by Daysheet Group</small></footer>
+            <footer class="template-footer jawi-footer"><div class="template-brand-lockup"><img src="<?= e(asset('images/brand/daymoment-mark.svg')) ?>" alt=""><strong>Daymoment</strong></div><small>by Daysheet Group</small></footer>
         </div>
     </main>
-    <?php if (!empty($invitation['music_file'])): ?><audio data-wedding-audio loop preload="metadata" src="<?= e(upload_url($invitation['music_file'])) ?>"></audio><?php endif; ?>
+    <?php if ($hasMusic && !empty($invitation['music_file'])): ?><audio data-wedding-audio loop preload="metadata" src="<?= e(upload_url($invitation['music_file'])) ?>"></audio><?php endif; ?>
+    <?php if ($hasMusic): ?>
     <button class="jawi-music" type="button" data-music-controller aria-label="Kontrol musik" aria-pressed="false" title="<?= e($invitation['music_title'] ?? 'Musik undangan') ?>"><svg><use href="#jawi-music"/></svg></button>
+    <?php endif; ?>
 </div>
 <script src="<?= e(asset('js/preview.js')) ?>?v=20260829c" defer></script>
 <script src="<?= e(asset('js/greeting.js')) ?>?v=20260829c" defer></script>

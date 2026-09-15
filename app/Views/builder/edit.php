@@ -1,14 +1,18 @@
 <?php
 $giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataBank', 'SeaBank', 'Jago', 'GoPay', 'DANA', 'OVO', 'ShopeePay', 'Lainnya'];
+$galleryLimit = max(1, (int) ($invitation['gallery_limit'] ?? 2));
+$hasMusic = !empty($invitation['has_music']);
+$hasGift = !empty($invitation['has_gift']);
 ?>
 <div class="builder-shell" id="builderApp"
      data-token="<?= e($invitation['editor_token']) ?>"
      data-csrf="<?= e(csrf_token()) ?>"
-     data-template="<?= e($invitation['template_code']) ?>">
+     data-template="<?= e($invitation['template_code']) ?>"
+     data-gallery-limit="<?= $galleryLimit ?>">
     <div class="builder-topbar">
         <div>
-            <a href="/" class="builder-brand" aria-label="Temuara by Daysheet Group, kembali ke beranda"><img class="brand-logo" src="<?= e(asset('images/brand/temuara-mark.svg')) ?>" alt=""><span class="builder-brand-copy"><strong>Temuara</strong><small>by Daysheet Group</small></span></a>
-            <span class="order-label"><?= e($invitation['order_code']) ?></span>
+            <a href="/" class="builder-brand" aria-label="Daymoment by Daysheet Group, kembali ke beranda"><img class="brand-logo" src="<?= e(asset('images/brand/daymoment-mark.svg')) ?>" alt=""><span class="builder-brand-copy"><strong>Daymoment</strong><small>by Daysheet Group</small></span></a>
+            <span class="order-label"><?= e($invitation['order_code']) ?> · <?= e($invitation['package_name']) ?></span>
         </div>
         <div class="save-state" id="saveState" data-state="saved"><i></i><span>Tersimpan</span></div>
         <button type="button" class="button button-secondary change-template-button" data-open-template>Ganti Template</button>
@@ -139,7 +143,7 @@ $giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataB
                         </div>
                     </div>
                     <div class="form-section-card upload-section">
-                        <div class="upload-heading"><div><h2>Galeri</h2><p>Maksimal lima foto, masing-masing 2 MB</p></div><span id="galleryCount"><?= count($media) ?>/5</span></div>
+                        <div class="upload-heading"><div><h2>Galeri</h2><p>Maksimal <?= $galleryLimit ?> foto sesuai paket <?= e($invitation['package_name']) ?>, masing-masing 2 MB</p></div><span id="galleryCount"><?= count($media) ?>/<?= $galleryLimit ?></span></div>
                         <div class="gallery-editor" id="galleryEditor">
                             <?php foreach ($media as $photo): ?>
                                 <figure data-media-id="<?= (int) $photo['id'] ?>"><img src="<?= e(upload_url($photo['file_path'])) ?>" alt="Foto galeri"><button type="button" data-delete-photo="<?= (int) $photo['id'] ?>" aria-label="Hapus foto">×</button></figure>
@@ -152,11 +156,13 @@ $giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataB
                     </div>
                 </section>
 
-                <section class="form-step" data-step="5" data-title="Hadiah dan Musik">
+                <?php if ($hasGift || $hasMusic): ?>
+                <section class="form-step" data-step="5" data-title="<?= $hasGift ? 'Hadiah dan Musik' : 'Musik' ?>">
                     <div class="step-intro">
                         <span class="step-icon">♪</span>
-                        <div><h1>Amplop digital dan musik</h1><p>Tambahkan beberapa rekening atau e-wallet, lalu unggah musik latar undangan.</p></div>
+                        <div><h1><?= $hasGift ? 'Amplop digital dan musik' : 'Musik undangan' ?></h1><p><?= $hasGift ? 'Tambahkan beberapa rekening atau e-wallet, lalu unggah musik latar undangan.' : 'Unggah musik latar untuk menemani tamu membuka undangan.' ?></p></div>
                     </div>
+                    <?php if ($hasGift): ?>
                     <div class="form-section-card">
                         <div class="upload-heading"><div><h2>Rekening hadiah</h2><p>Bisa bank maupun e-wallet, maksimal sepuluh.</p></div><button type="button" class="button button-secondary button-small" id="addGiftAccount">+ Tambah</button></div>
                         <div class="gift-account-editor" id="giftAccountEditor">
@@ -173,6 +179,8 @@ $giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataB
                         <div class="empty-editor-note" id="giftEmpty" <?= $giftAccounts ? 'hidden' : '' ?>>Belum ada rekening. Klik “Tambah” untuk membuat amplop digital.</div>
                         <button type="button" class="button button-primary" id="saveGiftAccounts">Simpan rekening</button>
                     </div>
+                    <?php endif; ?>
+                    <?php if ($hasMusic): ?>
                     <div class="form-section-card upload-section">
                         <div class="upload-heading"><div><h2>Musik undangan</h2><p>MP3, M4A, OGG, atau WAV · maksimal 12 MB.</p></div></div>
                         <label class="music-upload-card">
@@ -181,7 +189,9 @@ $giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataB
                             <span><b id="musicTitle"><?= e($invitation['music_title'] ?: 'Pilih musik dari perangkat') ?></b><small>Musik diputar melalui tombol musik pada undangan.</small></span>
                         </label>
                     </div>
+                    <?php endif; ?>
                 </section>
+                <?php endif; ?>
 
                 <section class="form-step" data-step="6" data-title="Daftar Tamu">
                     <div class="step-intro">

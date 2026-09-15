@@ -8,6 +8,7 @@ use App\Repositories\InvitationRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\TemplateRepository;
+use App\Repositories\TemplatePackageRepository;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -34,11 +35,15 @@ final class OrderService
         $this->payments = $payments;
     }
 
-    public function create(string $templateCode, string $name, string $phone): array
+    public function create(string $templateCode, string $packageCode, string $name, string $phone): array
     {
         $template = $this->templates->findByCode($templateCode);
         if (!$template) {
             throw new RuntimeException('Template yang dipilih tidak tersedia.');
+        }
+        $package = (new TemplatePackageRepository($this->db))->findForTemplate((int) $template['id'], $packageCode);
+        if (!$package) {
+            throw new RuntimeException('Paket yang dipilih tidak tersedia untuk template ini.');
         }
 
         $this->db->beginTransaction();
@@ -48,6 +53,7 @@ final class OrderService
             $orderId = $this->orders->create([
                 'order_code' => $orderCode,
                 'template_id' => (int) $template['id'],
+                'package_id' => (int) $package['id'],
                 'customer_name' => $name,
                 'customer_phone' => $phone,
                 'editor_token' => $token,
@@ -55,7 +61,7 @@ final class OrderService
                 'payment_status' => 'pending',
             ]);
             $this->invitations->createEmpty($orderId);
-            $this->payments->createPending($orderId);
+            $this->payments->createPending($orderId, (float) $package['price']);
             $this->db->commit();
             $order = $this->orders->findByCode($orderCode);
             if (!$order) {

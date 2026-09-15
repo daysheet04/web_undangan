@@ -95,6 +95,23 @@ img { display: block; max-width: 100%; }
 .flow-card > p { margin: 0 0 28px; color: var(--muted); font-size: .92rem; }
 .flow-step { color: var(--brand); font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .stack-form { display: grid; gap: 19px; }
+.package-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.package-picker legend { padding: 0; font-size: .92rem; font-weight: 800; }
+.package-picker > p { margin: 2px 0 13px; color: var(--muted); font-size: .78rem; }
+.package-options { display: grid; gap: 10px; }
+.package-option { position: relative; display: block; cursor: pointer; }
+.package-option > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.package-card { position: relative; display: grid; gap: 7px; padding: 16px; border: 1px solid #dce1de; border-radius: 15px; background: #fff; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.package-option:hover .package-card { transform: translateY(-1px); border-color: #bdc9c4; }
+.package-option > input:checked + .package-card { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201,164,106,.18); background: #fffdf8; }
+.package-option > input:focus-visible + .package-card { outline: 3px solid rgba(201,164,106,.34); outline-offset: 2px; }
+.package-name { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.package-name strong { font-family: var(--font-display); font-size: 1.25rem; }
+.package-name b { color: var(--brand); font-size: .95rem; }
+.package-card > small:not(.package-badge) { color: var(--muted); font-size: .76rem; }
+.package-badge { position: absolute; top: -9px; right: 12px; padding: 3px 9px; color: #fff; border-radius: 99px; background: var(--brand); font-size: .61rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.package-features { display: flex; flex-wrap: wrap; gap: 5px; }
+.package-features i { padding: 3px 7px; color: #58655f; border-radius: 99px; background: #f0f4f1; font-size: .64rem; font-style: normal; }
 .stack-form label > span:first-child:not(:only-child), .field > span:first-child { display: block; margin-bottom: 7px; font-size: .84rem; font-weight: 750; }
 .stack-form input:not([type=checkbox]), .field input, .field textarea {
     width: 100%;

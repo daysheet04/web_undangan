@@ -10,6 +10,7 @@
     const content = document.querySelector('.builder-content');
     const csrf = app.dataset.csrf;
     const token = app.dataset.token;
+    const galleryLimit = Math.max(1, Number(app.dataset.galleryLimit) || 2);
     let currentTemplate = app.dataset.template;
     let currentStep = 0;
     let saveTimer;
@@ -274,8 +275,8 @@
 
     const updateGalleryCount = () => {
         const count = document.querySelectorAll('#galleryEditor figure').length;
-        document.getElementById('galleryCount').textContent = `${count}/5`;
-        document.getElementById('galleryAdd').classList.toggle('disabled', count >= 5);
+        document.getElementById('galleryCount').textContent = `${count}/${galleryLimit}`;
+        document.getElementById('galleryAdd').classList.toggle('disabled', count >= galleryLimit);
     };
 
     const addGalleryItem = (media) => {
@@ -368,6 +369,7 @@
     const giftProviders = ['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB Niaga', 'PermataBank', 'SeaBank', 'Jago', 'GoPay', 'DANA', 'OVO', 'ShopeePay', 'Lainnya'];
     const giftEditor = document.getElementById('giftAccountEditor');
     const refreshGiftEmpty = () => {
+        if (!giftEditor) return;
         document.getElementById('giftEmpty').hidden = Boolean(giftEditor.querySelector('[data-gift-row]'));
     };
     const createGiftRow = () => {

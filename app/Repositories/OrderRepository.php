@@ -18,8 +18,8 @@ final class OrderRepository
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO orders (order_code, template_id, customer_name, customer_phone, editor_token, status, payment_status)
-             VALUES (:order_code, :template_id, :customer_name, :customer_phone, :editor_token, :status, :payment_status)'
+            'INSERT INTO orders (order_code, template_id, package_id, customer_name, customer_phone, editor_token, status, payment_status)
+             VALUES (:order_code, :template_id, :package_id, :customer_name, :customer_phone, :editor_token, :status, :payment_status)'
         );
         $stmt->execute($data);
         return (int) $this->db->lastInsertId();
@@ -28,8 +28,13 @@ final class OrderRepository
     public function findByCode(string $code): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT o.*, t.code AS template_code, t.name AS template_name, t.category AS template_category
-             FROM orders o JOIN templates t ON t.id = o.template_id WHERE o.order_code = ? LIMIT 1'
+            'SELECT o.*, t.code AS template_code, t.name AS template_name, t.category AS template_category,
+                    p.code AS package_code, p.name AS package_name, p.price AS package_price,
+                    p.gallery_limit, p.has_music, p.has_gift, p.has_wishes
+             FROM orders o
+             JOIN templates t ON t.id = o.template_id
+             JOIN template_packages p ON p.id = o.package_id
+             WHERE o.order_code = ? LIMIT 1'
         );
         $stmt->execute([$code]);
         return $stmt->fetch() ?: null;
@@ -38,8 +43,13 @@ final class OrderRepository
     public function findByToken(string $token): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT o.*, t.code AS template_code, t.name AS template_name, t.category AS template_category
-             FROM orders o JOIN templates t ON t.id = o.template_id WHERE o.editor_token = ? LIMIT 1'
+            'SELECT o.*, t.code AS template_code, t.name AS template_name, t.category AS template_category,
+                    p.code AS package_code, p.name AS package_name, p.price AS package_price,
+                    p.gallery_limit, p.has_music, p.has_gift, p.has_wishes
+             FROM orders o
+             JOIN templates t ON t.id = o.template_id
+             JOIN template_packages p ON p.id = o.package_id
+             WHERE o.editor_token = ? LIMIT 1'
         );
         $stmt->execute([$token]);
         return $stmt->fetch() ?: null;
@@ -51,9 +61,9 @@ final class OrderRepository
         $stmt->execute([$status, $id]);
     }
 
-    public function updateTemplate(int $id, int $templateId): void
+    public function updateTemplate(int $id, int $templateId, int $packageId): void
     {
-        $stmt = $this->db->prepare('UPDATE orders SET template_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-        $stmt->execute([$templateId, $id]);
+        $stmt = $this->db->prepare('UPDATE orders SET template_id = ?, package_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+        $stmt->execute([$templateId, $packageId, $id]);
     }
 }

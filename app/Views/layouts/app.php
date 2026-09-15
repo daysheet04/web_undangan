@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Temuara — Tempat kisah baik dimulai. Buat undangan pernikahan digital yang personal, indah, dan mudah dibagikan.">
-    <meta name="application-name" content="Temuara">
-    <meta property="og:site_name" content="Temuara">
-    <meta property="og:title" content="<?= e($title ?? 'Temuara — Tempat kisah baik dimulai.') ?>">
+    <meta name="description" content="Daymoment — Tempat kisah baik dimulai. Buat undangan pernikahan digital yang personal, indah, dan mudah dibagikan.">
+    <meta name="application-name" content="Daymoment">
+    <meta property="og:site_name" content="Daymoment">
+    <meta property="og:title" content="<?= e($title ?? 'Daymoment — Tempat kisah baik dimulai.') ?>">
     <meta property="og:description" content="Tempat kisah baik dimulai.">
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
-    <title><?= e($title ?? 'Temuara — Tempat kisah baik dimulai.') ?></title>
+    <title><?= e($title ?? 'Daymoment — Tempat kisah baik dimulai.') ?></title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>?v=20260829b">
     <?php foreach (($styles ?? []) as $style): ?>
@@ -18,9 +18,9 @@
 </head>
 <body class="<?= e($pageClass ?? '') ?>">
     <header class="site-header">
-        <a class="brand" href="/" aria-label="Temuara, kembali ke beranda">
-            <img class="brand-logo" src="<?= e(asset('images/brand/temuara-mark.svg')) ?>" alt="">
-            <span class="brand-copy"><strong>Temuara</strong><small>by Daysheet Group</small></span>
+        <a class="brand" href="/" aria-label="Daymoment, kembali ke beranda">
+            <img class="brand-logo" src="<?= e(asset('images/brand/daymoment-mark.svg')) ?>" alt="">
+            <span class="brand-copy"><strong>Daymoment</strong><small>by Daysheet Group</small></span>
         </a>
         <nav aria-label="Navigasi utama">
             <a href="/#templates">Template</a>
