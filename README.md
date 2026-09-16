@@ -1,239 +1,118 @@
-# Daymoment — Platform Undangan Pernikahan Digital
+# Daymoment
 
-**Tempat kisah baik dimulai.**
+Daymoment adalah aplikasi undangan pernikahan digital dengan frontend React/Vite, API Hono pada Cloudflare Workers, database PostgreSQL Supabase, dan penyimpanan foto/musik di Cloudflare R2.
 
-Daymoment adalah platform undangan digital end-to-end dari Daysheet Group dengan PHP native, MySQL, HTML/CSS, dan JavaScript vanilla. Project ini mencakup pemilihan template, paket fitur, order, placeholder pembayaran, editor bertahap, live preview, autosave, upload foto, publish ke URL personal, serta form kehadiran dan ucapan.
+Tampilan dan alur Puspa Jawi dipertahankan dari versi PHP: katalog, preview paket, order, pembayaran demo, editor sembilan langkah, live preview, daftar tamu personal, publish, template undangan, RSVP/ucapan, musik, galeri, dan multi rekening.
 
-## Fitur
+## Teknologi
 
-- Satu template aktif **Puspa Jawi** dengan art direction Jawa botanical, split-screen desktop, animasi awan, dan layout mobile-first.
-- Order dengan validasi nomor Indonesia dan token editor 256-bit dari fungsi random_bytes.
-- Placeholder pembayaran yang siap diganti integrasi gateway.
-- Builder tujuh tahap, responsive, live preview iframe dan postMessage.
-- Autosave Fetch API dengan debounce satu detik dan indikator status.
-- Kompresi foto via Canvas (maksimal 1600px) serta validasi MIME server.
-- Slug unik, reserved slug, dan saran otomatis seperti andi-2.
-- Publish dan URL publik, termasuk parameter aman ?to=Bapak+Budi.
-- RSVP/ucapan AJAX, output escaped, batas 500 karakter, dan rate limit sesi.
-- PDO prepared statements, CSRF untuk seluruh POST, cookie session HttpOnly/SameSite.
+- React 19 + Vite untuk frontend.
+- Hono/JavaScript untuk backend Node-compatible di Cloudflare Workers.
+- Supabase PostgreSQL untuk seluruh data relasional.
+- Supabase Realtime untuk memperbarui undangan dan ucapan tanpa refresh manual.
+- Cloudflare R2 untuk foto cover, foto mempelai, galeri, dan musik.
+- Workers Static Assets untuk HTML, CSS, JavaScript, gambar template, dan SPA routing.
 
-## Requirement
+## Persiapan
 
-- PHP **8.0 atau lebih baru**. Direkomendasikan PHP 8.2.
-- Ekstensi PHP: pdo_mysql, mbstring, fileinfo, session.
-- MySQL 8.0.
-- Apache dengan mod_rewrite untuk deployment Apache.
+Butuh Node.js 20 atau lebih baru, akun Cloudflare, dan project Supabase.
 
-Tidak diperlukan Composer, Node.js, framework, atau package pihak ketiga.
+1. Pasang dependency:
 
-## Instalasi lokal
+   ```bash
+   npm install
+   ```
 
-### 1. Buat database
+2. Buka Supabase SQL Editor. Jalankan berurutan:
 
-Masuk ke MySQL lalu buat database:
+   - `database/schema.sql`
+   - `database/seed.sql`
 
-~~~sql
-CREATE DATABASE undangan_digital
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-~~~
+   File `schema.sql` membuat ulang tabel dan bersifat destruktif. Gunakan hanya pada database baru atau setelah backup.
 
-Import schema dan seed dari terminal:
+3. Buat bucket R2:
 
-~~~bash
-mysql -u root -p undangan_digital < database/schema.sql
-mysql -u root -p undangan_digital < database/seed.sql
-~~~
+   ```bash
+   npx wrangler login
+   npx wrangler r2 bucket create daymoment-media
+   npx wrangler r2 bucket create daymoment-media-preview
+   ```
 
-> **Peringatan:** schema.sql menghapus enam tabel project sebelum membuatnya ulang. Gunakan pada database baru atau lakukan backup terlebih dahulu.
+4. Isi URL Supabase pada `wrangler.toml` bagian `SUPABASE_URL`. Untuk lokal, buat `.dev.vars`:
 
-Alternatif: buka phpMyAdmin, pilih database undangan_digital, lalu import database/schema.sql dan setelahnya database/seed.sql.
+   ```dotenv
+   SUPABASE_URL=https://PROJECT.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=service-role-key
+   APP_URL=http://localhost:8080
+   MIDTRANS_SERVER_KEY=
+   MIDTRANS_CLIENT_KEY=
+   MIDTRANS_IS_PRODUCTION=false
+   ```
 
-### 2. Konfigurasi
+   Salin `.env.example` menjadi `.env.local`, lalu isi `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dari Supabase Project Settings. Keduanya memang aman digunakan browser dan hanya mendapat akses baca yang dibatasi RLS. Jangan pernah memasukkan service-role key ke variabel `VITE_*`.
 
-Salin file contoh.
+   Jangan memakai nama variabel berawalan `VITE_` untuk service-role Supabase atau server key Midtrans. Variabel `VITE_` ikut masuk ke bundle browser.
 
-PowerShell:
+5. Untuk production, simpan rahasia melalui Cloudflare:
 
-~~~powershell
-Copy-Item config/config.example.php config/config.php
-~~~
+   ```bash
+   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+   npx wrangler secret put MIDTRANS_SERVER_KEY
+   npx wrangler secret put MIDTRANS_CLIENT_KEY
+   ```
 
-Linux/macOS:
+6. Ganti `APP_URL` di `wrangler.toml` menjadi URL production, misalnya `https://daymoment.example.com` atau URL `workers.dev` yang diberikan Cloudflare.
 
-~~~bash
-cp config/config.example.php config/config.php
-~~~
+## Menjalankan secara lokal
 
-Edit config/config.php:
+Jalankan backend Worker pada terminal pertama:
 
-~~~php
-'app' => [
-    'base_url' => 'http://localhost:8080',
-    'timezone' => 'Asia/Jakarta',
-    'debug' => true,
-],
-'database' => [
-    'host' => '127.0.0.1',
-    'port' => 3306,
-    'name' => 'undangan_digital',
-    'username' => 'root',
-    'password' => 'PASSWORD_LOKAL_ANDA',
-    'charset' => 'utf8mb4',
-],
-~~~
+```bash
+npm run dev:worker
+```
 
-config/config.php diabaikan oleh Git agar kredensial tidak masuk repository. Jika file tersebut belum ada, aplikasi memakai nilai development dari config.example.php.
+Jalankan frontend Vite pada terminal kedua:
 
-### 3. Jalankan
+```bash
+npm run dev
+```
 
-Dari root project:
+Buka `http://localhost:8080`. Vite meneruskan `/api` dan `/media` ke Worker pada port 8787.
 
-~~~bash
-php -S localhost:8080 -t public public/router.php
-~~~
+## Deploy Cloudflare
 
-Buka:
+```bash
+npm run deploy
+```
 
-- Homepage: http://localhost:8080/
-- Preview: http://localhost:8080/template/puspa_jawi
-- Contoh URL setelah publish: http://localhost:8080/andi
-- Contoh nama tamu: http://localhost:8080/andi?to=Bapak+Budi
-
-URL editor pribadi dibuat otomatis setelah order dan hanya ditampilkan kepada pemesan.
-
-## Menjalankan dengan XAMPP
-
-1. Pastikan XAMPP memakai PHP 8.0+ dan aktifkan Apache serta MySQL.
-2. Letakkan project, misalnya, di C:\xampp\htdocs\web-undangan.
-3. Buat database dan import schema/seed melalui phpMyAdmin.
-4. Salin config.example.php menjadi config.php; sesuaikan database dan base_url.
-5. Cara paling bersih adalah membuat VirtualHost dengan DocumentRoot menuju C:/xampp/htdocs/web-undangan/public.
-6. Aktifkan mod_rewrite dengan memastikan baris berikut tidak dikomentari di apache/conf/httpd.conf:
-
-~~~apache
-LoadModule rewrite_module modules/mod_rewrite.so
-~~~
-
-7. Pada blok Directory untuk document root, gunakan AllowOverride All, lalu restart Apache.
-
-Contoh VirtualHost:
-
-~~~apache
-<VirtualHost *:80>
-    ServerName undangan.local
-    DocumentRoot "C:/xampp/htdocs/web-undangan/public"
-    <Directory "C:/xampp/htdocs/web-undangan/public">
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
-~~~
-
-Tambahkan 127.0.0.1 undangan.local ke file hosts dan ubah base_url menjadi http://undangan.local.
-
-Jika tidak memakai VirtualHost, root .htaccess project meneruskan request ke public/index.php, sehingga project dapat dibuka dari folder htdocs. Sesuaikan base_url dengan subfolder aktual.
-
-## Deploy ke AeonFree
-
-Per Agustus 2026, situs resmi AeonFree menyebut dukungan PHP 8.2, MySQL 8.0, .htaccess, FTP, dan custom PHP site. Lihat [fitur hosting AeonFree](https://aeonfree.com/) dan [panduan upload custom website](https://kb.aeonfree.com/support/how-to-build-a-website/).
-
-1. Buat hosting account/domain dan database MySQL dari control panel AeonFree.
-2. Catat host, nama database, username, dan password yang diberikan. Nama database hosting biasanya tidak sama dengan nama lokal.
-3. Import database/schema.sql, lalu database/seed.sql melalui phpMyAdmin hosting.
-4. Upload **seluruh isi project** ke folder htdocs menggunakan File Manager atau FTP. Root .htaccess sudah memblokir folder aplikasi dan meneruskan route ke public/index.php.
-5. Buat config/config.php dari contoh dan isi kredensial hosting. Atur:
-
-~~~php
-'base_url' => 'https://domain-anda.example',
-'debug' => false,
-~~~
-
-6. Pastikan public/uploads dapat ditulis PHP (umumnya permission folder 755 atau 775, tergantung server).
-7. Pastikan file .htaccess ikut terunggah; beberapa FTP client menyembunyikan dotfile.
-8. Buka homepage, buat satu order demo, upload foto, publish, lalu uji URL slug.
-
-Jangan menaruh kredensial asli di config.example.php atau commit Git.
+Perintah tersebut membangun React ke `dist`, kemudian Wrangler mengunggah bundle Worker beserta static assets. Route `/api/*` dan `/media/*` dijalankan oleh Worker; file tampilan dilayani langsung sebagai static assets agar tidak menghabiskan kuota request dinamis.
 
 ## Struktur utama
 
-~~~text
-app/
-  Controllers/       HTTP controller dan endpoint API
-  Repositories/      Seluruh akses data PDO
-  Services/          Order, undangan, slug, upload, payment stub
-  Views/             Homepage, order, builder, dan template publik
-  Helpers/           CSRF, response, validation, URL, upload
-config/              Konfigurasi contoh dan koneksi PDO
-database/            schema.sql dan seed.sql
-public/
-  assets/            CSS, JavaScript, SVG original
-  uploads/           Foto pengguna; eksekusi script dinonaktifkan
-  index.php          Front controller/router
-  router.php         Router PHP built-in server
-storage/logs/        Log error aplikasi
-storage/sessions/    File sesi PHP di luar document root
-tests/smoke.php      Smoke test tanpa dependency
-~~~
+```text
+src/                 React pages dan komponen
+worker/              Hono API untuk Cloudflare Workers
+public/assets/       CSS, animasi lama, gambar, dan ornamen Puspa Jawi
+database/schema.sql  Struktur PostgreSQL Supabase
+database/seed.sql    Template dan paket awal
+wrangler.toml        Konfigurasi Worker, assets, dan R2
+```
 
-## PaymentService
+## Catatan migrasi data lama
 
-Pembayaran masih berupa placeholder. app/Services/PaymentService.php menyediakan dua titik integrasi:
+Skema lama memakai MySQL sedangkan versi ini memakai PostgreSQL. Jangan mengimpor dump MySQL langsung ke Supabase. Buat skema PostgreSQL terlebih dahulu, ekspor data lama ke CSV per tabel, lalu impor dengan urutan:
 
-- createTransaction(array $order)
-- handleNotification(array $payload)
+1. `templates`
+2. `template_packages`
+3. `orders`
+4. `invitations`
+5. `payments`, `invitation_media`, `gift_accounts`, `invitation_guests`, dan `guest_messages`
 
-Saat ini order dibuat dengan status waiting_payment, payment pending, lalu tombol Mode Demo hanya mengubah order menjadi editing. payment_status tetap pending. Integrasi Midtrans/Tripay nantinya dapat ditambahkan di service dan webhook baru tanpa mengubah builder.
+Nilai `id` dan foreign key harus dipertahankan. Berkas pada `public/uploads` lama perlu diunggah ke R2 dan kolom path diperbarui menjadi key R2 seperti `invitations/12/cover-uuid.webp`.
 
-## Pengujian
+## Keamanan
 
-Smoke test struktur dan keamanan:
-
-~~~bash
-php tests/smoke.php
-~~~
-
-Setelah database terkonfigurasi:
-
-~~~bash
-php tests/smoke.php --db
-~~~
-
-Lint seluruh file PHP (PowerShell):
-
-~~~powershell
-Get-ChildItem -Recurse -Filter *.php | ForEach-Object { php -l $_.FullName }
-~~~
-
-Checklist manual penting:
-
-1. Buka tiga preview dan uji tombol pembuka.
-2. Buat order dengan nomor 08... dan +62...; pastikan format lain ditolak.
-3. Masuk Mode Demo, isi builder, tunggu indikator “Tersimpan”, lalu refresh.
-4. Ganti template dan pastikan data tetap ada.
-5. Upload JPG/PNG/WEBP serta coba file script yang diganti ekstensi; file berbahaya harus ditolak.
-6. Coba slug duplikat dan pilih saran otomatis.
-7. Publish, buka URL publik, uji ?to=, RSVP, ucapan, dan tombol bagikan.
-8. Uji viewport 360×800, 390×844, 430×932, 768×1024, dan 1366×768 di DevTools.
-
-## Backup
-
-Database:
-
-~~~bash
-mysqldump -u USER -p NAMA_DATABASE > backup-undangan.sql
-~~~
-
-Salin juga seluruh folder public/uploads. Untuk restore, import dump SQL lalu kembalikan folder uploads ke path yang sama.
-
-## Troubleshooting
-
-- **could not find driver** — aktifkan ekstensi pdo_mysql di php.ini, lalu restart PHP/Apache.
-- **Database connection refused** — pastikan MySQL aktif dan host/port/config benar.
-- **404 pada URL slug** — aktifkan mod_rewrite, gunakan AllowOverride All, dan pastikan .htaccess terunggah.
-- **Error 500 setelah deploy** — ubah sementara debug menjadi true, periksa storage/logs/app.log, kemudian matikan kembali debug.
-- **Upload gagal** — cek upload_max_filesize, post_max_size, ekstensi fileinfo, serta permission public/uploads.
-- **Foto lebih dari 2 MB** — browser mengompres lebih dulu, tetapi server tetap menolak hasil akhir di atas 2 MB.
-- **CSRF/session error** — pastikan cookie tidak diblokir dan domain pada base_url sesuai.
-- **Folder sesi tidak dapat ditulis** — pastikan storage/sessions writable oleh PHP.
-- **Perubahan CSS belum terlihat** — hard refresh browser dan bersihkan cache/CDN.
+- Browser hanya berkomunikasi dengan Worker; service-role Supabase tidak pernah dikirim ke frontend.
+- Seluruh tabel mengaktifkan RLS tanpa policy publik. Worker mengakses database menggunakan service-role.
+- Foto dan musik disimpan pada bucket R2 privat dan disajikan melalui route `/media/*`.
+- Tautan editor menggunakan token acak 64 karakter dan harus dijaga tetap pribadi.

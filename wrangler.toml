@@ -1,0 +1,24 @@
+name = "daymoment"
+main = "worker/index.js"
+compatibility_date = "2026-09-16"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/media/*"]
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "daymoment-media"
+preview_bucket_name = "daymoment-media-preview"
+
+[vars]
+APP_URL = "http://localhost:8080"
+SUPABASE_URL = ""
+
+# Tambahkan secret melalui CLI, jangan simpan nilainya di file ini:
+# npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+# npx wrangler secret put MIDTRANS_SERVER_KEY
+# npx wrangler secret put MIDTRANS_CLIENT_KEY

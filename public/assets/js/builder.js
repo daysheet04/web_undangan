@@ -577,7 +577,7 @@
         document.querySelectorAll('.field.invalid').forEach((field) => field.classList.remove('invalid'));
         try {
             await saveNow();
-            const response = await fetch('/publish', {
+            const response = await fetch('/api/invitation/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(fields())

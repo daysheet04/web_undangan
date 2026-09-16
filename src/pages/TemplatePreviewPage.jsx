@@ -1,0 +1,14 @@
+import React, { useState } from 'react';
+import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
+import { money } from '../lib/api.js';
+import { useRemote } from '../lib/hooks.js';
+
+export default function TemplatePreviewPage({ code }) {
+  const { data, loading, error } = useRemote(`/api/templates/${code}`, [code]);
+  const [selected, setSelected] = useState('signature');
+  if (loading) return <Layout className="preview-page"><Loading /></Layout>;
+  if (error) return <Layout className="preview-page"><ErrorState error={error} /></Layout>;
+  const template = data.template;
+  const active = template.packages.find((item) => item.code === selected) || template.packages[0];
+  return <Layout className="preview-page" title={`Preview ${template.name} — Daymoment`}><section className="preview-showcase"><div className="preview-info"><a className="back-link" href="/#templates">← Kembali ke pilihan</a><span className="category-pill">{template.category}</span><h1>{template.name}</h1><p>{template.description}</p><div className="preview-package-heading"><span>Pilih pengalaman undangan</span><p>Desain utama tetap sama. Fitur dan jumlah momen menyesuaikan paket.</p></div><div className="preview-package-grid">{template.packages.map((item) => { const isActive = item.code === active.code; return <article className={`preview-package-card ${isActive ? 'active' : ''}`} key={item.id}>{item.code === 'signature' && <span className="preview-package-badge">Paling populer</span>}<div className="preview-package-name"><strong>{item.name}</strong><b>{money(item.price)}</b></div><p>{item.tagline}</p><div className={`package-photo-demo package-photo-demo-${item.gallery_limit}`}>{Array.from({length:item.gallery_limit},(_,i)=><i key={i}><span>{i+1}</span></i>)}</div><ul><li>{item.gallery_limit} foto momen</li><li>{item.has_music?'Musik undangan':'Tanpa musik'}</li><li>{item.has_wishes?'Ucapan & RSVP':'Tanpa ucapan & RSVP'}</li><li>{item.has_gift?'Amplop digital':'Tanpa amplop digital'}</li></ul><button type="button" className={`button ${isActive?'button-primary':'button-secondary'} preview-package-button`} onClick={()=>setSelected(item.code)}>{isActive?'Sedang dilihat':`Lihat ${item.name}`}</button></article>; })}</div><a className="button button-primary preview-order-button" href={`/order?template=${template.code}&package=${active.code}`}>Pilih Paket {active.name}</a></div><div className="preview-phone-wrap"><div className="preview-phone-label"><span>Preview <b>{active.name}</b></span><small>Klik “Buka Undangan” di dalam layar</small></div><div className="phone-mockup preview-phone"><div className="phone-speaker"/><iframe className="preview-iframe" title={`Preview ${template.name} paket ${active.name}`} src={`/template/${template.code}?embed=1&package=${active.code}`}/></div></div></section></Layout>;
+}
