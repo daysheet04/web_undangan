@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
-import { sendOrderCreatedEmail } from '../lib/email.js';
+import { sendOrderCreatedEmail, sendPaymentConfirmedEmail } from '../lib/email.js';
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
 import { orderByCode, templateByCode } from '../lib/repositories.js';
 
@@ -28,6 +28,38 @@ async function paymentForOrder(env, orderId) {
   return data;
 }
 
+function queuePaymentConfirmedEmail(c, order, payment) {
+  const appUrl = String(c.env.APP_URL || new URL(c.req.url).origin).replace(/\/$/, '');
+  const editorUrl = `${appUrl}/edit/${encodeURIComponent(order.editor_token)}?payment=success`;
+
+  c.executionCtx.waitUntil((async () => {
+    const db = database(c.env);
+    const claimedAt = new Date().toISOString();
+    const { data: claimed, error: claimError } = await db
+      .from('orders')
+      .update({ editor_email_sent_at: claimedAt })
+      .eq('id', order.id)
+      .is('editor_email_sent_at', null)
+      .select('id')
+      .maybeSingle();
+    if (claimError) throw claimError;
+    if (!claimed) return;
+
+    try {
+      const sent = await sendPaymentConfirmedEmail(c.env, order, payment, editorUrl);
+      if (sent?.skipped) throw new Error('SMTP belum dikonfigurasi untuk email konfirmasi pembayaran.');
+    } catch (failure) {
+      const { error: releaseError } = await db
+        .from('orders')
+        .update({ editor_email_sent_at: null })
+        .eq('id', order.id)
+        .eq('editor_email_sent_at', claimedAt);
+      if (releaseError) console.error('Payment email claim release failed:', releaseError.message);
+      throw failure;
+    }
+  })().catch((failure) => console.error('Payment confirmation email failed:', failure.message)));
+}
+
 async function applyPaymentStatus(env, order, payment, payload) {
   const status = normalizedPaymentStatus(payload);
   const amount = Number(payload.gross_amount || payment.amount);
@@ -50,7 +82,11 @@ async function applyPaymentStatus(env, order, payment, payload) {
   if (status === 'paid' && order.status === 'waiting_payment') orderUpdate.status = 'editing';
   const { error: orderError } = await db.from('orders').update(orderUpdate).eq('id', order.id);
   if (orderError) throw orderError;
-  return { status, redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null };
+  return {
+    status,
+    redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null,
+    payment: { ...payment, ...paymentUpdate },
+  };
 }
 
 orders.post('/orders', async (c) => {
@@ -144,11 +180,16 @@ orders.post('/orders/:code/payment-token', async (c) => {
 
 orders.post('/orders/:code/payment-status', async (c) => {
   const order = await orderByCode(c.env, c.req.param('code'));
-  if (order.payment_status === 'paid') return c.json({ ok: true, payment_status: 'paid', redirect: `/edit/${order.editor_token}?payment=success` });
+  if (order.payment_status === 'paid') {
+    const payment = await paymentForOrder(c.env, order.id);
+    queuePaymentConfirmedEmail(c, order, payment);
+    return c.json({ ok: true, payment_status: 'paid', redirect: `/edit/${order.editor_token}?payment=success` });
+  }
   const payment = await paymentForOrder(c.env, order.id);
   if (!payment.gateway_order_id) return c.json({ ok: true, payment_status: payment.status || 'pending', redirect: null });
   const payload = await transactionStatus(c.env, payment.gateway_order_id);
   const result = await applyPaymentStatus(c.env, order, payment, payload);
+  if (result.status === 'paid') queuePaymentConfirmedEmail(c, order, result.payment);
   return c.json({ ok: true, payment_status: result.status, redirect: result.redirect });
 });
 
@@ -163,7 +204,11 @@ orders.post('/payments/midtrans/notification', async (c) => {
   if (!payment) return c.json({ ok: false, message: 'Transaksi tidak ditemukan.' }, 404);
   const { data: order, error: orderError } = await db.from('orders').select('*').eq('id', payment.order_id).single();
   if (orderError) throw orderError;
-  await applyPaymentStatus(c.env, order, payment, payload);
+  const result = await applyPaymentStatus(c.env, order, payment, payload);
+  if (result.status === 'paid') {
+    const detailedOrder = await orderByCode(c.env, order.order_code);
+    queuePaymentConfirmedEmail(c, detailedOrder, result.payment);
+  }
   return c.json({ ok: true });
 });
 

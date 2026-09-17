@@ -21,8 +21,17 @@
             item.style.setProperty('--reveal-delay', `${Math.min(index, 4) * 110}ms`);
             observer.observe(item);
         }));
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                entry.target.classList.toggle('is-in-view', entry.isIntersecting);
+                if (!entry.isIntersecting) return;
+                entry.target.querySelectorAll('.jawi-reveal').forEach((item) => item.classList.add('is-visible'));
+            });
+        }, { threshold: 0, rootMargin: '25% 0px 25% 0px' });
+        root.querySelectorAll('.jawi-section').forEach((section) => sectionObserver.observe(section));
     } else {
         revealItems.forEach((item) => item.classList.add('is-visible'));
+        root.querySelectorAll('.jawi-section').forEach((section) => section.classList.add('is-in-view'));
     }
 
     const revealVisibleFallback = () => {
@@ -36,8 +45,10 @@
             }
         });
     };
-    window.addEventListener('scroll', revealVisibleFallback, { passive: true });
-    window.addEventListener('resize', revealVisibleFallback, { passive: true });
+    if (!motionReady) {
+        window.addEventListener('scroll', revealVisibleFallback, { passive: true });
+        window.addEventListener('resize', revealVisibleFallback, { passive: true });
+    }
 
     root.querySelector('[data-open-invitation]')?.addEventListener('click', (event) => {
         event.currentTarget.disabled = true;
@@ -136,7 +147,7 @@
     }));
 
     const stage = root.querySelector('.stage-parallax');
-    if (!reducedMotion && stage) {
+    if (!reducedMotion && stage && matchMedia('(min-width: 1101px)').matches) {
         let ticking = false;
         const updateParallax = () => {
             const shift = Math.min(window.scrollY * .035, 34);

@@ -177,3 +177,50 @@ export async function sendOrderCreatedEmail(env, order, paymentUrl) {
       </html>`,
   });
 }
+
+export async function sendPaymentConfirmedEmail(env, order, payment, editorUrl) {
+  const recipient = String(order.customer_email || '').trim();
+  if (!recipient) return { skipped: true };
+
+  const customerName = escapeHtml(order.customer_name);
+  const orderCode = escapeHtml(order.order_code);
+  const templateName = escapeHtml(order.template_name || 'Undangan Daymoment');
+  const packageName = escapeHtml(order.package_name || 'Paket undangan');
+  const safeEditorUrl = escapeHtml(editorUrl);
+  const total = rupiah(order.package_price || payment?.amount);
+  const transactionId = escapeHtml(payment?.transaction_id || '-');
+
+  return sendWithGmailSmtp(env, {
+    to: recipient,
+    subject: `Pembayaran berhasil - editor ${order.order_code} sudah terbuka`,
+    text: `Halo ${order.customer_name}, pembayaran pesanan ${order.order_code} sebesar ${total} sudah berhasil dikonfirmasi. Editor undanganmu dapat dibuka melalui ${editorUrl}. Tautan editor bersifat pribadi, jangan bagikan kepada orang lain.`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f6f2ec;font-family:Arial,sans-serif;color:#17283d">
+          <div style="padding:32px 16px">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e8e0d6;border-radius:20px;overflow:hidden">
+              <div style="padding:30px 32px;background:#1f7a63;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#f2d79e">DAYMOMENT</div>
+                <h1 style="margin:10px 0 0;font-family:Georgia,serif;font-size:30px">Pembayaran berhasil</h1>
+              </div>
+              <div style="padding:32px">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7">Halo <strong>${customerName}</strong>,</p>
+                <p style="margin:0 0 24px;color:#536174;font-size:15px;line-height:1.7">Pembayaranmu sudah dikonfirmasi. Sekarang kamu dapat membuka editor dan mulai melengkapi undangan.</p>
+                <div style="padding:18px 20px;background:#faf7f2;border-radius:14px;font-size:14px;line-height:1.9">
+                  <div><span style="color:#718096">Kode order:</span> <strong>${orderCode}</strong></div>
+                  <div><span style="color:#718096">Template:</span> <strong>${templateName}</strong></div>
+                  <div><span style="color:#718096">Paket:</span> <strong>${packageName}</strong></div>
+                  <div><span style="color:#718096">Total:</span> <strong>${escapeHtml(total)}</strong></div>
+                  <div><span style="color:#718096">ID transaksi:</span> <strong>${transactionId}</strong></div>
+                </div>
+                <div style="padding:28px 0 14px;text-align:center">
+                  <a href="${safeEditorUrl}" style="display:inline-block;padding:15px 26px;background:#102d50;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold">Buka Editor Undangan</a>
+                </div>
+                <p style="margin:16px 0 0;color:#7b8796;font-size:12px;line-height:1.6;text-align:center">Tautan editor ini bersifat pribadi. Jangan membagikannya kepada orang lain.<br><br>Jika tombol tidak dapat dibuka, salin tautan berikut:<br><a href="${safeEditorUrl}" style="color:#315b86;word-break:break-all">${safeEditorUrl}</a></p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}

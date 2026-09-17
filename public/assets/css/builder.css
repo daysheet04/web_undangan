@@ -53,9 +53,11 @@
 .input-prefix { display: flex; align-items: center; border: 1px solid #dce2df; border-radius: 11px; background: #fbfcfb; }
 .input-prefix > span { padding-left: 14px; color: var(--muted); }
 .input-prefix input { border: 0; background: transparent; }
-.url-field { display: flex; overflow: hidden; min-height: 50px; align-items: stretch; border: 1px solid #dce2df; border-radius: 11px; background: #fbfcfb; }
-.url-field > span { display: flex; max-width: 52%; align-items: center; overflow: hidden; padding: 0 0 0 13px; color: #8a9491; font-size: .78rem; white-space: nowrap; }
-.url-field input { min-width: 100px; border: 0; background: transparent; }
+.url-field { display: flex; width: 100%; min-width: 0; min-height: 52px; overflow: hidden; align-items: stretch; border: 1px solid #dce2df; border-radius: 12px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+.url-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(16,43,74,.1); }
+.url-field > span { display: flex; max-width: 58%; flex: 0 1 auto; align-items: center; overflow: hidden; padding: 0 13px; color: #788582; border-right: 1px solid #dce2df; background: #f2f5f3; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.url-field input { width: 0; min-width: 90px; flex: 1 1 auto; padding-inline: 13px; border: 0; border-radius: 0; background: #fff; font-weight: 700; }
+.field .url-field input:focus { border-color: transparent; box-shadow: none; outline: 0; }
 .slug-status { min-height: 20px; font-weight: 700; }
 .slug-status.success { color: var(--success); }
 .slug-status.error { color: var(--danger); }
@@ -187,9 +189,9 @@
     .field.full { grid-column: auto; }
     .gallery-editor { grid-template-columns: repeat(3, 1fr); }
     .builder-nav .button { min-width: 125px; padding-inline: 12px; }
-    .url-field { display: block; padding-top: 8px; }
-    .url-field > span { max-width: 100%; padding-inline: 13px; }
-    .url-field input { min-height: 40px; }
+    .url-field { display: flex; min-height: 54px; padding: 0; }
+    .url-field > span { max-width: 55%; padding-inline: 11px; font-size: .68rem; }
+    .url-field input { min-width: 82px; min-height: 52px; padding-inline: 11px; font-size: .86rem; }
     .couple-photo-editor, .gift-account-row, .invitee-create-grid { grid-template-columns: 1fr; }
     .invitee-link { grid-template-columns: 1fr 1fr; }
     .invitee-link input { grid-column: 1 / -1; }

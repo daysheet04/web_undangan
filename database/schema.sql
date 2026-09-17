@@ -37,6 +37,7 @@ create table public.orders (
   customer_name varchar(120) not null, customer_email varchar(254) not null, customer_phone varchar(24) not null, editor_token varchar(128) not null unique,
   status varchar(24) not null default 'waiting_payment' check (status in ('waiting_payment','editing','published','cancelled')),
   payment_status varchar(24) not null default 'pending' check (payment_status in ('pending','paid','failed','expired','refunded')),
+  editor_email_sent_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()), updated_at timestamptz not null default timezone('utc', now())
 );
 create table public.invitations (

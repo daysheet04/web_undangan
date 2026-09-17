@@ -172,7 +172,7 @@
     });
     document.querySelector('[data-refresh-preview]').addEventListener('click', reloadPreview);
 
-    const compressImage = (file) => new Promise((resolve, reject) => {
+    const compressImage = (file, kind) => new Promise((resolve, reject) => {
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
             reject(new Error('Format foto harus JPG, PNG, atau WEBP.'));
             return;
@@ -185,7 +185,9 @@
         const url = URL.createObjectURL(file);
         image.onload = () => {
             URL.revokeObjectURL(url);
-            const ratio = Math.min(1, 1600 / Math.max(image.width, image.height));
+            const maxDimension = ['bride', 'groom'].includes(kind) ? 1200 : 1440;
+            const maxBytes = 1200 * 1024;
+            const ratio = Math.min(1, maxDimension / Math.max(image.width, image.height));
             const canvas = document.createElement('canvas');
             canvas.width = Math.max(1, Math.round(image.width * ratio));
             canvas.height = Math.max(1, Math.round(image.height * ratio));
@@ -197,17 +199,17 @@
                     reject(new Error('Foto gagal diproses.'));
                     return;
                 }
-                if (blob.size > 2 * 1024 * 1024 && quality > .58) {
-                    exportBlob(.58);
+                if (blob.size > maxBytes && quality > .58) {
+                    exportBlob(Math.max(.58, quality - .12));
                     return;
                 }
-                if (blob.size > 2 * 1024 * 1024) {
-                    reject(new Error('Foto masih lebih dari 2 MB setelah dikompres.'));
+                if (blob.size > maxBytes) {
+                    reject(new Error('Foto masih terlalu besar setelah dikompres.'));
                     return;
                 }
                 resolve(new File([blob], 'photo-' + Date.now() + '.webp', { type: 'image/webp' }));
             }, 'image/webp', quality);
-            exportBlob(.82);
+            exportBlob(.8);
         };
         image.onerror = () => {
             URL.revokeObjectURL(url);
@@ -217,7 +219,7 @@
     });
 
     const uploadPhoto = async (file, kind) => {
-        const processed = await compressImage(file);
+        const processed = await compressImage(file, kind);
         const data = new FormData();
         data.append('_csrf', csrf);
         data.append('editor_token', token);
