@@ -152,6 +152,8 @@
 .dialog-thumb { display: grid; width: 75px; height: 54px; place-items: center; border-radius: 8px; }
 .dialog-thumb i { font-family: Georgia, serif; font-size: 1.6rem; }
 .thumb-puspa_jawi { color:#6b3b4c;background:linear-gradient(135deg,#f7efe4,#aeb6a5);box-shadow:inset 0 0 0 1px rgba(107,59,76,.18); }
+.thumb-lunara_azure { color:#eef5f8;background:radial-gradient(circle at 70% 24%,#dfe9ef 0 9%,transparent 10%),linear-gradient(135deg,#0c2443,#46779b);box-shadow:inset 0 0 0 1px rgba(185,210,227,.34); }
+.thumb-lunara_azure i { text-shadow:0 3px 12px rgba(0,0,0,.35); }
 .choice-check { margin-left: auto; margin-right: 12px; color: var(--brand); opacity: 0; }
 .dialog-template.selected .choice-check, .dialog-template.pending .choice-check { opacity: 1; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }

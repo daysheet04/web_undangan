@@ -68,6 +68,20 @@
 .visual-puspa_jawi .collection-mini { width:72%;height:80%;border-color:rgba(202,164,95,.75);border-radius:46% 46% 8px 8px;background:rgba(247,239,228,.25);box-shadow:inset 0 0 0 7px rgba(247,239,228,.14);backdrop-filter:blur(1px); }
 .visual-puspa_jawi .collection-mini>strong { color:#6b3b4c;font-family:Georgia,serif;text-shadow:0 2px 10px #f7efe4; }
 .visual-puspa_jawi .collection-mini>b { padding:4px 8px;background:rgba(247,239,228,.72); }
+.visual-lunara_azure {
+    color:#e7edf3;
+    background:
+        radial-gradient(circle at 50% 38%,rgba(226,235,241,.28) 0 15%,transparent 15.5%),
+        linear-gradient(145deg,rgba(9,30,58,.4),rgba(27,66,104,.18)),
+        url("../images/templates/lunara-azure/moon-botanical.webp") left bottom/68% auto no-repeat,
+        linear-gradient(145deg,#0b203e,#335f86 58%,#e8edf0);
+}
+.visual-lunara_azure::after { position:absolute;right:-11%;bottom:-24%;width:61%;aspect-ratio:1;border:1px solid rgba(226,235,241,.55);border-radius:50%;box-shadow:0 0 0 18px rgba(226,235,241,.06);content:""; }
+.visual-lunara_azure .collection-mini { width:66%;height:82%;border-color:rgba(231,237,243,.64);border-radius:50% 50% 12px 12px;background:linear-gradient(180deg,rgba(8,28,55,.48),rgba(19,52,83,.75));box-shadow:inset 0 0 28px rgba(164,196,220,.14),0 16px 34px rgba(4,18,35,.28);backdrop-filter:blur(2px); }
+.visual-lunara_azure .collection-mini>i { border-color:#c3d6e4;box-shadow:0 0 0 5px rgba(195,214,228,.08); }
+.visual-lunara_azure .collection-mini>strong { color:#fff;font-family:Georgia,serif;text-shadow:0 4px 20px rgba(0,0,0,.4); }
+.visual-lunara_azure .collection-mini>strong em { color:#a9c9df; }
+.visual-lunara_azure .collection-mini>b { color:#bcd1e0; }
 
 .steps-section { background: #fff; }
 .steps-grid { display: grid; width: min(1060px, 100%); grid-template-columns: repeat(3, 1fr); gap: 46px; margin: auto; }

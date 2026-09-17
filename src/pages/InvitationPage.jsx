@@ -3,8 +3,13 @@ import { Loading, ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { useInvitationRealtime } from '../lib/realtime.js';
+import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
 
 const A='/assets/images/templates/puspa-jawi/';
+const TEMPLATE_RUNTIME={
+  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css',script:'/assets/js/templates/puspa-jawi.js'},
+  lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap',css:'/assets/css/templates/lunara-azure.css',script:'/assets/js/templates/lunara-azure.js'}
+};
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const sampleDate=()=>{const d=new Date();d.setDate(d.getDate()+45);return d.toISOString().slice(0,10)};
@@ -15,18 +20,21 @@ const attendance=(v)=>({attending:'Hadir',not_attending:'Tidak Hadir',unsure:'Ma
 
 export default function InvitationPage({slug,templateCode,preview=false}){
   useBodyClass(preview?'embed-preview':'');
-  useDocumentTitle('Puspa Jawi — Daymoment');
-  useHeadLinks(['https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap','/assets/css/templates/base.css','/assets/css/templates/puspa-jawi.css']);
   const query=useMemo(()=>new URLSearchParams(window.location.search),[]), token=query.get('token');
   const path=preview?(token?`/api/editor/${token}`:`/api/templates/${templateCode}`):`/api/invitations/${slug}${window.location.search}`;
   const state=useRemote(path,[path]);
-  useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js','/assets/js/templates/puspa-jawi.js'],!state.loading&&!state.error);
+  const activeCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||'puspa_jawi';
+  const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi;
+  useDocumentTitle(runtime.title);
+  useHeadLinks([runtime.font,'/assets/css/templates/base.css',runtime.css]);
+  useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js',runtime.script],!state.loading&&!state.error);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
   if(state.loading)return <Loading/>; if(state.error)return <ErrorState error={state.error}/>;
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
   if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
   else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];greetings=state.data.greetings||[];guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
-  return <PuspaJawi invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/>;
+  const Template=activeCode==='lunara_azure'?LunaraAzureTemplate:PuspaJawi;
+  return <Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/>;
 }
 
 function withFallbacks(value){const fallback=sample(value);for(const key of Object.keys(fallback)){if(value[key]===null||value[key]===undefined||String(value[key]).trim()==='')value={...value,[key]:fallback[key]};}return value}
