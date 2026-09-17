@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Loading, ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
@@ -12,12 +12,25 @@ export default function BuilderPage({token}){
   useHeadLinks(['/assets/css/app.css','/assets/css/builder.css']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js'],!state.loading&&!state.error);
+  const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
+  useEffect(()=>{
+    if(!showPaymentSuccess||state.loading||state.error)return undefined;
+    const cleanUrl=new URL(window.location.href);
+    cleanUrl.searchParams.delete('payment');
+    window.history.replaceState(window.history.state,'',`${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+    const dismiss=()=>setShowPaymentSuccess(false);
+    const timer=window.setTimeout(dismiss,4200);
+    window.addEventListener('scroll',dismiss,{passive:true,once:true});
+    return()=>{
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll',dismiss);
+    };
+  },[showPaymentSuccess,state.loading,state.error]);
   if(state.loading)return <Loading/>; if(state.error)return <ErrorState error={state.error}/>;
   const {invitation:i,media,giftAccounts,invitees,templates,appUrl}=state.data;
   const galleryLimit=Math.max(1,Number(i.gallery_limit)||2), hasGift=Boolean(i.has_gift),hasMusic=Boolean(i.has_music);
-  const paymentCompleted=new URLSearchParams(window.location.search).get('payment')==='success';
   return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={i.template_code} data-gallery-limit={galleryLimit}>
-    {paymentCompleted&&<div className="builder-payment-success" role="status"><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang sudah aktif.</span></div>}
+    {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang sudah aktif.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
     <div className="builder-topbar"><div><a href="/" className="builder-brand"><img className="brand-logo" src="/assets/images/brand/daymoment-mark.svg" alt=""/><span className="builder-brand-copy"><strong>Daymoment</strong><small>by Daysheet Group</small></span></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div><button type="button" className="button button-secondary change-template-button" data-open-template>Ganti Template</button></div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
     <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div></div>

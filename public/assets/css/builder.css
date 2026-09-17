@@ -158,8 +158,12 @@
 .dialog-template.selected .choice-check, .dialog-template.pending .choice-check { opacity: 1; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .builder-payment-success { position: fixed; z-index: 120; top: 74px; left: 50%; display: flex; align-items: center; gap: 12px; width: min(520px, calc(100% - 32px)); padding: 14px 18px; color: #174f40; border: 1px solid #abd7c6; border-radius: 14px; background: #e9f7f1; box-shadow: 0 14px 35px rgba(19,66,53,.16); transform: translateX(-50%); }
+.builder-payment-success > div { display: flex; align-items: center; flex: 1; gap: 12px; min-width: 0; }
 .builder-payment-success b { white-space: nowrap; }
 .builder-payment-success span { color: #477064; font-size: .82rem; }
+.builder-payment-success button { display: grid; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; color: #477064; border: 0; border-radius: 50%; background: rgba(23,79,64,.08); cursor: pointer; font-size: 1.15rem; line-height: 1; place-items: center; }
+.builder-payment-success button:hover { background: rgba(23,79,64,.14); }
+.builder-payment-success button:focus-visible { outline: 2px solid #277b64; outline-offset: 2px; }
 @media (max-width: 680px) { .dialog-templates { grid-template-columns:1fr; } }
 
 @media (max-width: 900px) {
@@ -183,7 +187,8 @@
     .device-frame { width: min(390px, calc((100vh - 175px) * .53), 100%); height: min(calc(100vh - 175px), 735px, calc((100vw - 28px) * 1.89)); }
 }
 @media (max-width: 540px) {
-    .builder-payment-success { top: 66px; align-items: flex-start; flex-direction: column; gap: 3px; }
+    .builder-payment-success { top: 66px; padding: 13px 14px; }
+    .builder-payment-success > div { align-items: flex-start; flex-direction: column; gap: 3px; }
     .step-intro { gap: 11px; }
     .step-icon { flex-basis: 40px; height: 40px; }
     .form-section-card { padding: 17px 14px; }
