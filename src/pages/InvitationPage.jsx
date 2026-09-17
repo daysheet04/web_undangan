@@ -8,7 +8,7 @@ import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
   puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css',script:'/assets/js/templates/puspa-jawi.js'},
-  lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap',css:'/assets/css/templates/lunara-azure.css',script:'/assets/js/templates/lunara-azure.js'}
+  lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260917-6',script:'/assets/js/templates/lunara-azure.js?v=20260917-6'}
 };
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];

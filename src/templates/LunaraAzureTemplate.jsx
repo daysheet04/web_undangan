@@ -65,8 +65,10 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           </div>
           <div className="lunara-portrait-stage" data-hero-step="portrait" data-lunara-depth="front">
             <div className="lunara-photo-orbit"><i /><i /></div>
-            <div className="lunara-hero-photo"><img src={cover} alt="Foto pasangan" decoding="async" /></div>
-            <span className="lunara-photo-caption" data-hero-caption>Our beautiful moment</span>
+            <div className="lunara-hero-photo">
+              <img src={cover} alt="Foto pasangan" decoding="async" />
+              <span className="lunara-photo-label" data-hero-caption>Our beautiful moment</span>
+            </div>
           </div>
           <div className="lunara-countdown" data-hero-step="countdown" data-countdown={`${eventDate}T${eventTime}:00+07:00`}>
             {[['days','Hari'],['hours','Jam'],['minutes','Menit'],['seconds','Detik']].map(([key,label]) => <div key={key}><strong {...{ [`data-${key}`]: '' }}>00</strong><span>{label}</span></div>)}
@@ -216,7 +218,18 @@ function GiftSection({ accounts }) {
     <SectionHeading eyebrow="Tanda kasih" title="Wedding Gift" />
     <p className="lunara-gift-lead">Doa restu Anda adalah hadiah terindah. Bagi yang ingin mengirimkan tanda kasih, silakan melalui rekening berikut.</p>
     {accounts.length ? <>
-      <label className="lunara-bank-select" data-lunara-reveal="rise"><span>Pilih bank / e-wallet</span><select data-lunara-bank>{accounts.map((account, index) => <option value={index} key={account.id || index}>{account.provider}{account.label ? ` — ${account.label}` : ''}</option>)}</select></label>
+      <div className="lunara-bank-picker" data-lunara-bank-picker data-lunara-reveal="rise">
+        <span className="lunara-bank-picker-title">Pilih bank / e-wallet</span>
+        <button className="lunara-bank-trigger" type="button" data-lunara-bank-trigger aria-haspopup="listbox" aria-expanded="false">
+          <strong data-lunara-bank-label>{accounts[0].provider}{accounts[0].label ? ` — ${accounts[0].label}` : ''}</strong>
+          <span className="lunara-bank-chevron" aria-hidden="true" />
+        </button>
+        <div className="lunara-bank-options" role="listbox" data-lunara-bank-options>
+          {accounts.map((account, index) => <button className="lunara-bank-option" type="button" role="option" aria-selected={index === 0 ? 'true' : 'false'} data-lunara-bank-option={index} key={account.id || index}>
+            <span><strong>{account.provider}</strong>{account.label && <small>{account.label}</small>}</span><i aria-hidden="true" />
+          </button>)}
+        </div>
+      </div>
       <div className="lunara-bank-stack">{accounts.map((account, index) => <article className="lunara-bank-card" data-lunara-bank-card={index} hidden={index > 0} key={account.id || index}>
         <small>{account.provider}</small><strong data-account-number>{account.account_number}</strong><p>a.n. {account.account_name}</p>{account.label && <em>{account.label}</em>}
         <button type="button" data-copy-account><AzureIcon name="azure-copy" /> Salin Nomor</button>
@@ -234,7 +247,10 @@ function RsvpSection({ invitation: i, guestName, greetings, preview }) {
       <form className="greeting-form lunara-form" {...(preview ? { 'data-preview-form': '' } : { 'data-greeting-form': '' })}>
         <input type="hidden" name="slug" value={i.slug || ''} />
         <label><span>Nama</span><input name="guest_name" maxLength="120" required defaultValue={guestName !== 'Bapak/Ibu/Saudara/i' ? guestName : ''} placeholder="Nama Anda" /></label>
-        <div className="lunara-form-split"><label><span>Jumlah tamu</span><select name="guest_count" defaultValue="1"><option value="1">1 Orang</option><option value="2">2 Orang</option><option value="3">3 Orang</option><option value="4">4 Orang</option></select></label><label><span>Kehadiran</span><select name="attendance_status" required defaultValue=""><option value="" disabled>Pilih kehadiran</option><option value="attending">Hadir</option><option value="not_attending">Tidak Hadir</option><option value="unsure">Masih Ragu</option></select></label></div>
+        <div className="lunara-form-split">
+          <FormPicker label="Jumlah tamu" name="guest_count" defaultValue="1" options={[['1','1 Orang'],['2','2 Orang'],['3','3 Orang'],['4','4 Orang']]} />
+          <FormPicker label="Kehadiran" name="attendance_status" defaultValue="" placeholder="Pilih kehadiran" options={[['attending','Hadir'],['not_attending','Tidak Hadir'],['unsure','Masih Ragu']]} />
+        </div>
         <label><span>Ucapan & doa</span><textarea name="message" maxLength="500" required placeholder="Tuliskan doa hangat..." /><small><span data-message-count>0</span>/500</small></label>
         <button className="lunara-button" type="submit">Kirim Ucapan <AzureIcon name="azure-arrow" /></button><p className="form-feedback" data-form-feedback />
       </form>
@@ -244,6 +260,17 @@ function RsvpSection({ invitation: i, guestName, greetings, preview }) {
 }
 
 function AzureIcon({ name }) { return <svg><use href={`#${name}`} /></svg>; }
+function FormPicker({ label, name, options, defaultValue = '', placeholder = 'Pilih' }) {
+  const initial = options.find(([value]) => value === defaultValue)?.[1] || placeholder;
+  return <div className="lunara-field-picker" data-lunara-select>
+    <span className="lunara-field-label">{label}</span>
+    <input type="hidden" name={name} defaultValue={defaultValue} data-lunara-select-input />
+    <button className="lunara-select-trigger" type="button" data-lunara-select-trigger aria-haspopup="listbox" aria-expanded="false"><strong data-lunara-select-label>{initial}</strong><i aria-hidden="true" /></button>
+    <div className="lunara-select-options" role="listbox">
+      {options.map(([value, text]) => <button type="button" role="option" aria-selected={value === defaultValue ? 'true' : 'false'} data-lunara-select-option={value} key={value}><span>{text}</span><i aria-hidden="true" /></button>)}
+    </div>
+  </div>;
+}
 function AzureSymbols() {
   return <svg className="lunara-symbols"><defs>
     <symbol id="azure-arrow" viewBox="0 0 24 24"><path d="M5 12h13m-5-5 5 5-5 5" /></symbol>

@@ -84,9 +84,90 @@
         });
     }
 
-    root.querySelector('[data-lunara-bank]')?.addEventListener('change', (event) => {
+    const bankPicker = root.querySelector('[data-lunara-bank-picker]');
+    const bankTrigger = bankPicker?.querySelector('[data-lunara-bank-trigger]');
+    const bankLabel = bankPicker?.querySelector('[data-lunara-bank-label]');
+    const closeBankPicker = () => {
+        if (!bankPicker || !bankTrigger) return;
+        bankPicker.classList.remove('is-open');
+        bankTrigger.setAttribute('aria-expanded', 'false');
+    };
+    bankTrigger?.addEventListener('click', () => {
+        const opening = !bankPicker.classList.contains('is-open');
+        bankPicker.classList.toggle('is-open', opening);
+        bankTrigger.setAttribute('aria-expanded', String(opening));
+    });
+    bankPicker?.querySelectorAll('[data-lunara-bank-option]').forEach((option) => option.addEventListener('click', () => {
+        const selected = option.dataset.lunaraBankOption;
+        bankPicker.querySelectorAll('[data-lunara-bank-option]').forEach((item) => item.setAttribute('aria-selected', String(item === option)));
+        if (bankLabel) bankLabel.textContent = [...option.querySelectorAll('strong,small')].map((item) => item.textContent.trim()).filter(Boolean).join(' — ');
         root.querySelectorAll('[data-lunara-bank-card]').forEach((card) => {
-            card.hidden = card.dataset.lunaraBankCard !== event.target.value;
+            card.hidden = card.dataset.lunaraBankCard !== selected;
+        });
+        closeBankPicker();
+        bankTrigger?.focus();
+    }));
+    root.addEventListener('click', (event) => {
+        if (bankPicker && !bankPicker.contains(event.target)) closeBankPicker();
+    });
+    bankPicker?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeBankPicker();
+            bankTrigger?.focus();
+        }
+    });
+
+    const fieldPickers = [...root.querySelectorAll('[data-lunara-select]')];
+    const closeFieldPicker = (picker) => {
+        picker.classList.remove('is-open');
+        picker.querySelector('[data-lunara-select-trigger]')?.setAttribute('aria-expanded', 'false');
+    };
+    fieldPickers.forEach((picker) => {
+        const trigger = picker.querySelector('[data-lunara-select-trigger]');
+        const label = picker.querySelector('[data-lunara-select-label]');
+        const input = picker.querySelector('[data-lunara-select-input]');
+        const options = [...picker.querySelectorAll('[data-lunara-select-option]')];
+        trigger?.addEventListener('click', () => {
+            const opening = !picker.classList.contains('is-open');
+            fieldPickers.forEach((item) => closeFieldPicker(item));
+            picker.classList.toggle('is-open', opening);
+            trigger.setAttribute('aria-expanded', String(opening));
+        });
+        trigger?.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                picker.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+                options[0]?.focus();
+            }
+        });
+        options.forEach((option, index) => option.addEventListener('click', () => {
+            options.forEach((item) => item.setAttribute('aria-selected', String(item === option)));
+            if (input) {
+                input.value = option.dataset.lunaraSelectOption || '';
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (label) label.textContent = option.textContent.trim();
+            closeFieldPicker(picker);
+            trigger?.focus();
+        }));
+        picker.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeFieldPicker(picker);
+                trigger?.focus();
+            }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                const activeIndex = options.indexOf(document.activeElement);
+                if (activeIndex < 0) return;
+                event.preventDefault();
+                const direction = event.key === 'ArrowDown' ? 1 : -1;
+                options[(activeIndex + direction + options.length) % options.length]?.focus();
+            }
+        });
+    });
+    root.addEventListener('click', (event) => {
+        fieldPickers.forEach((picker) => {
+            if (!picker.contains(event.target)) closeFieldPicker(picker);
         });
     });
 
