@@ -27,7 +27,13 @@ export async function orderByCode(env, code) {
 
 export async function invitationByToken(env, token) {
   const db = database(env);
-  return one(db.from('invitation_details').select('*').eq('editor_token', token), 'Akses editor tidak valid.');
+  const invitation = await one(db.from('invitation_details').select('*').eq('editor_token', token), 'Akses editor tidak valid.');
+  if (invitation.payment_status !== 'paid' || invitation.order_status === 'waiting_payment') {
+    const error = new Error('Pembayaran harus diselesaikan sebelum membuka editor.');
+    error.status = 402;
+    throw error;
+  }
+  return invitation;
 }
 
 export async function publishedInvitation(env, slug) {

@@ -2,6 +2,7 @@ name = "daymoment"
 main = "worker/index.js"
 compatibility_date = "2026-09-16"
 compatibility_flags = ["nodejs_compat"]
+keep_vars = true
 
 [assets]
 directory = "./dist"
@@ -14,11 +15,12 @@ binding = "MEDIA"
 bucket_name = "daymoment-media"
 preview_bucket_name = "daymoment-media-preview"
 
-[vars]
-APP_URL = "http://localhost:8080"
-SUPABASE_URL = ""
-
-# Tambahkan secret melalui CLI, jangan simpan nilainya di file ini:
+# Variable production dipasang melalui Worker > Settings > Variables and Secrets.
+# Konfigurasi lokal tetap dibaca dari .dev.vars yang tidak masuk Git.
+# Tambahkan secret melalui dashboard atau CLI, jangan simpan nilainya di file ini:
 # npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 # npx wrangler secret put MIDTRANS_SERVER_KEY
 # npx wrangler secret put MIDTRANS_CLIENT_KEY
+# npx wrangler secret put SMTP_USER
+# npx wrangler secret put SMTP_APP_PASSWORD
+# SMTP_HOST, SMTP_PORT, dan SMTP_FROM_NAME memakai nilai default dari aplikasi.

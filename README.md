@@ -30,6 +30,8 @@ Butuh Node.js 20 atau lebih baru, akun Cloudflare, dan project Supabase.
 
    File `schema.sql` membuat ulang tabel dan bersifat destruktif. Gunakan hanya pada database baru atau setelah backup.
 
+   Jika database sudah dibuat sebelum integrasi Midtrans Snap, jangan jalankan ulang `schema.sql`. Jalankan sekali `database/migrations/2026_09_17_midtrans_snap.sql`.
+
 3. Buat bucket R2:
 
    ```bash
@@ -47,6 +49,11 @@ Butuh Node.js 20 atau lebih baru, akun Cloudflare, dan project Supabase.
    MIDTRANS_SERVER_KEY=
    MIDTRANS_CLIENT_KEY=
    MIDTRANS_IS_PRODUCTION=false
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=email-pengirim@gmail.com
+   SMTP_APP_PASSWORD=app-password-16-karakter
+   SMTP_FROM_NAME=Daymoment by Daysheet Group
    ```
 
    Salin `.env.example` menjadi `.env.local`, lalu isi `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dari Supabase Project Settings. Keduanya memang aman digunakan browser dan hanya mendapat akses baca yang dibatasi RLS. Jangan pernah memasukkan service-role key ke variabel `VITE_*`.
@@ -59,7 +66,13 @@ Butuh Node.js 20 atau lebih baru, akun Cloudflare, dan project Supabase.
    npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
    npx wrangler secret put MIDTRANS_SERVER_KEY
    npx wrangler secret put MIDTRANS_CLIENT_KEY
+   npx wrangler secret put SMTP_USER
+   npx wrangler secret put SMTP_APP_PASSWORD
    ```
+
+   Pembayaran memakai Midtrans Snap. Worker membuat Snap token dengan Server Key, memverifikasi status langsung ke Midtrans, dan menerima notifikasi pada `/api/payments/midtrans/notification`. Editor hanya dapat diakses setelah status pembayaran `paid`.
+
+   Email konfirmasi order dikirim langsung melalui Gmail SMTP TLS port 465. Aktifkan 2-Step Verification pada akun Google, buat App Password khusus Daymoment, lalu simpan App Password hanya di `.dev.vars` atau Cloudflare Secret. Jangan memakai password Gmail utama.
 
 6. Ganti `APP_URL` di `wrangler.toml` menjadi URL production, misalnya `https://daymoment.example.com` atau URL `workers.dev` yang diberikan Cloudflare.
 

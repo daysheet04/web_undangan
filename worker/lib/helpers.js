@@ -17,6 +17,10 @@ export function validPhone(value) {
   return /^(?:\+62|62|0)8[1-9][0-9]{6,12}$/.test(String(value ?? '').replace(/[\s().-]/g, ''));
 }
 
+export function validEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim()) && String(value ?? '').trim().length <= 254;
+}
+
 export function randomHex(bytes = 24) {
   const values = crypto.getRandomValues(new Uint8Array(bytes));
   return [...values].map((value) => value.toString(16).padStart(2, '0')).join('');
