@@ -28,6 +28,13 @@ app.route('/api', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'daymoment', runtime: 'cloudflare-workers' }));
 
+app.get('/admin', async (c) => {
+  const response = await c.env.ASSETS.fetch(c.req.raw);
+  const headers = new Headers(response.headers);
+  headers.set('cache-control', 'no-store, max-age=0, must-revalidate');
+  return new Response(response.body, { status: response.status, headers });
+});
+
 app.get('/media/*', async (c) => {
   const key = decodeURIComponent(c.req.path.replace(/^\/media\//, ''));
   const object = await c.env.MEDIA.get(key);

@@ -7,7 +7,7 @@ import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
 
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
-  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css',script:'/assets/js/templates/puspa-jawi.js'},
+  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20260918-1',script:'/assets/js/templates/puspa-jawi.js'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260917-6',script:'/assets/js/templates/lunara-azure.js?v=20260917-6'}
 };
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -26,7 +26,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   const activeCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||'puspa_jawi';
   const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi;
   useDocumentTitle(runtime.title);
-  useHeadLinks([runtime.font,'/assets/css/templates/base.css',runtime.css]);
+  useHeadLinks([runtime.font,'/assets/css/templates/base.css?v=20260918-1',runtime.css]);
   useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js',runtime.script],!state.loading&&!state.error);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
   if(state.loading)return <Loading/>; if(state.error)return <ErrorState error={state.error}/>;

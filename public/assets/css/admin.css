@@ -401,6 +401,12 @@ body.admin-page:has(.admin-detail-panel) main::before { position: fixed; z-index
 .admin-view-fee-report .report-table tbody tr:hover { background: #f2f8f4; }
 .admin-view-fee-report .report-table td:first-child { color: #102b4a; font-weight: 800; }
 @media (max-width: 700px) { .admin-view-fee-report .admin-panel-heading { align-items: stretch; flex-direction: column; } .admin-view-fee-report .admin-report-panel { padding: 17px; } }
+@media (max-width: 700px) {
+	.admin-view-fee-report .admin-report-panel > div[style] { grid-template-columns: minmax(0, 1fr) !important; }
+	.admin-view-fee-report .admin-report-panel > div[style] > aside { width: 100%; }
+	.admin-fee-inline-edit { width: 100%; align-items: stretch; flex-direction: column; }
+	.admin-fee-inline-edit .referral-editor { width: 100%; }
+}
 @media print {
 	@page { size: A4 portrait; margin: 14mm; }
 	body.admin-page .admin-shell { width: 100%; max-width: none; }
