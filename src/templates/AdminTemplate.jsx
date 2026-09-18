@@ -4,7 +4,7 @@ import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 export default function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment', sidebar }) {
   useBodyClass('admin-page');
   useDocumentTitle(title);
-  useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css?v=20260918-9']);
+  useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css?v=20260918-10']);
   useEffect(() => {
     window.showToast = (message, type = 'success') => {
       const region = document.getElementById('toastRegion');
