@@ -348,6 +348,11 @@ body.admin-page:has(.admin-detail-panel) main::before { position: fixed; z-index
 @media (max-width: 899px) { .admin-sidebar-nav button, .admin-view-tabs button { position: relative; z-index: 1; pointer-events: auto; } }
 @media (max-width: 560px) {
 	.admin-view-fee, .admin-view-fee-report { display: block !important; }
+	.fee-mobile-menu-toggle { position: fixed; z-index: 250; top: 16px; left: 14px; display: grid; }
+	body.admin-page:has(.admin-view-fee) .admin-template-header, body.admin-page:has(.admin-view-fee-report) .admin-template-header { position: static; display: flex; width: 100%; min-height: 72px; padding: 16px 14px; color: inherit; background: transparent; border: 0; box-shadow: none; }
+	body.admin-page:has(.admin-view-fee) .admin-sidebar-nav, body.admin-page:has(.admin-view-fee-report) .admin-sidebar-nav { display: none !important; }
+	body.admin-page.fee-mobile-menu-open .admin-template-header { position: fixed; z-index: 400; top: 12px; right: 12px; bottom: 12px; left: 12px; display: block; width: auto; min-height: 0; padding: 26px 20px; overflow: auto; color: #fff; background: var(--brand-dark); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; box-shadow: 0 24px 70px rgba(16,43,74,.35); }
+	body.admin-page.fee-mobile-menu-open .admin-sidebar-nav { position: static; display: flex !important; flex-direction: column; gap: 6px; padding: 36px 0 0; }
 	.admin-view-fee > .admin-heading, .admin-view-fee-report > .admin-heading { display: flex !important; }
 	.admin-view-fee .admin-fee-management-panel, .admin-view-fee-report .admin-report-panel { display: block !important; width: 100%; margin-bottom: 20px; }
 	.admin-view-fee-report .admin-report-panel > div[style] { display: block !important; }
