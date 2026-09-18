@@ -10,8 +10,12 @@ import publicRoutes from './routes/public.js';
 const app = new Hono();
 
 app.use('*', secureHeaders());
+app.use('*', async (c, next) => {
+  if (c.env.ADMIN_HOST_MODE === 'true' && c.req.path === '/') return c.redirect('/admin');
+  return next();
+});
 app.use('/api/*', cors({
-  origin: ['http://localhost:8080', 'http://localhost:5173'],
+  origin: (origin) => origin || 'http://localhost:8080',
   allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
   credentials: true,

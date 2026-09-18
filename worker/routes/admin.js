@@ -102,26 +102,64 @@ async function adminOrders(env) {
   if (!hasRealSupabaseConfig(env)) return demoOrders();
   const db = database(env);
   const [orderResult, invitationResult, paymentResult] = await Promise.all([
-    db.from('order_details').select('*').order('created_at', { ascending: false }),
+    db.from('orders').select('*').order('created_at', { ascending: false }),
     db.from('invitations').select('order_id,is_active,active_until,slug,published_at'),
-    db.from('payments').select('order_id,amount,status,paid_at'),
+    db.from('payments').select('order_id,amount,status,paid_at,gateway,transaction_id,gateway_order_id'),
   ]);
   if (orderResult.error) throw orderResult.error;
   if (invitationResult.error) throw invitationResult.error;
   if (paymentResult.error) throw paymentResult.error;
+
+  const templateIds = [...new Set((orderResult.data || []).map((order) => order.template_id).filter(Boolean))];
+  const packageIds = [...new Set((orderResult.data || []).map((order) => order.package_id).filter(Boolean))];
+  const templateMap = new Map();
+  const packageMap = new Map();
+
+  if (templateIds.length) {
+    const { data: templateData, error: templateError } = await db.from('templates').select('id,code,name,category').in('id', templateIds);
+    if (templateError) throw templateError;
+    (templateData || []).forEach((item) => templateMap.set(item.id, item));
+  }
+
+  if (packageIds.length) {
+    const { data: packageData, error: packageError } = await db.from('template_packages').select('id,code,name,price,gallery_limit,has_music,has_gift,has_wishes').in('id', packageIds);
+    if (packageError) throw packageError;
+    (packageData || []).forEach((item) => packageMap.set(item.id, item));
+  }
+
   const invitations = new Map((invitationResult.data || []).map((item) => [item.order_id, item]));
   const payments = new Map((paymentResult.data || []).map((item) => [item.order_id, item]));
-  return (orderResult.data || []).map((order) => ({
-    ...order,
-    website_active: order.payment_status === 'paid' && invitations.get(order.id)?.is_active !== false && (!invitations.get(order.id)?.active_until || new Date(invitations.get(order.id).active_until) > new Date()),
-    active_until: invitations.get(order.id)?.active_until || null,
-    slug: invitations.get(order.id)?.slug || null,
-    published_at: invitations.get(order.id)?.published_at || null,
-    payment_amount: Number(payments.get(order.id)?.amount || order.package_price || 0),
-    payment_record_status: payments.get(order.id)?.status || order.payment_record_status,
-    paid_at: payments.get(order.id)?.paid_at || null,
-    editor_url: order.payment_status === 'paid' && order.editor_token ? `/edit/${order.editor_token}` : null,
-  }));
+  return (orderResult.data || []).map((order) => {
+    const template = templateMap.get(order.template_id) || {};
+    const packageInfo = packageMap.get(order.package_id) || {};
+    const payment = payments.get(order.id) || {};
+    const invitation = invitations.get(order.id) || {};
+    const packagePrice = Number(packageInfo.price ?? order.package_price ?? 0);
+    return {
+      ...order,
+      template_code: template.code || null,
+      template_name: template.name || null,
+      template_category: template.category || null,
+      package_code: packageInfo.code || null,
+      package_name: packageInfo.name || null,
+      package_price: packagePrice,
+      gallery_limit: packageInfo.gallery_limit ?? null,
+      has_music: Boolean(packageInfo.has_music),
+      has_gift: Boolean(packageInfo.has_gift),
+      has_wishes: Boolean(packageInfo.has_wishes),
+      website_active: order.payment_status === 'paid' && invitation.is_active !== false && (!invitation.active_until || new Date(invitation.active_until) > new Date()),
+      active_until: invitation.active_until || null,
+      slug: invitation.slug || null,
+      published_at: invitation.published_at || null,
+      payment_amount: Number(payment.amount || packagePrice || 0),
+      payment_record_status: payment.status || order.payment_record_status,
+      paid_at: payment.paid_at || null,
+      gateway: payment.gateway || null,
+      transaction_id: payment.transaction_id || null,
+      gateway_order_id: payment.gateway_order_id || null,
+      editor_url: order.payment_status === 'paid' && order.editor_token ? `/edit/${order.editor_token}` : null,
+    };
+  });
 }
 
 admin.get('/admin/summary', async (c) => {
@@ -164,6 +202,44 @@ admin.get('/admin/orders', async (c) => {
   return c.json({ ok: true, orders: await adminOrders(c.env), mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
 });
 
+admin.get('/admin/templates', async (c) => {
+  const templates = await activeTemplates(c.env);
+  return c.json({ ok: true, templates, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+});
+
+admin.patch('/admin/templates/:templateCode/packages/:packageCode/price', async (c) => {
+  const input = await c.req.json().catch(() => ({}));
+  const price = Math.max(0, Number(input.price ?? 0));
+  if (!Number.isFinite(price)) {
+    return c.json({ ok: false, message: 'Harga paket tidak valid.' }, 400);
+  }
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const state = globalThis.__daymoment_demo_state__ || { orders: new Map(), templates: null };
+    const template = (state.templates || []).find((item) => item.code === c.req.param('templateCode'));
+    if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+    const selectedPackage = template.template_packages?.find((item) => item.code === c.req.param('packageCode'));
+    if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
+    selectedPackage.price = Math.round(price);
+    if (template.packages) {
+      const packageMatch = template.packages.find((item) => item.code === c.req.param('packageCode'));
+      if (packageMatch) packageMatch.price = Math.round(price);
+    }
+    return c.json({ ok: true, template_code: template.code, package_code: selectedPackage.code, price: Math.round(price) });
+  }
+
+  const db = database(c.env);
+  const { data: template, error: templateError } = await db.from('templates').select('id').eq('code', c.req.param('templateCode')).maybeSingle();
+  if (templateError) throw templateError;
+  if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+  const { data: selectedPackage, error: packageError } = await db.from('template_packages').select('id').eq('template_id', template.id).eq('code', c.req.param('packageCode')).maybeSingle();
+  if (packageError) throw packageError;
+  if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
+  const { error } = await db.from('template_packages').update({ price: Math.round(price) }).eq('id', selectedPackage.id);
+  if (error) throw error;
+  return c.json({ ok: true, template_code: template.code, package_code: selectedPackage.code, price: Math.round(price) });
+});
+
 admin.patch('/admin/orders/:code/website', async (c) => {
   const input = await c.req.json().catch(() => ({}));
   const active = input.active === true;
@@ -193,9 +269,15 @@ admin.patch('/admin/orders/:code/referral', async (c) => {
     order.referral_amount = referralAmount;
     return c.json({ ok: true, referral_name: referralName, referral_amount: referralAmount });
   }
-  const { error } = await database(c.env).from('orders').update({ referral_name: referralName || null, referral_amount: referralAmount }).eq('order_code', c.req.param('code'));
+  const db = database(c.env);
+  const { data: updated, error } = await db.from('orders')
+    .update({ referral_name: referralName || null, referral_amount: referralAmount })
+    .eq('order_code', c.req.param('code'))
+    .select('order_code,referral_name,referral_amount')
+    .maybeSingle();
   if (error) throw error;
-  return c.json({ ok: true, referral_name: referralName, referral_amount: referralAmount });
+  if (!updated) return c.json({ ok: false, message: 'Invoice tidak ditemukan di database.' }, 404);
+  return c.json({ ok: true, order_code: updated.order_code, referral_name: updated.referral_name || '', referral_amount: Number(updated.referral_amount || 0) });
 });
 
 export default admin;

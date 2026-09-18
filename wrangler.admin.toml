@@ -1,0 +1,20 @@
+name = "admin"
+main = "worker/index.js"
+compatibility_date = "2026-09-16"
+compatibility_flags = ["nodejs_compat"]
+keep_vars = true
+
+[vars]
+ADMIN_HOST_MODE = "true"
+SUPABASE_URL = "https://jhdzitzatdudigapxpff.supabase.co"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/media/*", "/"]
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "daymoment-media"
+preview_bucket_name = "daymoment-media-preview"

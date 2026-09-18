@@ -53,7 +53,7 @@ export function hasRealSupabaseConfig(env) {
 
 export async function activeTemplates(env) {
   if (!hasRealSupabaseConfig(env)) {
-    return normalizeTemplates(FALLBACK_TEMPLATES);
+    return normalizeTemplates(demoTemplates());
   }
 
   try {
@@ -78,8 +78,15 @@ export async function templateByCode(env, code) {
 }
 
 function demoState() {
-  globalThis.__daymoment_demo_state__ = globalThis.__daymoment_demo_state__ || { orders: new Map() };
+  globalThis.__daymoment_demo_state__ = globalThis.__daymoment_demo_state__ || { orders: new Map(), templates: null };
+  if (!globalThis.__daymoment_demo_state__.templates) {
+    globalThis.__daymoment_demo_state__.templates = JSON.parse(JSON.stringify(FALLBACK_TEMPLATES));
+  }
   return globalThis.__daymoment_demo_state__;
+}
+
+export function demoTemplates() {
+  return demoState().templates;
 }
 
 export async function orderByCode(env, code) {

@@ -1,15 +1,29 @@
-const API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const configuredApiBase = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const pointsToLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredApiBase);
+const API_BASE = import.meta.env.DEV || pointsToLocalhost ? '' : configuredApiBase;
+
+function apiUrl(path) {
+  const normalizedPath = String(path).startsWith('/') ? String(path) : `/${path}`;
+  return API_BASE ? `${API_BASE}${normalizedPath}` : normalizedPath;
+}
 
 export async function api(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(apiUrl(path), {
+      ...options,
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        ...options.headers,
+      },
+    });
+  } catch (failure) {
+    const error = new Error('Server belum terhubung. Jalankan Worker API di port 8789 lalu coba lagi.');
+    error.cause = failure;
+    throw error;
+  }
   const type = response.headers.get('content-type') || '';
   const result = type.includes('application/json') ? await response.json() : { message: await response.text() };
   if (!response.ok || result?.ok === false) {

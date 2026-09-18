@@ -8,12 +8,14 @@
     "dev:worker": "wrangler dev --local --port 8789",
     "build": "vite build",
     "deploy": "npm run build && wrangler deploy",
+    "deploy:admin": "npm run build && wrangler deploy --config wrangler.admin.toml",
     "cf-typegen": "wrangler types",
     "optimize:template-assets": "node scripts/optimize-template-assets.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "hono": "^4.9.7",
+    "jspdf": "^4.2.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

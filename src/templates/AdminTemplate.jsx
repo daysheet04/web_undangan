@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 
-export default function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment' }) {
+export default function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment', sidebar }) {
   useBodyClass('admin-page');
   useDocumentTitle(title);
   useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css']);
@@ -24,6 +24,7 @@ export default function AdminTemplate({ children, title = 'Admin Dashboard — D
         <span><strong>Daymoment</strong><small>Admin workspace</small></span>
       </a>
       <span className="admin-template-label">Private workspace</span>
+      {sidebar}
     </header>
     <main>{children}</main>
     <div className="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true" />
