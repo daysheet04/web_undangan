@@ -10,7 +10,7 @@ Tampilan dan alur Puspa Jawi dipertahankan dari versi PHP: katalog, preview pake
 - Hono/JavaScript untuk backend Node-compatible di Cloudflare Workers.
 - Supabase PostgreSQL untuk seluruh data relasional.
 - Supabase Realtime untuk memperbarui undangan dan ucapan tanpa refresh manual.
-- Cloudflare R2 untuk foto cover, foto mempelai, galeri, dan musik.
+- Cloudflare R2 untuk gasfoto cover, foto mempelai, galeri, dan musik.
 - Workers Static Assets untuk HTML, CSS, JavaScript, gambar template, dan SPA routing.
 
 ## Persiapan

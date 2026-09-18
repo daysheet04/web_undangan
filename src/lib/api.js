@@ -3,6 +3,7 @@ const API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, 
 export async function api(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    credentials: 'include',
     headers: {
       Accept: 'application/json',
       ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
@@ -22,6 +23,7 @@ export async function api(path, options = {}) {
 
 export const get = (path) => api(path);
 export const post = (path, data) => api(path, { method: 'POST', body: data instanceof FormData ? data : JSON.stringify(data) });
+export const patch = (path, data) => api(path, { method: 'PATCH', body: JSON.stringify(data) });
 
 export function money(value) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));

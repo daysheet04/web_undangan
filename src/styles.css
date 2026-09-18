@@ -13,3 +13,6 @@
   background: #fff;
   box-shadow: 0 22px 70px rgba(16, 34, 55, .08);
 }
+.app-error h1 { margin: 8px 0; color: var(--brand-dark); font-family: var(--font-display); }
+.app-error p { color: var(--muted); }
+.app-error pre { overflow: auto; margin-top: 20px; padding: 14px; color: #842b35; border-radius: 10px; background: #fff0f1; font-size: .72rem; text-align: left; white-space: pre-wrap; }

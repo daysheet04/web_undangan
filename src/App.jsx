@@ -7,11 +7,13 @@ import PaymentPage from './pages/PaymentPage.jsx';
 import BuilderPage from './pages/BuilderPage.jsx';
 import SuccessPage from './pages/SuccessPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 
 export default function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   let match;
   if (path === '/') return <HomePage />;
+  if (path === '/admin') return <AdminPage />;
   if (path === '/order') return <OrderPage />;
   if ((match = path.match(/^\/template\/([a-z0-9_]+)$/))) {
     return new URLSearchParams(window.location.search).get('embed') === '1'

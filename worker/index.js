@@ -4,6 +4,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import catalog from './routes/catalog.js';
 import orders from './routes/orders.js';
 import editor from './routes/editor.js';
+import admin from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 
 const app = new Hono();
@@ -11,12 +12,14 @@ const app = new Hono();
 app.use('*', secureHeaders());
 app.use('/api/*', cors({
   origin: ['http://localhost:8080', 'http://localhost:5173'],
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
+  credentials: true,
 }));
 app.route('/api', catalog);
 app.route('/api', orders);
 app.route('/api', editor);
+app.route('/api', admin);
 app.route('/api', publicRoutes);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'daymoment', runtime: 'cloudflare-workers' }));

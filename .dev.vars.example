@@ -1,0 +1,12 @@
+SUPABASE_URL=https://PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=service-role-key
+APP_URL=http://localhost:8080
+ADMIN_PASSWORD=change-this-admin-password
+MIDTRANS_SERVER_KEY=
+MIDTRANS_CLIENT_KEY=
+MIDTRANS_IS_PRODUCTION=false
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=email-pengirim@gmail.com
+SMTP_APP_PASSWORD=app-password-16-karakter
+SMTP_FROM_NAME=Daymoment by Daysheet Group

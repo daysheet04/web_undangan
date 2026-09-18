@@ -1,23 +1,55 @@
 import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
-import { activeTemplates, invitationByToken, invitationExtras, templateByCode } from '../lib/repositories.js';
+import { activeTemplates, hasRealSupabaseConfig, invitationByToken, invitationExtras, templateByCode } from '../lib/repositories.js';
 
 const editor = new Hono();
+const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
+
+function demoInvitationByToken(token) {
+  const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === token);
+  if (!order) return null;
+  return {
+    id: `demo-${order.order_code}`,
+    editor_token: order.editor_token,
+    order_id: order.order_id || order.id,
+    order_status: 'editing',
+    payment_status: 'paid',
+    template_id: order.template_id,
+    template_code: order.template_code,
+    template_name: order.template_name,
+    template_category: order.template_category,
+    package_id: order.package_id,
+    package_code: order.package_code,
+    package_name: order.package_name,
+    package_price: order.package_price,
+    has_music: Boolean(order.package_has_music || order.has_music),
+    has_gift: Boolean(order.package_has_gift || order.has_gift),
+    has_wishes: Boolean(order.package_has_wishes || order.has_wishes),
+    gallery_limit: order.gallery_limit || 2,
+    slug: order.slug || 'demo-undangan',
+    customer_name: order.customer_name,
+    customer_email: order.customer_email,
+    customer_phone: order.customer_phone,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    published_at: null,
+  };
+}
 
 async function slugState(env, input, invitationId) {
   const slug = normalizeSlug(input);
   let message = null;
   if (!slug) message = 'URL undangan wajib diisi.';
   else if (RESERVED_SLUGS.has(slug)) message = 'URL tersebut dipakai oleh sistem.';
-  else {
+  else if (hasRealSupabaseConfig(env)) {
     const db = database(env);
     const { count, error } = await db.from('invitations').select('id', { count: 'exact', head: true }).eq('slug', slug).neq('id', invitationId);
     if (error) throw error;
     if (count) message = 'URL tersebut sudah digunakan.';
   }
   const suggestions = [];
-  if (message) {
+  if (message && hasRealSupabaseConfig(env)) {
     const base = RESERVED_SLUGS.has(slug) ? `${slug}-kami` : (slug || 'undangan');
     const db = database(env);
     for (let number = 2; suggestions.length < 3 && number < 20; number += 1) {
@@ -30,6 +62,21 @@ async function slugState(env, input, invitationId) {
 }
 
 editor.get('/editor/:token', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    const invitation = demoInvitationByToken(c.req.param('token'));
+    if (!invitation) return c.json({ ok: false, message: 'Akses editor tidak valid.' }, 404);
+    return c.json({
+      ok: true,
+      invitation,
+      media: [],
+      giftAccounts: [],
+      greetings: [],
+      invitees: [],
+      inviteeCount: 0,
+      templates: await activeTemplates(c.env),
+      appUrl: c.env.APP_URL,
+    });
+  }
   const invitation = await invitationByToken(c.env, c.req.param('token'));
   const extras = await invitationExtras(c.env, invitation.id);
   return c.json({ ok: true, invitation, ...extras, templates: await activeTemplates(c.env), appUrl: c.env.APP_URL });
@@ -47,8 +94,13 @@ editor.post('/invitation/autosave', async (c) => {
     else if (state.available) clean.slug = state.slug;
   }
   if (Object.keys(clean).length) {
+    if (!hasRealSupabaseConfig(c.env)) {
+      const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+      if (order) Object.assign(order, clean);
+    } else {
     const { error } = await database(c.env).from('invitations').update(clean).eq('id', invitation.id);
     if (error) throw error;
+    }
   }
   return c.json({ ok: true, message: 'Tersimpan', saved: clean, slug: slug?.slug || '', slug_available: slug?.available || false, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
 });
@@ -156,6 +208,25 @@ editor.post('/invitation/change-template', async (c) => {
   const template = await templateByCode(c.env, cleanText(input.template_code, 50));
   const selectedPackage = template.packages.find((item) => item.code === invitation.package_code);
   if (!selectedPackage) return c.json({ ok: false, message: 'Paket yang sama belum tersedia pada template ini.' }, 422);
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    if (order) {
+      Object.assign(order, {
+        template_id: template.id,
+        template_code: template.code,
+        template_name: template.name,
+        template_category: template.category,
+        package_id: selectedPackage.id,
+        package_name: selectedPackage.name,
+        package_price: selectedPackage.price,
+        gallery_limit: selectedPackage.gallery_limit,
+        has_music: selectedPackage.has_music,
+        has_gift: selectedPackage.has_gift,
+        has_wishes: selectedPackage.has_wishes,
+      });
+    }
+    return c.json({ ok: true, message: 'Template berhasil diganti tanpa mengubah data.', template: { code: template.code, name: template.name } });
+  }
   const { error } = await database(c.env).from('orders').update({ template_id: template.id, package_id: selectedPackage.id }).eq('id', invitation.order_id);
   if (error) throw error;
   return c.json({ ok: true, message: 'Template berhasil diganti tanpa mengubah data.', template: { code: template.code, name: template.name } });
@@ -178,6 +249,13 @@ editor.post('/invitation/publish', async (c) => {
   if (!slug.available) errors.slug = slug.message;
   else clean.slug = slug.slug;
   if (Object.keys(errors).length) return c.json({ ok: false, message: 'Lengkapi data yang masih belum valid.', errors, slug_suggestions: slug.suggestions }, 422);
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    if (order) {
+      Object.assign(order, clean, { slug: clean.slug, status: 'published', published_at: new Date().toISOString() });
+    }
+    return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', redirect: `/success/${invitation.editor_token}` });
+  }
   const db = database(c.env);
   const { error: invitationError } = await db.from('invitations').update({ ...clean, published_at: new Date().toISOString() }).eq('id', invitation.id);
   if (invitationError) throw invitationError;

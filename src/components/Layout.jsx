@@ -4,7 +4,7 @@ import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 export function Layout({ children, title, className = '' }) {
   useBodyClass(className);
   useDocumentTitle(title);
-  useHeadLinks(['/assets/css/app.css', ...(['homepage', 'order-page', 'preview-page'].includes(className) ? ['/assets/css/homepage.css'] : [])]);
+  useHeadLinks(['/assets/css/app.css', ...(['homepage', 'order-page', 'preview-page'].includes(className) ? ['/assets/css/homepage.css'] : []), ...(className === 'admin-page' ? ['/assets/css/admin.css'] : [])]);
   useEffect(() => {
     window.showToast = (message, type = 'success') => {
       const region = document.getElementById('toastRegion');

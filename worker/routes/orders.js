@@ -3,9 +3,12 @@ import { database } from '../lib/database.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
 import { sendOrderCreatedEmail, sendPaymentConfirmedEmail } from '../lib/email.js';
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
-import { orderByCode, templateByCode } from '../lib/repositories.js';
+import { hasRealSupabaseConfig, orderByCode, templateByCode } from '../lib/repositories.js';
 
 const orders = new Hono();
+const DEMO_ORDERS = new Map();
+globalThis.__daymoment_demo_state__ = globalThis.__daymoment_demo_state__ || { orders: DEMO_ORDERS };
+globalThis.__daymoment_demo_state__.orders = DEMO_ORDERS;
 
 function publicOrder(order) {
   const { editor_token: editorToken, customer_phone: _customerPhone, customer_email: _customerEmail, ...safe } = order;
@@ -82,6 +85,12 @@ async function applyPaymentStatus(env, order, payment, payload) {
   if (status === 'paid' && order.status === 'waiting_payment') orderUpdate.status = 'editing';
   const { error: orderError } = await db.from('orders').update(orderUpdate).eq('id', order.id);
   if (orderError) throw orderError;
+  if (status === 'paid') {
+    const activeUntil = new Date(paymentUpdate.paid_at);
+    activeUntil.setMonth(activeUntil.getMonth() + 2);
+    const { error: invitationError } = await db.from('invitations').update({ is_active: true, active_until: activeUntil.toISOString() }).eq('order_id', order.id);
+    if (invitationError) throw invitationError;
+  }
   return {
     status,
     redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null,
@@ -90,7 +99,12 @@ async function applyPaymentStatus(env, order, payment, payload) {
 }
 
 orders.post('/orders', async (c) => {
-  const input = await c.req.json();
+  let input;
+  try {
+    input = await c.req.json();
+  } catch (error) {
+    return c.json({ ok: false, message: 'Request body harus berupa JSON valid.' }, 400);
+  }
   const template = await templateByCode(c.env, cleanText(input.template_code, 50));
   const selectedPackage = template.packages.find((item) => item.code === cleanText(input.package_code, 30));
   const name = cleanText(input.customer_name, 120);
@@ -103,6 +117,31 @@ orders.post('/orders', async (c) => {
   if (!validEmail(email)) errors.customer_email = 'Masukkan alamat email yang valid.';
   if (input.agreement !== true && input.agreement !== '1') errors.agreement = 'Persetujuan data wajib dicentang.';
   if (Object.keys(errors).length) return c.json({ ok: false, message: 'Periksa kembali data pemesan.', errors }, 422);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const code = orderCode();
+    const editorToken = randomHex(32);
+    const order = {
+      id: `demo-${code}`,
+      order_code: code,
+      customer_name: name,
+      customer_phone: normalizePhone(phone),
+      customer_email: email,
+      editor_token: editorToken,
+      status: 'waiting_payment',
+      payment_status: 'pending',
+      template_id: template.id,
+      template_code: template.code,
+      template_name: template.name,
+      template_category: template.category,
+      package_id: selectedPackage.id,
+      package_code: selectedPackage.code,
+      package_name: selectedPackage.name,
+      package_price: selectedPackage.price,
+    };
+    DEMO_ORDERS.set(code, order);
+    return c.json({ ok: true, order: publicOrder(order), redirect: `/payment/${code}` }, 201);
+  }
 
   const db = database(c.env);
   const code = orderCode();
@@ -129,11 +168,52 @@ orders.post('/orders', async (c) => {
 });
 
 orders.get('/orders/:code', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = DEMO_ORDERS.get(c.req.param('code'));
+    if (!order) return c.json({ ok: false, message: 'Order demo tidak ditemukan.' }, 404);
+    return c.json({ ok: true, order: publicOrder(order) });
+  }
   const order = await orderByCode(c.env, c.req.param('code'));
   return c.json({ ok: true, order: publicOrder(order) });
 });
 
 orders.post('/orders/:code/payment-token', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = DEMO_ORDERS.get(c.req.param('code'));
+    if (!order) return c.json({ ok: false, message: 'Order demo tidak ditemukan.' }, 404);
+    if (order.payment_status === 'paid') return c.json({ ok: true, paid: true, redirect: `/edit/${order.editor_token}?payment=success` });
+    if (order.snap_token) {
+      return c.json({
+        ok: true,
+        token: order.snap_token,
+        redirectUrl: order.snap_redirect_url,
+        clientKey: c.env.MIDTRANS_CLIENT_KEY,
+        scriptUrl: String(c.env.MIDTRANS_IS_PRODUCTION || '').toLowerCase() === 'true'
+          ? 'https://app.midtrans.com/snap/snap.js'
+          : 'https://app.sandbox.midtrans.com/snap/snap.js',
+      });
+    }
+    const gatewayOrderId = `${order.order_code}-${Date.now().toString(36)}`.slice(0, 50);
+    const appUrl = String(c.env.APP_URL || new URL(c.req.url).origin).replace(/\/$/, '');
+    const snap = await createSnapTransaction(c.env, {
+      transaction_details: { order_id: gatewayOrderId, gross_amount: Math.round(Number(order.package_price)) },
+      item_details: [{
+        id: order.package_code,
+        price: Math.round(Number(order.package_price)),
+        quantity: 1,
+        name: `${order.template_name} - ${order.package_name}`.slice(0, 50),
+      }],
+      customer_details: { first_name: order.customer_name, email: order.customer_email, phone: order.customer_phone },
+      callbacks: { finish: `${appUrl}/payment/${order.order_code}` },
+      page_expiry: { duration: 24, unit: 'hour' },
+    });
+    Object.assign(order, {
+      gateway_order_id: gatewayOrderId,
+      snap_token: snap.token,
+      snap_redirect_url: snap.redirectUrl,
+    });
+    return c.json({ ok: true, ...snap });
+  }
   const order = await orderByCode(c.env, c.req.param('code'));
   if (order.payment_status === 'paid') return c.json({ ok: true, paid: true, redirect: `/edit/${order.editor_token}?payment=success` });
   const payment = await paymentForOrder(c.env, order.id);
@@ -179,6 +259,22 @@ orders.post('/orders/:code/payment-token', async (c) => {
 });
 
 orders.post('/orders/:code/payment-status', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = DEMO_ORDERS.get(c.req.param('code'));
+    if (!order) return c.json({ ok: false, message: 'Order demo tidak ditemukan.' }, 404);
+    if (order.payment_status === 'paid') return c.json({ ok: true, payment_status: 'paid', redirect: `/edit/${order.editor_token}?payment=success` });
+    if (!order.gateway_order_id) return c.json({ ok: true, payment_status: 'pending', redirect: null });
+    const payload = await transactionStatus(c.env, order.gateway_order_id);
+    const status = normalizedPaymentStatus(payload);
+    order.payment_status = status;
+    if (status === 'paid') {
+      order.status = 'editing';
+      const activeUntil = new Date();
+      activeUntil.setMonth(activeUntil.getMonth() + 2);
+      order.active_until = activeUntil.toISOString();
+    }
+    return c.json({ ok: true, payment_status: status, redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null });
+  }
   const order = await orderByCode(c.env, c.req.param('code'));
   if (order.payment_status === 'paid') {
     const payment = await paymentForOrder(c.env, order.id);
