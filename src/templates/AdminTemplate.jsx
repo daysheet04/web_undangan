@@ -19,7 +19,7 @@ export default function AdminTemplate({ children, title = 'Admin Dashboard — D
 
   return <>
     <header className="admin-template-header">
-      <a className="admin-template-brand" href="/admin" aria-label="Daymoment Admin">
+      <a className="admin-template-brand" href="/" aria-label="Daymoment Admin">
         <span className="admin-template-mark">D</span>
         <span><strong>Daymoment</strong><small>Admin workspace</small></span>
       </a>

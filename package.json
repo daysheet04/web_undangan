@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "dev:worker": "wrangler dev --local --port 8789",
+    "dev:admin": "vite --config vite.admin.config.js",
+    "dev:admin-worker": "wrangler dev --config wrangler.admin.toml --local --port 8790",
     "build": "vite build",
+    "build:admin": "vite build --config vite.admin.config.js",
+    "build:all": "npm run build && npm run build:admin",
     "deploy": "npm run build && wrangler deploy",
-    "deploy:admin": "npm run build && wrangler deploy --config wrangler.admin.toml",
+    "deploy:admin": "npm run build:admin && wrangler deploy --config wrangler.admin.toml",
+    "deploy:all": "npm run deploy && npm run deploy:admin",
     "cf-typegen": "wrangler types",
     "optimize:template-assets": "node scripts/optimize-template-assets.mjs"
   },

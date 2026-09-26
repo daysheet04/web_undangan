@@ -90,7 +90,16 @@ Jalankan frontend Vite pada terminal kedua:
 npm run dev
 ```
 
-Buka `http://localhost:8080`. Vite meneruskan `/api` dan `/media` ke Worker pada port 8787.
+Buka `http://localhost:8080`. Vite meneruskan `/api` dan `/media` ke Worker publik pada port 8789.
+
+Admin tetap berada di repository yang sama, tetapi sekarang mempunyai frontend dan Worker terpisah. Jalankan dua terminal tambahan:
+
+```bash
+npm run dev:admin-worker
+npm run dev:admin
+```
+
+Dashboard admin berjalan di `http://localhost:8081`, sedangkan API admin berjalan di port `8790`. Isi `ADMIN_PASSWORD` dan `PUBLIC_APP_URL=http://localhost:8080` di `.dev.vars`.
 
 ## Deploy Cloudflare
 
@@ -99,6 +108,21 @@ npm run deploy
 ```
 
 Perintah tersebut membangun React ke `dist`, kemudian Wrangler mengunggah bundle Worker beserta static assets. Route `/api/*` dan `/media/*` dijalankan oleh Worker; file tampilan dilayani langsung sebagai static assets agar tidak menghabiskan kuota request dinamis.
+
+Admin dibangun ke `dist-admin` dan memakai Worker entry tersendiri. Sebelum deploy admin pertama kali, pasang secret khusus Worker admin:
+
+```bash
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.admin.toml
+npx wrangler secret put ADMIN_PASSWORD --config wrangler.admin.toml
+npm run deploy:admin
+```
+
+Sesuaikan `PUBLIC_APP_URL` di `wrangler.admin.toml` jika domain website publik berubah. Untuk integrasi Git Cloudflare gunakan repository yang sama dengan dua konfigurasi deployment:
+
+- Publik: build command `npm run build`, deploy command `npx wrangler deploy`.
+- Admin: build command `npm run build:admin`, deploy command `npx wrangler deploy --config wrangler.admin.toml`.
+
+Aset admin tidak dimuat oleh pengunjung website publik, dan endpoint admin tidak tersedia melalui Worker publik.
 
 ## Struktur utama
 
@@ -109,6 +133,8 @@ public/assets/       CSS, animasi lama, gambar, dan ornamen Puspa Jawi
 database/schema.sql  Struktur PostgreSQL Supabase
 database/seed.sql    Template dan paket awal
 wrangler.toml        Konfigurasi Worker, assets, dan R2
+wrangler.admin.toml  Konfigurasi Worker dan static assets admin
+vite.admin.config.js Build frontend admin ke dist-admin
 ```
 
 ## Catatan migrasi data lama

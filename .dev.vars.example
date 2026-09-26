@@ -1,6 +1,7 @@
 SUPABASE_URL=https://PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=service-role-key
 APP_URL=http://localhost:8080
+PUBLIC_APP_URL=http://localhost:8080
 ADMIN_PASSWORD=change-this-admin-password
 MIDTRANS_SERVER_KEY=
 MIDTRANS_CLIENT_KEY=

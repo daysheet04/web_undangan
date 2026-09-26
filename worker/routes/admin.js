@@ -10,6 +10,12 @@ const encoder = new TextEncoder();
 
 globalThis.__daymoment_demo_state__ = DEMO_STATE;
 
+function publicAppUrl(env, path = '/') {
+  const base = String(env.PUBLIC_APP_URL || env.APP_URL || '').replace(/\/$/, '');
+  const normalizedPath = String(path).startsWith('/') ? String(path) : `/${path}`;
+  return base ? `${base}${normalizedPath}` : normalizedPath;
+}
+
 function base64Url(bytes) {
   return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -73,7 +79,7 @@ admin.use('/admin/*', async (c, next) => {
   return next();
 });
 
-function demoOrders() {
+function demoOrders(env) {
   return [...(DEMO_STATE.orders.values?.() || [])].map((order) => ({
     id: order.id,
     order_code: order.order_code,
@@ -92,14 +98,15 @@ function demoOrders() {
     active_until: order.active_until || null,
     slug: order.slug || null,
     published_at: order.published_at || null,
-    editor_url: order.payment_status === 'paid' && order.editor_token ? `/edit/${order.editor_token}` : null,
+    editor_url: order.payment_status === 'paid' && order.editor_token ? publicAppUrl(env, `/edit/${order.editor_token}`) : null,
+    website_url: order.slug ? publicAppUrl(env, `/${order.slug}`) : null,
     package_price: Number(order.package_price || 0),
     created_at: order.created_at || new Date().toISOString(),
   }));
 }
 
 async function adminOrders(env) {
-  if (!hasRealSupabaseConfig(env)) return demoOrders();
+  if (!hasRealSupabaseConfig(env)) return demoOrders(env);
   const db = database(env);
   const [orderResult, invitationResult, paymentResult] = await Promise.all([
     db.from('orders').select('*').order('created_at', { ascending: false }),
@@ -157,7 +164,8 @@ async function adminOrders(env) {
       gateway: payment.gateway || null,
       transaction_id: payment.transaction_id || null,
       gateway_order_id: payment.gateway_order_id || null,
-      editor_url: order.payment_status === 'paid' && order.editor_token ? `/edit/${order.editor_token}` : null,
+      editor_url: order.payment_status === 'paid' && order.editor_token ? publicAppUrl(env, `/edit/${order.editor_token}`) : null,
+      website_url: invitation.slug ? publicAppUrl(env, `/${invitation.slug}`) : null,
     };
   });
 }
