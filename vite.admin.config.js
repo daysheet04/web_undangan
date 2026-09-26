@@ -6,12 +6,15 @@ export default defineConfig({
     react(),
     {
       name: 'daymoment-admin-html',
-      transformIndexHtml(html) {
-        return html
-          .replace('/src/main.jsx', '/src/admin-main.jsx')
-          .replace(/<meta name="description" content="[^"]*"\s*\/>/, '<meta name="description" content="Workspace privat untuk mengelola operasional Daymoment." />')
-          .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Admin — Private Workspace</title>')
-          .replace(/\s*<link rel="icon"[^>]+>/, '');
+      transformIndexHtml: {
+        order: 'pre',
+        handler(html) {
+          return html
+            .replace('/src/main.jsx', '/src/admin-main.jsx')
+            .replace(/<meta name="description" content="[^"]*"\s*\/>/, '<meta name="description" content="Workspace privat untuk mengelola operasional Daymoment." />')
+            .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Admin — Private Workspace</title>')
+            .replace(/\s*<link rel="icon"[^>]+>/, '');
+        },
       },
     },
   ],

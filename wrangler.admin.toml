@@ -6,7 +6,7 @@ keep_vars = true
 
 [vars]
 SUPABASE_URL = "https://jhdzitzatdudigapxpff.supabase.co"
-PUBLIC_APP_URL = "https://daymoment.daysheet04.workers.dev"
+PUBLIC_APP_URL = "https://daymoment.biz.id"
 
 [assets]
 directory = "./dist-admin"
