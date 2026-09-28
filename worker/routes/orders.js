@@ -85,12 +85,6 @@ async function applyPaymentStatus(env, order, payment, payload) {
   if (status === 'paid' && order.status === 'waiting_payment') orderUpdate.status = 'editing';
   const { error: orderError } = await db.from('orders').update(orderUpdate).eq('id', order.id);
   if (orderError) throw orderError;
-  if (status === 'paid') {
-    const activeUntil = new Date(paymentUpdate.paid_at);
-    activeUntil.setMonth(activeUntil.getMonth() + 2);
-    const { error: invitationError } = await db.from('invitations').update({ is_active: true, active_until: activeUntil.toISOString() }).eq('order_id', order.id);
-    if (invitationError) throw invitationError;
-  }
   return {
     status,
     redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null,
@@ -138,6 +132,8 @@ orders.post('/orders', async (c) => {
       package_code: selectedPackage.code,
       package_name: selectedPackage.name,
       package_price: selectedPackage.price,
+      is_active: false,
+      active_until: null,
     };
     DEMO_ORDERS.set(code, order);
     return c.json({ ok: true, order: publicOrder(order), redirect: `/payment/${code}` }, 201);
@@ -269,9 +265,6 @@ orders.post('/orders/:code/payment-status', async (c) => {
     order.payment_status = status;
     if (status === 'paid') {
       order.status = 'editing';
-      const activeUntil = new Date();
-      activeUntil.setMonth(activeUntil.getMonth() + 2);
-      order.active_until = activeUntil.toISOString();
     }
     return c.json({ ok: true, payment_status: status, redirect: status === 'paid' ? `/edit/${order.editor_token}?payment=success` : null });
   }

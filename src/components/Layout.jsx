@@ -29,5 +29,11 @@ export function Layout({ children, title, className = '' }) {
   </>;
 }
 
-export function Loading() { return <div className="app-loading"><p>Memuat Daymoment…</p></div>; }
+export function Loading({ showLabel = false }) {
+  return (
+    <div className="app-loading" role="status" aria-live="polite" aria-label="Sedang memuat">
+      {showLabel && <p>Memuat Daymoment…</p>}
+    </div>
+  );
+}
 export function ErrorState({ error }) { return <div className="app-error"><div><h1>Maaf, terjadi kesalahan.</h1><p>{error?.message || 'Data tidak dapat dimuat.'}</p><a href="/">Kembali ke beranda</a></div></div>; }

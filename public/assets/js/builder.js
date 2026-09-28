@@ -11,11 +11,13 @@
     const csrf = app.dataset.csrf;
     const token = app.dataset.token;
     const galleryLimit = Math.max(1, Number(app.dataset.galleryLimit) || 2);
-    let currentTemplate = app.dataset.template;
+    const currentTemplate = app.dataset.template;
+    const personalLinksAvailable = app.dataset.personalLinks === 'true';
+    const publicAppUrl = (app.dataset.appUrl || window.location.origin).replace(/\/$/, '');
+    const defaultPublishLabel = app.dataset.published === 'true' ? 'Simpan dan Lihat Undangan' : 'Selesai dan Publish';
     let currentStep = 0;
     let saveTimer;
     let savePromise = Promise.resolve();
-    let pendingTemplate = '';
 
     const fields = () => {
         const data = Object.fromEntries(new FormData(form).entries());
@@ -446,14 +448,20 @@
 
     const inviteeList = document.getElementById('inviteeList');
     const inviteeUrl = (guestName) => {
-        const slug = form.elements.slug.value.trim() || 'preview-undangan';
-        return `${window.location.origin}/${slug}?to=${encodeURIComponent(guestName)}`;
+        const slug = form.elements.slug.value.trim();
+        if (!personalLinksAvailable || !slug) return '';
+        return `${publicAppUrl}/${slug}?to=${encodeURIComponent(guestName)}`;
     };
     const refreshInvitees = () => {
         const rows = [...inviteeList.querySelectorAll('[data-guest-id]')];
         document.getElementById('inviteeCount').textContent = `${rows.length} nama tersimpan`;
         document.getElementById('inviteeEmpty').hidden = rows.length > 0;
-        rows.forEach((row) => { row.querySelector('input').value = inviteeUrl(row.dataset.guestName); });
+        const linksNotice = document.getElementById('inviteeLinksNotice');
+        if (linksNotice) linksNotice.hidden = personalLinksAvailable || rows.length === 0;
+        rows.forEach((row) => {
+            const input = row.querySelector('input');
+            if (input) input.value = inviteeUrl(row.dataset.guestName);
+        });
     };
     const createInviteeRow = (guest) => {
         const row = document.createElement('article');
@@ -468,14 +476,21 @@
         info.append(name, meta);
         const actions = document.createElement('div');
         actions.className = 'invitee-link';
-        const input = document.createElement('input');
-        input.readOnly = true;
-        input.value = inviteeUrl(guest.guest_name);
-        const copy = document.createElement('button');
-        copy.type = 'button'; copy.dataset.copyInvitee = ''; copy.textContent = 'Salin';
         const remove = document.createElement('button');
         remove.type = 'button'; remove.dataset.deleteInvitee = ''; remove.textContent = 'Hapus';
-        actions.append(input, copy, remove);
+        if (personalLinksAvailable) {
+            const input = document.createElement('input');
+            input.readOnly = true;
+            input.value = inviteeUrl(guest.guest_name);
+            const copy = document.createElement('button');
+            copy.type = 'button'; copy.dataset.copyInvitee = ''; copy.textContent = 'Salin';
+            actions.append(input, copy, remove);
+        } else {
+            actions.classList.add('invitee-link-locked');
+            const pending = document.createElement('span');
+            pending.textContent = 'Link tersedia setelah undangan dipublish dan aktif.';
+            actions.append(pending, remove);
+        }
         row.append(info, actions);
         return row;
     };
@@ -531,45 +546,6 @@
     });
     form.elements.slug?.addEventListener('input', refreshInvitees);
 
-    const dialog = document.getElementById('templateDialog');
-    document.querySelector('[data-open-template]').addEventListener('click', () => dialog.showModal());
-    document.querySelectorAll('[data-template-choice]').forEach((choice) => {
-        choice.addEventListener('click', () => {
-            pendingTemplate = choice.dataset.templateChoice;
-            document.querySelectorAll('[data-template-choice]').forEach((item) => item.classList.toggle('pending', item === choice));
-            document.getElementById('confirmTemplate').disabled = pendingTemplate === currentTemplate;
-        });
-    });
-    document.getElementById('confirmTemplate').addEventListener('click', async (event) => {
-        if (!pendingTemplate || pendingTemplate === currentTemplate) return;
-        const button = event.currentTarget;
-        const chosen = document.querySelector(`[data-template-choice="${pendingTemplate}"]`);
-        if (!window.confirm(`Gunakan template ${chosen.dataset.templateName}? Semua data akan tetap tersimpan.`)) return;
-        button.disabled = true;
-        button.textContent = 'Mengganti...';
-        try {
-            const response = await fetch('/api/invitation/change-template', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ _csrf: csrf, editor_token: token, template_code: pendingTemplate })
-            });
-            const result = await response.json();
-            if (!response.ok || !result.ok) throw new Error(result.message);
-            currentTemplate = result.template.code;
-            app.dataset.template = currentTemplate;
-            document.getElementById('previewTemplateName').textContent = result.template.name;
-            document.querySelectorAll('[data-template-choice]').forEach((item) => item.classList.toggle('selected', item.dataset.templateChoice === currentTemplate));
-            dialog.close();
-            reloadPreview();
-            window.showToast?.(result.message);
-        } catch (error) {
-            window.showToast?.(error.message || 'Template gagal diganti.', 'error');
-        } finally {
-            button.textContent = 'Gunakan Template';
-            button.disabled = false;
-        }
-    });
-
     document.getElementById('publishButton').addEventListener('click', async (event) => {
         const button = event.currentTarget;
         const errorBox = document.getElementById('publishErrors');
@@ -601,10 +577,26 @@
                 throw new Error(result.message || 'Data belum lengkap.');
             }
             button.textContent = 'Berhasil!';
-            window.location.href = result.redirect;
+            if (result.first_publish) {
+                const dialog = document.getElementById('publishActivationDialog');
+                const date = document.getElementById('publishActiveUntil');
+                const continueButton = document.getElementById('continueAfterPublish');
+                const goToSuccess = () => window.location.assign(result.redirect);
+                if (date) date.textContent = result.active_until_label || '-';
+                if (continueButton) continueButton.onclick = goToSuccess;
+                if (dialog && typeof dialog.showModal === 'function') {
+                    dialog.addEventListener('cancel', (cancelEvent) => {
+                        cancelEvent.preventDefault();
+                        goToSuccess();
+                    }, { once: true });
+                    dialog.showModal();
+                    return;
+                }
+            }
+            window.location.assign(result.redirect);
         } catch (error) {
             button.disabled = false;
-            button.textContent = 'Selesai dan Publish';
+            button.textContent = defaultPublishLabel;
             window.showToast?.(error.message || 'Undangan gagal diterbitkan.', 'error');
         }
     });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { get } from './api.js';
 
 export function useRemote(path, dependencies = []) {
@@ -44,14 +44,50 @@ export function useLegacyScripts(paths, ready = true) {
 }
 
 export function useHeadLinks(links) {
-  useEffect(() => {
-    const nodes = links.map((href) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-      return link;
+  const signature = links.filter(Boolean).join('|');
+  useLayoutEffect(() => {
+    let disposed = false;
+    // A route can switch from the fallback template stylesheet to the real
+    // invitation stylesheet after the API response arrives. Keep the boot
+    // veil up until the new set of links is ready; otherwise a refresh can
+    // briefly reveal raw, unstyled invitation markup.
+    document.documentElement.classList.remove('app-styles-ready');
+    const createdNodes = [];
+    const hrefs = [...new Set(links.filter(Boolean))];
+    const waits = hrefs.map((href) => new Promise((resolve) => {
+      let link = [...document.querySelectorAll('link[rel="stylesheet"]')]
+        .find((node) => node.getAttribute('href') === href);
+      if (link?.dataset.daymomentLoaded === 'true' || link?.sheet) {
+        resolve();
+        return;
+      }
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.dataset.daymomentStyle = 'true';
+        createdNodes.push(link);
+      }
+      const complete = () => {
+        link.dataset.daymomentLoaded = 'true';
+        resolve();
+      };
+      link.addEventListener('load', complete, { once: true });
+      link.addEventListener('error', complete, { once: true });
+      if (!link.isConnected) document.head.appendChild(link);
+    }));
+    const reveal = () => {
+      if (!disposed) document.documentElement.classList.add('app-styles-ready');
+    };
+    const fallback = window.setTimeout(reveal, 3500);
+    Promise.all(waits).then(() => {
+      window.clearTimeout(fallback);
+      reveal();
     });
-    return () => nodes.forEach((node) => node.remove());
-  }, [links.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      disposed = true;
+      window.clearTimeout(fallback);
+      createdNodes.forEach((node) => node.remove());
+    };
+  }, [signature]); // eslint-disable-line react-hooks/exhaustive-deps
 }

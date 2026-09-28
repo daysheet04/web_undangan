@@ -188,7 +188,7 @@ export default function AdminPage() {
     return () => document.removeEventListener('click', closeNotifications);
   }, []);
 
-  if (loading) return <AdminTemplate><Loading /></AdminTemplate>;
+  if (loading) return <AdminTemplate><Loading showLabel /></AdminTemplate>;
   if (error?.status === 401) return <AdminTemplate><AdminLogin onSuccess={reload} /></AdminTemplate>;
   if (error) return <AdminTemplate><ErrorState error={error} /></AdminTemplate>;
   const detailFilters = {

@@ -94,6 +94,19 @@ export async function orderByCode(env, code) {
   return one(db.from('order_details').select('*').eq('order_code', code), 'Order tidak ditemukan.');
 }
 
+function mergeInvitationOrder(invitation, order) {
+  return {
+    ...order,
+    ...invitation,
+    id: invitation.id,
+    order_id: invitation.order_id,
+    editor_token: order.editor_token,
+    order_code: order.order_code,
+    order_status: order.status,
+    payment_status: order.payment_status,
+  };
+}
+
 export async function invitationByToken(env, token) {
   if (!hasRealSupabaseConfig(env)) {
     const order = [...(demoState().orders.values?.() || [])].find((item) => item.editor_token === token);
@@ -129,6 +142,8 @@ export async function invitationByToken(env, token) {
       customer_email: order.customer_email,
       customer_phone: order.customer_phone,
       slug: order.slug || 'demo-undangan',
+      is_active: Boolean(order.is_active),
+      active_until: order.active_until || null,
       published_at: order.published_at || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -136,13 +151,14 @@ export async function invitationByToken(env, token) {
   }
 
   const db = database(env);
-  const invitation = await one(db.from('invitation_details').select('*').eq('editor_token', token), 'Akses editor tidak valid.');
-  if (invitation.payment_status !== 'paid' || invitation.order_status === 'waiting_payment') {
+  const order = await one(db.from('order_details').select('*').eq('editor_token', token), 'Akses editor tidak valid.');
+  if (order.payment_status !== 'paid' || order.status === 'waiting_payment') {
     const error = new Error('Pembayaran harus diselesaikan sebelum membuka editor.');
     error.status = 402;
     throw error;
   }
-  return invitation;
+  const invitation = await one(db.from('invitations').select('*').eq('order_id', order.id), 'Data undangan tidak ditemukan.');
+  return mergeInvitationOrder(invitation, order);
 }
 
 export async function publishedInvitation(env, slug) {
@@ -152,13 +168,14 @@ export async function publishedInvitation(env, slug) {
     throw error;
   }
   const db = database(env);
-  const invitation = await one(db.from('invitation_details').select('*').eq('slug', slug).eq('order_status', 'published').eq('is_active', true).not('published_at', 'is', null), 'Undangan yang Anda cari belum tersedia.');
+  const invitation = await one(db.from('invitations').select('*').eq('slug', slug).eq('is_active', true).not('published_at', 'is', null).not('active_until', 'is', null), 'Undangan yang Anda cari belum tersedia.');
   if (invitation.active_until && new Date(invitation.active_until) <= new Date()) {
     const error = new Error('Masa aktif undangan ini sudah berakhir.');
     error.status = 404;
     throw error;
   }
-  return invitation;
+  const order = await one(db.from('order_details').select('*').eq('id', invitation.order_id).eq('status', 'published'), 'Undangan yang Anda cari belum tersedia.');
+  return mergeInvitationOrder(invitation, order);
 }
 
 export async function invitationExtras(env, invitationId, { guestPage, guestLimit } = {}) {

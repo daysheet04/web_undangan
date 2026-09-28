@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Loading, ErrorState } from '../components/Layout.jsx';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { useInvitationRealtime } from '../lib/realtime.js';
@@ -8,7 +8,7 @@ import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
   puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20260918-1',script:'/assets/js/templates/puspa-jawi.js'},
-  lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Parisienne&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260917-6',script:'/assets/js/templates/lunara-azure.js?v=20260917-6'}
+  lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260927-14',script:'/assets/js/templates/lunara-azure.js?v=20260927-7'}
 };
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -23,18 +23,42 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   const query=useMemo(()=>new URLSearchParams(window.location.search),[]), token=query.get('token');
   const path=preview?(token?`/api/editor/${token}`:`/api/templates/${templateCode}`):`/api/invitations/${slug}${window.location.search}`;
   const state=useRemote(path,[path]);
+  const [submittedGreetings,setSubmittedGreetings]=useState([]);
+  const invitationKey=state.data?.invitation?.id||slug||templateCode||'';
+  useEffect(()=>setSubmittedGreetings([]),[invitationKey]);
+  useEffect(()=>{
+    if(preview)return undefined;
+    const receiveGreeting=(event)=>{
+      const greeting=event.detail?.greeting;
+      if(!greeting?.id)return;
+      setSubmittedGreetings((current)=>[greeting,...current.filter((item)=>item.id!==greeting.id)]);
+    };
+    window.addEventListener('daymoment:greeting-sent',receiveGreeting);
+    return ()=>window.removeEventListener('daymoment:greeting-sent',receiveGreeting);
+  },[preview]);
   const activeCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||'puspa_jawi';
   const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi;
   useDocumentTitle(runtime.title);
   useHeadLinks([runtime.font,'/assets/css/templates/base.css?v=20260918-1',runtime.css]);
-  useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js',runtime.script],!state.loading&&!state.error);
+  useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js?v=20260927-1',runtime.script],!state.loading&&!state.error);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
-  if(state.loading)return <Loading/>; if(state.error)return <ErrorState error={state.error}/>;
+  // Keep a small, styled shell visible while the invitation payload and its
+  // template stylesheet are loading. Returning null here made a hard refresh
+  // look like a broken/unstyled page (the boot screen could disappear before
+  // the API response arrived).
+  if(state.loading)return <InvitationLoading/>;
+  if(state.error)return <ErrorState error={state.error}/>;
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
   if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
-  else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];greetings=state.data.greetings||[];guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
+  else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];const seen=new Set();greetings=[...submittedGreetings,...(state.data.greetings||[])].filter((item)=>item?.id&&!seen.has(item.id)&&seen.add(item.id));guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
   const Template=activeCode==='lunara_azure'?LunaraAzureTemplate:PuspaJawi;
   return <Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/>;
+}
+
+function InvitationLoading(){
+  return <div className="invitation-loading" role="status" aria-label="Memuat undangan">
+    <span className="invitation-loading-mark" aria-hidden="true"/>
+  </div>;
 }
 
 function withFallbacks(value){const fallback=sample(value);for(const key of Object.keys(fallback)){if(value[key]===null||value[key]===undefined||String(value[key]).trim()==='')value={...value,[key]:fallback[key]};}return value}
@@ -68,5 +92,5 @@ function Person({type,photo,title,full,father,mother}){return <article className
 function EventCard({type,invitation:i}){const akad=type==='akad',date=i[`${type}_date`]||i.reception_date;return <article className={`jawi-event ${akad?'':'reception-event'} jawi-reveal`} data-reveal={akad?'left':'right'}><div className="event-icon"><span/></div><small>{akad?'Sakral & khidmat':'Dengan sukacita'}</small><h3>{akad?'Akad Nikah':'Resepsi'}</h3><time data-date-field={`${type}_date`}>{idDate(date)}</time><strong data-time-range={type}>{timeRange(i[`${type}_start_time`],i[`${type}_end_time`])}</strong><p data-live="venue_name">{i.venue_name||'Lokasi Acara'}</p><address data-live="venue_address">{i.venue_address||'Alamat lengkap akan diumumkan.'}</address><a className="jawi-button" data-live-href="maps_url" href={i.maps_url||'#'} target="_blank"><Icon name="jawi-map"/> Lihat Peta</a></article>}
 function GiftSection({accounts}){return <section className="jawi-section jawi-gift-section"><div className="gift-emblem"><img src={`${A}gunungan-line.svg`} alt=""/><span/></div><MovingClouds className="clouds-back"/><div className="gift-inner"><div className="jawi-heading jawi-reveal"><small>Tanda Kasih</small><h2>Wedding Gift</h2><p>Doa restu Anda adalah hadiah terindah. Apabila ingin mengirimkan tanda kasih, dapat melalui rekening berikut.</p></div>{accounts.length?<><div className="bank-picker jawi-reveal" data-bank-picker><input className="bank-picker-toggle" type="checkbox" id="bankPickerToggle"/><label className="bank-picker-summary" htmlFor="bankPickerToggle"><span>Pilih bank / e-wallet</span><strong data-bank-label>{accounts[0].provider}</strong><i/></label><div className="bank-picker-options">{accounts.map((a,index)=><button type="button" data-bank-value={index} aria-pressed={index===0} key={a.id||index}><span>{a.provider}</span>{a.label&&<small>{a.label}</small>}</button>)}</div></div><div className="gift-bank-stack">{accounts.map((a,index)=><div className="bank-card jawi-reveal" data-reveal="scale" data-gift-account-card={index} hidden={index>0} key={a.id||index}><span className="bank-chip"/><small>{a.provider}</small><strong data-account-number>{a.account_number}</strong><p>a.n. {a.account_name}</p>{a.label&&<em>{a.label}</em>}<button type="button" data-copy-account><Icon name="jawi-copy"/> Salin Nomor</button></div>)}</div></>:<div className="gift-empty jawi-reveal">Informasi amplop digital belum ditambahkan.</div>}</div><MovingClouds className="clouds-front"/></section>}
 function MovingClouds({className}){return <div className={`moving-clouds ${className}`}><div>{Array.from({length:6},(_,n)=><Cloud key={n}/>)}</div></div>}
-function RsvpSection({invitation:i,guestName,greetings,preview}){return <section className="jawi-section jawi-rsvp-section" id="rsvp"><div className="rsvp-ornament rsvp-ornament-left"><Cloud/></div><div className="rsvp-ornament rsvp-ornament-right"><Cloud/></div><div className="rsvp-shell"><div className="rsvp-emblem"><img src={`${A}gunungan-line.svg`} alt=""/></div><Heading small="Ucapan & Harapan" title="Turut Berbahagia"/>{preview&&<p className="preview-form-badge">Mode preview — form tidak mengirim data</p>}<form className="greeting-form jawi-form jawi-reveal" {...(preview?{'data-preview-form':''}:{'data-greeting-form':''})}><input type="hidden" name="slug" value={i.slug||''}/><label><span>Nama</span><input name="guest_name" maxLength="120" required defaultValue={guestName!=='Bapak/Ibu/Saudara/i'?guestName:''} placeholder="Nama Anda"/></label><div className="form-split"><CustomSelect caption="Jumlah tamu" name="guest_count" initial="1" label="1 Orang" options={[[1,'1 Orang'],[2,'2 Orang'],[3,'3 Orang'],[4,'4 Orang']]}/><CustomSelect caption="Kehadiran" name="attendance_status" initial="" label="Pilih kehadiran" options={[["attending",'Hadir'],['not_attending','Tidak Hadir'],['unsure','Masih Ragu']]}/></div><label><span>Ucapan & Doa</span><textarea name="message" maxLength="500" required placeholder="Tuliskan doa hangat..."/><small><span data-message-count>0</span>/500</small></label><button className="jawi-button" type="submit">Kirim Ucapan <Icon name="jawi-arrow"/></button><p className="form-feedback" data-form-feedback/></form><div className="greeting-list jawi-wishes" data-greeting-list>{greetings.length?greetings.map(g=><article className="greeting-item" key={g.id}><div className="greeting-head"><strong>{g.guest_name}</strong><small>{attendance(g.attendance_status)}</small></div><p>{g.message}</p></article>):<div className="greeting-empty" data-empty-greeting>Belum ada ucapan. Jadilah yang pertama mengirimkan doa hangat.</div>}</div></div></section>}
-function CustomSelect({caption,name,initial,label,options}){return <div className="jawi-custom-select form-choice" data-custom-select><span className="choice-caption">{caption}</span><input type="hidden" name={name} value={initial} readOnly/><button type="button" className="choice-trigger" data-choice-trigger aria-haspopup="listbox" aria-expanded="false"><span data-choice-label>{label}</span><i/></button><div className="choice-options" data-choice-options role="listbox" hidden>{options.map((v,index)=><button type="button" role="option" data-choice-value={v[0]} aria-selected={index===0&&initial!==''} key={v[0]}>{v[1]}</button>)}</div></div>}
+function RsvpSection({invitation:i,guestName,greetings,preview}){return <section className="jawi-section jawi-rsvp-section" id="rsvp"><div className="rsvp-ornament rsvp-ornament-left"><Cloud/></div><div className="rsvp-ornament rsvp-ornament-right"><Cloud/></div><div className="rsvp-shell"><div className="rsvp-emblem"><img src={`${A}gunungan-line.svg`} alt=""/></div><Heading small="Ucapan & Harapan" title="Turut Berbahagia"/>{preview&&<p className="preview-form-badge">Mode preview — form tidak mengirim data</p>}<form className="greeting-form jawi-form jawi-reveal" {...(preview?{'data-preview-form':''}:{'data-greeting-form':''})}><input type="hidden" name="slug" value={i.slug||''}/><div className="form-split"><label><span>Nama</span><input name="guest_name" maxLength="120" required defaultValue={guestName!=='Bapak/Ibu/Saudara/i'?guestName:''} placeholder="Nama Anda"/></label><CustomSelect caption="Kehadiran" name="attendance_status" initial="" label="Pilih kehadiran" options={[["attending",'Hadir'],['not_attending','Tidak Hadir'],['unsure','Masih Ragu']]}/></div><label><span>Ucapan & Doa</span><textarea name="message" maxLength="500" required placeholder="Tuliskan doa hangat..."/><small><span data-message-count>0</span>/500</small></label><button className="jawi-button" type="submit">Kirim Ucapan <Icon name="jawi-arrow"/></button><p className="form-feedback" data-form-feedback/></form><div className="greeting-list jawi-wishes" data-greeting-list>{greetings.length?greetings.map(g=><article className="greeting-item" key={g.id}><div className="greeting-head"><strong>{g.guest_name}</strong><small>{attendance(g.attendance_status)}</small></div><p>{g.message}</p></article>):<div className="greeting-empty" data-empty-greeting>Belum ada ucapan. Jadilah yang pertama mengirimkan doa hangat.</div>}</div></div></section>}
+function CustomSelect({caption,name,initial,label,options}){return <div className="jawi-custom-select form-choice" data-custom-select><span className="choice-caption">{caption}</span><input type="hidden" name={name} defaultValue={initial}/><button type="button" className="choice-trigger" data-choice-trigger aria-haspopup="listbox" aria-expanded="false"><span data-choice-label>{label}</span><i/></button><div className="choice-options" data-choice-options role="listbox" hidden>{options.map((v,index)=><button type="button" role="option" data-choice-value={v[0]} aria-selected={index===0&&initial!==''} key={v[0]}>{v[1]}</button>)}</div></div>}

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
-import { absoluteUrl, cleanText, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
-import { activeTemplates, hasRealSupabaseConfig, invitationByToken, invitationExtras, templateByCode } from '../lib/repositories.js';
+import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
+import { hasRealSupabaseConfig, invitationByToken, invitationExtras } from '../lib/repositories.js';
 
 const editor = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -13,7 +13,7 @@ function demoInvitationByToken(token) {
     id: `demo-${order.order_code}`,
     editor_token: order.editor_token,
     order_id: order.order_id || order.id,
-    order_status: 'editing',
+    order_status: order.status || 'editing',
     payment_status: 'paid',
     template_id: order.template_id,
     template_code: order.template_code,
@@ -31,10 +31,25 @@ function demoInvitationByToken(token) {
     customer_name: order.customer_name,
     customer_email: order.customer_email,
     customer_phone: order.customer_phone,
+    is_active: Boolean(order.is_active),
+    active_until: order.active_until || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    published_at: null,
+    published_at: order.published_at || null,
   };
+}
+
+async function ensurePublishedActiveUntil(env, invitation) {
+  if (invitation.order_status !== 'published' || !invitation.published_at || invitation.active_until) return invitation;
+  const activeUntil = invitationActiveUntil(new Date(invitation.published_at));
+  if (!hasRealSupabaseConfig(env)) {
+    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    if (order) order.active_until = activeUntil;
+  } else {
+    const { error } = await database(env).from('invitations').update({ active_until: activeUntil }).eq('id', invitation.id);
+    if (error) throw error;
+  }
+  return { ...invitation, active_until: activeUntil };
 }
 
 async function slugState(env, input, invitationId) {
@@ -63,8 +78,9 @@ async function slugState(env, input, invitationId) {
 
 editor.get('/editor/:token', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
-    const invitation = demoInvitationByToken(c.req.param('token'));
+    let invitation = demoInvitationByToken(c.req.param('token'));
     if (!invitation) return c.json({ ok: false, message: 'Akses editor tidak valid.' }, 404);
+    invitation = await ensurePublishedActiveUntil(c.env, invitation);
     return c.json({
       ok: true,
       invitation,
@@ -73,13 +89,13 @@ editor.get('/editor/:token', async (c) => {
       greetings: [],
       invitees: [],
       inviteeCount: 0,
-      templates: await activeTemplates(c.env),
       appUrl: c.env.APP_URL,
     });
   }
-  const invitation = await invitationByToken(c.env, c.req.param('token'));
+  let invitation = await invitationByToken(c.env, c.req.param('token'));
+  invitation = await ensurePublishedActiveUntil(c.env, invitation);
   const extras = await invitationExtras(c.env, invitation.id);
-  return c.json({ ok: true, invitation, ...extras, templates: await activeTemplates(c.env), appUrl: c.env.APP_URL });
+  return c.json({ ok: true, invitation, ...extras, appUrl: c.env.APP_URL });
 });
 
 editor.post('/invitation/autosave', async (c) => {
@@ -190,7 +206,23 @@ editor.post('/invitation/invitees', async (c) => {
   if (!guestName) return c.json({ ok: false, message: 'Nama tamu wajib diisi.' }, 422);
   const { data: guest, error } = await database(c.env).from('invitation_guests').insert({ invitation_id: invitation.id, guest_name: guestName, salutation, guest_token: randomHex(20) }).select('*').single();
   if (error) throw error;
-  return c.json({ ok: true, message: 'Tamu ditambahkan.', guest: { ...guest, url: absoluteUrl(c.env, `${invitation.slug || 'preview-undangan'}?to=${encodeURIComponent(guestName)}`) } }, 201);
+  const linkAvailable = Boolean(
+    invitation.order_status === 'published'
+    && invitation.published_at
+    && invitation.is_active
+    && invitation.active_until
+    && new Date(invitation.active_until) >= new Date()
+    && invitation.slug
+  );
+  return c.json({
+    ok: true,
+    message: linkAvailable ? 'Tamu ditambahkan. Link personal siap dibagikan.' : 'Tamu ditambahkan. Link personal tersedia setelah undangan dipublish dan aktif.',
+    guest: {
+      ...guest,
+      link_available: linkAvailable,
+      url: linkAvailable ? absoluteUrl(c.env, `${invitation.slug}?to=${encodeURIComponent(guestName)}`) : null,
+    },
+  }, 201);
 });
 
 editor.post('/invitation/invitees/delete', async (c) => {
@@ -200,36 +232,6 @@ editor.post('/invitation/invitees/delete', async (c) => {
   if (error) throw error;
   if (!data.length) return c.json({ ok: false, message: 'Tamu tidak ditemukan.' }, 404);
   return c.json({ ok: true, message: 'Tamu dihapus dari daftar.' });
-});
-
-editor.post('/invitation/change-template', async (c) => {
-  const input = await c.req.json();
-  const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
-  const template = await templateByCode(c.env, cleanText(input.template_code, 50));
-  const selectedPackage = template.packages.find((item) => item.code === invitation.package_code);
-  if (!selectedPackage) return c.json({ ok: false, message: 'Paket yang sama belum tersedia pada template ini.' }, 422);
-  if (!hasRealSupabaseConfig(c.env)) {
-    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
-    if (order) {
-      Object.assign(order, {
-        template_id: template.id,
-        template_code: template.code,
-        template_name: template.name,
-        template_category: template.category,
-        package_id: selectedPackage.id,
-        package_name: selectedPackage.name,
-        package_price: selectedPackage.price,
-        gallery_limit: selectedPackage.gallery_limit,
-        has_music: selectedPackage.has_music,
-        has_gift: selectedPackage.has_gift,
-        has_wishes: selectedPackage.has_wishes,
-      });
-    }
-    return c.json({ ok: true, message: 'Template berhasil diganti tanpa mengubah data.', template: { code: template.code, name: template.name } });
-  }
-  const { error } = await database(c.env).from('orders').update({ template_id: template.id, package_id: selectedPackage.id }).eq('id', invitation.order_id);
-  if (error) throw error;
-  return c.json({ ok: true, message: 'Template berhasil diganti tanpa mengubah data.', template: { code: template.code, name: template.name } });
 });
 
 editor.post('/invitation/publish', async (c) => {
@@ -249,19 +251,27 @@ editor.post('/invitation/publish', async (c) => {
   if (!slug.available) errors.slug = slug.message;
   else clean.slug = slug.slug;
   if (Object.keys(errors).length) return c.json({ ok: false, message: 'Lengkapi data yang masih belum valid.', errors, slug_suggestions: slug.suggestions }, 422);
+  const firstPublish = invitation.order_status !== 'published' || !invitation.published_at;
+  const publishedAt = firstPublish ? new Date().toISOString() : invitation.published_at;
+  const activeUntil = firstPublish || !invitation.active_until ? invitationActiveUntil(new Date(publishedAt)) : invitation.active_until;
   if (!hasRealSupabaseConfig(c.env)) {
     const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
     if (order) {
-      Object.assign(order, clean, { slug: clean.slug, status: 'published', published_at: new Date().toISOString() });
+      Object.assign(order, clean, { slug: clean.slug, status: 'published' });
+      if (firstPublish) Object.assign(order, { published_at: publishedAt, is_active: true, active_until: activeUntil });
+      else if (!invitation.active_until) order.active_until = activeUntil;
     }
-    return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', redirect: `/success/${invitation.editor_token}` });
+    return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', first_publish: firstPublish, active_until: activeUntil, active_until_label: invitationDateLabel(activeUntil), redirect: `/success/${invitation.editor_token}` });
   }
   const db = database(c.env);
-  const { error: invitationError } = await db.from('invitations').update({ ...clean, published_at: new Date().toISOString() }).eq('id', invitation.id);
+  const invitationUpdate = { ...clean };
+  if (firstPublish) Object.assign(invitationUpdate, { published_at: publishedAt, is_active: true, active_until: activeUntil });
+  else if (!invitation.active_until) invitationUpdate.active_until = activeUntil;
+  const { error: invitationError } = await db.from('invitations').update(invitationUpdate).eq('id', invitation.id);
   if (invitationError) throw invitationError;
   const { error: orderError } = await db.from('orders').update({ status: 'published' }).eq('id', invitation.order_id);
   if (orderError) throw orderError;
-  return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', redirect: `/success/${invitation.editor_token}` });
+  return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', first_publish: firstPublish, active_until: activeUntil, active_until_label: invitationDateLabel(activeUntil), redirect: `/success/${invitation.editor_token}` });
 });
 
 editor.get('/success/:token', async (c) => {
@@ -271,7 +281,7 @@ editor.get('/success/:token', async (c) => {
   const page = Math.max(1, Number(c.req.query('page')) || 1);
   const extras = await invitationExtras(c.env, invitation.id, { guestPage: page, guestLimit: perPage });
   const pages = Math.max(1, Math.ceil(extras.inviteeCount / perPage));
-  return c.json({ ok: true, invitation, invitees: extras.invitees, guestTotal: extras.inviteeCount, guestPage: Math.min(page, pages), guestPages: pages, publicUrl: absoluteUrl(c.env, invitation.slug), editorUrl: absoluteUrl(c.env, `edit/${invitation.editor_token}`) });
+  return c.json({ ok: true, invitation, invitees: extras.invitees, guestTotal: extras.inviteeCount, guestPage: Math.min(page, pages), guestPages: pages, activeUntilLabel: invitationDateLabel(invitation.active_until), publicUrl: absoluteUrl(c.env, invitation.slug), editorUrl: absoluteUrl(c.env, `edit/${invitation.editor_token}`) });
 });
 
 export default editor;

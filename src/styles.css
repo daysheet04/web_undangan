@@ -1,4 +1,22 @@
 #root { min-height: 100%; }
+.invitation-loading {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  background: #f7f4ef;
+}
+.invitation-loading-mark {
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(16, 43, 74, .16);
+  border-top-color: #102b4a;
+  border-radius: 50%;
+  animation: invitation-loading-spin .8s linear infinite;
+}
+@keyframes invitation-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .invitation-loading-mark { animation: none; }
+}
 .app-loading, .app-error {
   min-height: 70vh;
   display: grid;

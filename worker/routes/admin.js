@@ -80,7 +80,10 @@ admin.use('/admin/*', async (c, next) => {
 });
 
 function demoOrders(env) {
-  return [...(DEMO_STATE.orders.values?.() || [])].map((order) => ({
+  return [...(DEMO_STATE.orders.values?.() || [])].map((order) => {
+    const activeUntil = order.active_until ? new Date(order.active_until) : null;
+    const websiteActive = order.status === 'published' && Boolean(order.published_at) && Boolean(order.website_active ?? order.is_active) && Boolean(activeUntil) && activeUntil > new Date();
+    return ({
     id: order.id,
     order_code: order.order_code,
     customer_name: order.customer_name,
@@ -94,7 +97,7 @@ function demoOrders(env) {
     package_code: order.package_code,
     payment_status: order.payment_status,
     status: order.status,
-    website_active: order.payment_status === 'paid' && order.website_active !== false,
+    website_active: websiteActive,
     active_until: order.active_until || null,
     slug: order.slug || null,
     published_at: order.published_at || null,
@@ -102,7 +105,8 @@ function demoOrders(env) {
     website_url: order.slug ? publicAppUrl(env, `/${order.slug}`) : null,
     package_price: Number(order.package_price || 0),
     created_at: order.created_at || new Date().toISOString(),
-  }));
+    });
+  });
 }
 
 async function adminOrders(env) {
@@ -142,6 +146,7 @@ async function adminOrders(env) {
     const payment = payments.get(order.id) || {};
     const invitation = invitations.get(order.id) || {};
     const packagePrice = Number(packageInfo.price ?? order.package_price ?? 0);
+    const activeUntil = invitation.active_until ? new Date(invitation.active_until) : null;
     return {
       ...order,
       template_code: template.code || null,
@@ -154,7 +159,7 @@ async function adminOrders(env) {
       has_music: Boolean(packageInfo.has_music),
       has_gift: Boolean(packageInfo.has_gift),
       has_wishes: Boolean(packageInfo.has_wishes),
-      website_active: order.payment_status === 'paid' && invitation.is_active !== false && (!invitation.active_until || new Date(invitation.active_until) > new Date()),
+      website_active: order.status === 'published' && Boolean(invitation.published_at) && invitation.is_active === true && Boolean(activeUntil) && activeUntil > new Date(),
       active_until: invitation.active_until || null,
       slug: invitation.slug || null,
       published_at: invitation.published_at || null,
@@ -254,13 +259,20 @@ admin.patch('/admin/orders/:code/website', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
     const order = DEMO_STATE.orders.get(c.req.param('code'));
     if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
+    if (active && (!order.published_at || order.status !== 'published')) return c.json({ ok: false, message: 'Undangan harus dipublish terlebih dahulu sebelum dapat diaktifkan.' }, 422);
+    if (active && (!order.active_until || new Date(order.active_until) <= new Date())) return c.json({ ok: false, message: 'Masa aktif undangan sudah berakhir.' }, 422);
     order.website_active = active;
     return c.json({ ok: true, website_active: active, message: active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });
   }
   const db = database(c.env);
-  const { data: order, error: orderError } = await db.from('orders').select('id').eq('order_code', c.req.param('code')).maybeSingle();
+  const { data: order, error: orderError } = await db.from('orders').select('id,status').eq('order_code', c.req.param('code')).maybeSingle();
   if (orderError) throw orderError;
   if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
+  const { data: invitation, error: invitationReadError } = await db.from('invitations').select('published_at,active_until').eq('order_id', order.id).maybeSingle();
+  if (invitationReadError) throw invitationReadError;
+  if (!invitation) return c.json({ ok: false, message: 'Data undangan tidak ditemukan.' }, 404);
+  if (active && (!invitation.published_at || order.status !== 'published')) return c.json({ ok: false, message: 'Undangan harus dipublish terlebih dahulu sebelum dapat diaktifkan.' }, 422);
+  if (active && (!invitation.active_until || new Date(invitation.active_until) <= new Date())) return c.json({ ok: false, message: 'Masa aktif undangan sudah berakhir.' }, 422);
   const { error } = await db.from('invitations').update({ is_active: active }).eq('order_id', order.id);
   if (error) throw error;
   return c.json({ ok: true, website_active: active, message: active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });

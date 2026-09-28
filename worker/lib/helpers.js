@@ -32,6 +32,40 @@ export function orderCode() {
   return `INV-${date}-${randomHex(4).toUpperCase()}`;
 }
 
+export const INVITATION_TIME_ZONE = 'Asia/Jakarta';
+
+function datePartsInJakarta(value = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: INVITATION_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const number = (type) => Number(parts.find((part) => part.type === type)?.value);
+  return { year: number('year'), month: number('month'), day: number('day') };
+}
+
+export function invitationActiveUntil(value = new Date()) {
+  const current = datePartsInJakarta(value);
+  const targetMonthIndex = current.month - 1 + 2;
+  const year = current.year + Math.floor(targetMonthIndex / 12);
+  const month = (targetMonthIndex % 12) + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(current.day, lastDay);
+  const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return new Date(`${date}T23:59:59.999+07:00`).toISOString();
+}
+
+export function invitationDateLabel(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: INVITATION_TIME_ZONE,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
 export function jsonError(message, status = 400, details = {}) {
   return { ok: false, message, status, ...details };
 }

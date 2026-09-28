@@ -7,6 +7,10 @@ export default class AppErrorBoundary extends React.Component {
     return { error };
   }
 
+  componentDidCatch() {
+    document.documentElement.classList.add('app-styles-ready');
+  }
+
   render() {
     if (!this.state.error) return this.props.children;
     return <main className="app-error"><div><span className="eyebrow">Daymoment</span><h1>Halaman tidak dapat ditampilkan</h1><p>{this.state.error.message || 'Terjadi kesalahan pada aplikasi.'}</p><button className="button button-primary" type="button" onClick={() => window.location.reload()}>Muat ulang halaman</button>{import.meta.env.DEV && <pre>{this.state.error.stack}</pre>}</div></main>;

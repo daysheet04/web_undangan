@@ -7,10 +7,56 @@
     <meta name="application-name" content="Daymoment" />
     <meta name="theme-color" content="#f7f4ef" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>
+      html { background: #fbfaf7; }
+      body { margin: 0; }
+      #app-boot {
+        position: fixed;
+        z-index: 2147483647;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #102b4a;
+        background: #fbfaf7;
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        transition: opacity .24s ease, visibility .24s ease;
+      }
+      #app-boot > div { display: grid; justify-items: center; gap: 12px; }
+      #app-boot span {
+        display: grid;
+        width: 46px;
+        height: 46px;
+        place-items: center;
+        border: 1px solid rgba(16, 43, 74, .2);
+        border-radius: 50%;
+        color: #c9a46a;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(16, 43, 74, .1);
+        font-family: Georgia, serif;
+        font-size: 1.35rem;
+      }
+      #app-boot strong { font-family: Georgia, serif; font-size: 1.05rem; letter-spacing: .02em; }
+      #app-boot i { width: 44px; height: 2px; overflow: hidden; border-radius: 99px; background: #e6e1d8; }
+      #app-boot i::after {
+        display: block;
+        width: 55%;
+        height: 100%;
+        border-radius: inherit;
+        background: #c9a46a;
+        content: "";
+        animation: daymoment-boot 1s ease-in-out infinite alternate;
+      }
+      html.app-styles-ready #app-boot { visibility: hidden; opacity: 0; pointer-events: none; }
+      html:not(.app-styles-ready) #root { visibility: hidden; }
+      @keyframes daymoment-boot { to { transform: translateX(82%); } }
+      @media (prefers-reduced-motion: reduce) { #app-boot, #app-boot i::after { transition: none; animation: none; } }
+    </style>
     <title>Daymoment — Tempat kisah baik dimulai.</title>
   </head>
   <body>
+    <div id="app-boot" aria-hidden="true"><div><span>D</span><strong>Daymoment</strong><i></i></div></div>
     <div id="root"></div>
+    <script>window.setTimeout(function () { document.documentElement.classList.add('app-styles-ready'); }, 12000);</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

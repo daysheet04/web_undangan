@@ -6,16 +6,41 @@
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const openButton = root.querySelector('[data-open-invitation]');
     openButton?.setAttribute('disabled', '');
-    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('lunara-opening-ready')));
-    window.setTimeout(() => {
-        root.classList.add('lunara-opening-complete');
-        openButton?.removeAttribute('disabled');
-    }, reducedMotion ? 120 : 5200);
+    const openingImages = [...root.querySelectorAll('.opening-garden img')];
+    const waitForOpeningImages = Promise.allSettled(openingImages.map((image) => {
+        if (image.complete && image.naturalWidth) return image.decode?.() || Promise.resolve();
+        return new Promise((resolve) => {
+            image.addEventListener('load', resolve, { once: true });
+            image.addEventListener('error', resolve, { once: true });
+        }).then(() => image.decode?.().catch(() => {}) || undefined);
+    }));
+    Promise.race([
+        waitForOpeningImages,
+        new Promise((resolve) => window.setTimeout(resolve, 2000)),
+    ]).then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+        root.classList.add('lunara-opening-ready');
+        window.setTimeout(() => {
+            root.classList.add('lunara-opening-complete');
+            openButton?.removeAttribute('disabled');
+        }, reducedMotion ? 120 : 11000);
+    })));
 
     const revealItems = root.querySelectorAll('[data-lunara-reveal]');
     const sections = root.querySelectorAll('[data-lunara-scene]');
     const motionReady = !reducedMotion && 'IntersectionObserver' in window;
+    const gardenSettleTimers = new WeakMap();
     let motionStarted = false;
+
+    const setGardenBloom = (garden, blooming) => {
+        window.clearTimeout(gardenSettleTimers.get(garden));
+        garden.classList.toggle('is-bloomed', blooming);
+        garden.classList.remove('is-settled');
+        if (!blooming) return;
+        const timer = window.setTimeout(() => {
+            if (garden.classList.contains('is-bloomed')) garden.classList.add('is-settled');
+        }, 3200);
+        gardenSettleTimers.set(garden, timer);
+    };
 
     const startScrollMotion = () => {
         if (motionStarted) return;
@@ -28,14 +53,16 @@
                 });
             }, { threshold: .07, rootMargin: '-4% 0px -7% 0px' });
             revealItems.forEach((item, index) => {
-                item.style.transitionDelay = `${Math.min(index % 4, 3) * 90}ms`;
+                // Keep the choreography readable: each group enters in a soft
+                // stagger, while leaving the viewport starts fading immediately.
+                item.style.setProperty('--reveal-delay', `${Math.min(index % 7, 6) * 105}ms`);
                 revealObserver.observe(item);
             });
 
             const sectionObserver = new IntersectionObserver((entries) => {
                 entries.forEach((entry) => {
                     entry.target.classList.toggle('is-in-view', entry.isIntersecting);
-                    entry.target.querySelectorAll('[data-lunara-garden]').forEach((garden) => garden.classList.toggle('is-bloomed', entry.isIntersecting));
+                    entry.target.querySelectorAll('[data-lunara-garden]').forEach((garden) => setGardenBloom(garden, entry.isIntersecting));
                 });
             }, { threshold: .04, rootMargin: '-3% 0px -5% 0px' });
             sections.forEach((section) => sectionObserver.observe(section));
@@ -43,7 +70,9 @@
             revealItems.forEach((item) => item.classList.add('is-visible'));
             sections.forEach((section) => {
                 section.classList.add('is-in-view');
-                section.querySelectorAll('[data-lunara-garden]').forEach((garden) => garden.classList.add('is-bloomed'));
+                section.querySelectorAll('[data-lunara-garden]').forEach((garden) => {
+                    garden.classList.add('is-bloomed', 'is-settled');
+                });
             });
         }
     };
