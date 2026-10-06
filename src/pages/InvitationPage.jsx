@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { useInvitationRealtime } from '../lib/realtime.js';
 import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
+const AureliaGrandeTemplate = lazy(() => import('../templates/AureliaGrandeTemplate.jsx'));
+const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.jsx'));
 
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
   puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20260918-1',script:'/assets/js/templates/puspa-jawi.js'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260927-14',script:'/assets/js/templates/lunara-azure.js?v=20260927-7'}
+  ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20260928-1',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
+  ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261003-1',script:'/assets/js/templates/verdant-vow.js?v=20261003-1'}
 };
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -51,8 +55,8 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
   if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
   else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];const seen=new Set();greetings=[...submittedGreetings,...(state.data.greetings||[])].filter((item)=>item?.id&&!seen.has(item.id)&&seen.add(item.id));guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
-  const Template=activeCode==='lunara_azure'?LunaraAzureTemplate:PuspaJawi;
-  return <Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/>;
+  const Template=activeCode==='verdant_vow'?VerdantVowTemplate:activeCode==='aurelia_grande'?AureliaGrandeTemplate:activeCode==='lunara_azure'?LunaraAzureTemplate:PuspaJawi;
+  return <Suspense fallback={<InvitationLoading/>}><Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/></Suspense>;
 }
 
 function InvitationLoading(){

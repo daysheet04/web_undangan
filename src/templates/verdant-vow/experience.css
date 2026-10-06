@@ -1,0 +1,377 @@
+.vv-redesign .vv-scroll { scroll-behavior: auto; }
+.vv-redesign:not(.is-open) .vv-scroll { visibility: visible; pointer-events: none; }
+.vv-redesign:not(.is-open) .vv3-overlay { visibility: hidden; }
+.vv-redesign .vv-journey { position: relative; height: 100dvh; min-height: 0; overflow: hidden; isolation: isolate; background: #dfe9dc; }
+.vv-redesign .vv-cinematic-backdrop { position: absolute; inset: 0; background: linear-gradient(125deg,rgba(12,55,42,.22),rgba(245,245,220,.08)),url('/assets/images/templates/verdant-vow/layers/garden-cinematic.webp') center / cover; }
+.vv-redesign .vv-after { opacity: 1; transform: none; }
+.vv-redesign .vv-cinematic-scene { position: absolute; inset: 0; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.86); }
+.vv-redesign .vv-cinematic-scene.is-active { opacity: 1; visibility: visible; pointer-events: auto; transform: scale(1); }
+.vv-redesign .vv-cinematic-scene.is-entering { z-index: 3; visibility: visible; animation: vv-scene-enter .92s cubic-bezier(.2,.75,.2,1) both; }
+.vv-redesign .vv-cinematic-scene.is-leaving { z-index: 4; visibility: visible; animation: vv-scene-leave .92s cubic-bezier(.2,.75,.2,1) both; }
+@keyframes vv-scene-enter { from { opacity: 0; transform: scale(.78) translateY(4%); } to { opacity: 1; transform: scale(1); } }
+@keyframes vv-scene-leave { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.28) translateY(-3%); } }
+.vv-redesign .vv-scene-world { position: absolute; inset: 0; pointer-events: none; }
+.vv-redesign .vv-scene-frame { position: absolute; inset: -5%; width: 110%; height: 110%; object-fit: contain; filter: drop-shadow(0 24px 32px rgba(15,54,38,.18)); }
+.vv-redesign .vv-scene-couple { position: absolute; left: 50%; bottom: -12%; height: min(94dvh,950px); max-width: 72vw; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 28px 25px rgba(10,45,30,.32)); }
+.vv-redesign .vv-scene-foreground { position: absolute; z-index: 2; bottom: -25%; width: min(43vw,620px); height: auto; filter: drop-shadow(0 25px 28px rgba(11,47,34,.24)); }
+.vv-redesign .vv-scene-foreground-left { left: -12%; transform: rotate(-10deg); }
+.vv-redesign .vv-scene-foreground-right { right: -12%; transform: scaleX(-1) rotate(-9deg); }
+.vv-redesign .is-entering .vv-scene-frame { animation: vv-frame-rise .92s both; }
+.vv-redesign .is-leaving .vv-scene-foreground-left { animation: vv-left-pass .92s both; }
+.vv-redesign .is-leaving .vv-scene-foreground-right { animation: vv-right-pass .92s both; }
+@keyframes vv-frame-rise { from { opacity: .2; transform: scale(.78) translateY(5%); } to { opacity: 1; transform: scale(1); } }
+@keyframes vv-left-pass { to { transform: translate(-65%,10%) scale(1.45) rotate(-18deg); opacity: 0; } }
+@keyframes vv-right-pass { to { transform: translate(65%,10%) scaleX(-1) scale(1.45) rotate(-18deg); opacity: 0; } }
+.vv-redesign .vv-scene-panel { position: absolute; z-index: 8; left: clamp(28px,7vw,140px); top: 50%; width: min(490px,38vw); max-height: 78dvh; overflow-y: auto; padding: clamp(25px,3vw,48px); color: #214637; background: linear-gradient(135deg,rgba(255,253,244,.96),rgba(236,245,229,.83)); border: 1px solid rgba(255,250,224,.9); border-radius: 42px 42px 12px 42px; box-shadow: 0 25px 80px rgba(11,48,35,.2); backdrop-filter: blur(12px); transform: translateY(-50%); }
+.vv-redesign .is-entering .vv-scene-panel { animation: vv-panel-enter .92s .18s both; }
+.vv-redesign .is-leaving .vv-scene-panel { animation: vv-panel-leave .45s both; }
+@keyframes vv-panel-enter { from { opacity: 0; transform: translateY(calc(-50% + 26px)); } to { opacity: 1; transform: translateY(-50%); } }
+@keyframes vv-panel-leave { to { opacity: 0; transform: translateY(calc(-50% - 18px)); } }
+.vv-redesign .vv-scene-panel small { display: block; color: #6a866b; font: 700 9px/1.5 Manrope,sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+.vv-redesign .vv-scene-panel h1,.vv-redesign .vv-scene-panel h2 { margin: 10px 0 15px; font: 500 clamp(48px,5.8vw,92px)/.92 'Cormorant Garamond',serif; color: #174936; }
+.vv-redesign .vv-scene-panel h1 span { display: block; }
+.vv-redesign .vv-scene-panel h1 i { display: block; margin: 0 0 0 .5em; color: #b89c62; font-size: .45em; }
+.vv-redesign .vv-scene-panel p { margin: 12px 0; font: 500 clamp(17px,1.45vw,23px)/1.5 'Cormorant Garamond',serif; }
+.vv-redesign .vv-scene-panel button,.vv-redesign .vv-scene-panel a { display: inline-flex; align-items: center; min-height: 44px; margin: 14px 8px 0 0; padding: 0 21px; border: 0; border-radius: 999px; color: white; background: #174936; font: 700 11px Manrope,sans-serif; text-decoration: none; cursor: pointer; }
+.vv-redesign .vv-scene-1 .vv-scene-panel { left: 6%; top: 53%; color: #fff9e8; background: linear-gradient(130deg,rgba(13,61,43,.87),rgba(33,82,56,.72)); border-color: rgba(239,219,165,.42); }
+.vv-redesign .vv-scene-1 .vv-scene-panel h1,.vv-redesign .vv-scene-1 .vv-scene-panel small { color: #fff9e8; }
+.vv-redesign .vv-scene-1 .vv-scene-panel button { color: #174936; background: #fff8e8; }
+.vv-redesign .vv-scene-2 .vv-scene-couple { left: 74%; height: 76dvh; }
+.vv-redesign .vv-scene-2 .vv-scene-panel { left: 8%; width: min(580px,48vw); }
+.vv-redesign .vv-scene-3 .vv-scene-panel { left: 50%; width: min(620px,78vw); text-align: center; transform: translate(-50%,-50%); }
+.vv-redesign .vv-scene-3.is-entering .vv-scene-panel { animation: vv-panel-center .92s .18s both; }
+@keyframes vv-panel-center { from { opacity: 0; transform: translate(-50%,calc(-50% + 25px)); } to { opacity: 1; transform: translate(-50%,-50%); } }
+.vv-redesign .vv-scene-4 .vv-scene-panel { left: auto; right: 7%; background: linear-gradient(135deg,rgba(255,252,239,.96),rgba(231,241,226,.85)); }
+.vv-redesign .vv-scene-5 .vv-scene-panel { left: 7%; top: 56%; }
+.vv-redesign .vv-cinematic-pair { display: grid; gap: 8px; }
+.vv-redesign .vv-cinematic-pair b { display: block; font: 500 clamp(28px,2.8vw,44px) 'Cormorant Garamond',serif; }
+.vv-redesign .vv-cinematic-pair span { display: block; font: 14px/1.4 'Cormorant Garamond',serif; }
+.vv-redesign .vv-cinematic-pair i { color: #b89c62; font: italic 32px 'Cormorant Garamond',serif; }
+.vv-redesign .vv-cinematic-events { display: grid; gap: 8px; font: 14px/1.6 'Cormorant Garamond',serif; }
+.vv-redesign .vv-full-opening { display: grid; justify-items: center; align-content: center; text-align: center; background: radial-gradient(circle at 50% 35%,#fffdf2,#e5efe2); }
+.vv-redesign .vv-full-opening > p { max-width: 580px; margin: 25px auto; font: 500 clamp(20px,2vw,29px)/1.45 'Cormorant Garamond',serif; }
+.vv-redesign .vv-full-opening h3 { margin: 0; color: #174936; font: 500 clamp(58px,8vw,110px)/.95 'Cormorant Garamond',serif; }
+.vv-redesign .vv-full-opening h3 i { color: #bca16a; font-size: .5em; }
+.vv-redesign .vv-full-opening time { margin: 20px 0; color: #557862; font-size: 11px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+.vv-redesign .vv-full-opening .vv-countdown-grid { width: min(560px,100%); }
+.vv-redesign .vv-full-couple { background: linear-gradient(150deg,#e9f1e6,#fffaf0); }
+.vv-redesign .vv-person-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: clamp(16px,3vw,55px); max-width: 1100px; margin: 45px auto 0; }
+.vv-redesign .vv-person-card { overflow: hidden; border: 1px solid rgba(45,91,65,.2); border-radius: 180px 180px 24px 24px; background: #fffdf5; box-shadow: 0 22px 50px rgba(24,67,47,.12); }
+.vv-redesign .vv-person-card img { width: 100%; height: clamp(220px,28vw,350px); object-fit: cover; }
+.vv-redesign .vv-person-card > div { padding: 22px 25px 30px; text-align: center; }
+.vv-redesign .vv-person-card small { color: #698571; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
+.vv-redesign .vv-person-card h3 { margin: 6px 0; font: 500 clamp(31px,3vw,47px) 'Cormorant Garamond',serif; }
+.vv-redesign .vv-person-card p { font: 17px/1.4 'Cormorant Garamond',serif; }
+.vv-redesign .vv-person-card span { color: #a58d5b; font: italic 22px 'Cormorant Garamond',serif; }
+.vv-redesign .vv-person-amp { color: #ae9868; font: italic 60px 'Cormorant Garamond',serif; }
+.vv-redesign .vv-full-events { background: linear-gradient(160deg,#dceadd,#fffaf0); }
+.vv-redesign .vv-event-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 28px; max-width: 1060px; margin: 45px auto 0; }
+.vv-redesign .vv-event-card { padding: clamp(28px,4vw,56px); border: 1px solid rgba(49,89,65,.17); border-radius: 150px 150px 30px 30px; text-align: center; background: rgba(255,253,246,.9); box-shadow: 0 25px 70px rgba(27,68,46,.12); }
+.vv-redesign .vv-event-card small { color: #748b6f; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; }
+.vv-redesign .vv-event-card h3 { margin: 18px 0 10px; font: 500 clamp(35px,4vw,55px)/1 'Cormorant Garamond',serif; }
+.vv-redesign .vv-event-card time,.vv-redesign .vv-event-card strong { display: block; margin: 12px 0; }
+.vv-redesign .vv-event-card p { font: 20px/1.35 'Cormorant Garamond',serif; }
+.vv-redesign .vv-event-card a { display: inline-block; margin-top: 12px; color: #174936; }
+.vv-redesign .vv-nav { left: 18px; right: 78px; bottom: 16px; width: auto; max-width: none; translate: none; border-radius: 22px; }
+.vv-redesign .vv-nav-scroller { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; white-space: nowrap; }
+.vv-redesign .vv-nav-group { padding: 0 9px; color: #d6bc89; font-size: 9px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+.vv-redesign .vv-nav button.is-active { color: #173f32; background: #fff8e9; }
+.vv-redesign .vv-nav-mobile-toggle { display: none; }
+@media (max-width: 800px) {
+  .vv-redesign .vv-scene-frame { inset: -10%; width: 120%; height: 120%; }
+  .vv-redesign .vv-scene-couple { left: 50%; bottom: 23%; height: 54dvh; max-width: 85vw; }
+  .vv-redesign .vv-scene-2 .vv-scene-couple { left: 50%; height: 45dvh; }
+  .vv-redesign .vv-scene-panel,.vv-redesign .vv-scene-1 .vv-scene-panel,.vv-redesign .vv-scene-2 .vv-scene-panel,.vv-redesign .vv-scene-3 .vv-scene-panel,.vv-redesign .vv-scene-4 .vv-scene-panel,.vv-redesign .vv-scene-5 .vv-scene-panel { left: 50%; right: auto; top: auto; bottom: 74px; width: min(570px,calc(100% - 34px)); max-height: 55dvh; padding: 20px 22px; border-radius: 28px; text-align: center; transform: translateX(-50%); }
+  .vv-redesign .vv-scene-panel h1,.vv-redesign .vv-scene-panel h2 { font-size: clamp(43px,12vw,68px); }
+  .vv-redesign .vv-scene-panel h1 i { margin: 0; }
+  .vv-redesign .vv-scene-panel p { font-size: 18px; }
+  .vv-redesign .vv-scene-foreground { width: 52vw; bottom: -14%; }
+  .vv-redesign .vv-person-grid,.vv-redesign .vv-event-grid { grid-template-columns: 1fr; }
+  .vv-redesign .vv-person-grid { max-width: 440px; }
+  .vv-redesign .vv-person-amp { text-align: center; }
+  .vv-redesign .vv-nav { left: 12px; right: 70px; bottom: 12px; display: block; padding: 4px; }
+  .vv-redesign .vv-nav-mobile-toggle { display: block; width: 100%; }
+  .vv-redesign .vv-nav-scroller { display: none; max-height: 48dvh; overflow-y: auto; white-space: normal; }
+  .vv-redesign .vv-nav.is-expanded .vv-nav-scroller { display: flex; flex-wrap: wrap; padding: 6px; }
+  .vv-redesign .is-entering .vv-scene-panel,.vv-redesign .vv-scene-3.is-entering .vv-scene-panel { animation: vv-mobile-panel-enter .92s .18s both; }
+  .vv-redesign .is-leaving .vv-scene-panel { animation: vv-mobile-panel-leave .45s both; }
+}
+@keyframes vv-mobile-panel-enter { from { opacity: 0; transform: translate(-50%,24px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes vv-mobile-panel-leave { to { opacity: 0; transform: translate(-50%,-20px); } }
+@media (prefers-reduced-motion: reduce) {
+  .vv-redesign .vv-cinematic-scene,.vv-redesign .vv-cinematic-scene * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Continuous Verdant Vow camera journey */
+.vv-redesign.is-cinematic-playing .vv-scroll { overflow: hidden; overscroll-behavior: none; }
+.vv-redesign .vv-journey { height: 100dvh; min-height: 100dvh; background: #dfe8d8; }
+.vv-redesign .vv-flight { position: absolute; inset: 0; overflow: hidden; color: #173e30; background: #dfe8d8; isolation: isolate; --flight-far-x: 0%; --flight-far-y: 0%; --flight-far-scale: 1.035; --flight-path-x: 0%; --flight-path-y: 3%; --flight-path-scale: .92; --flight-gate-scale: .92; --flight-gate-y: 0%; --flight-gate-opacity: 1; --flight-couple-x: 0%; --flight-couple-y: 9%; --flight-couple-scale: .36; --flight-couple-opacity: 0; --flight-mid-x: 0%; --flight-mid-scale: .82; --flight-near-x: 0%; --flight-near-scale: 1.02; --flight-near-opacity: 1; --flight-title: 0; --flight-bride: 0; --flight-groom: 0; --flight-event: 0; --flight-pavilion: 0; --flight-progress: 0; }
+.vv-flight-world { position: absolute; inset: -3%; overflow: hidden; perspective: 1300px; transform-style: preserve-3d; }
+.vv-flight-world > img { position: absolute; display: block; max-width: none; user-select: none; pointer-events: none; will-change: transform, opacity; }
+.vv-flight-far { z-index: 0; inset: -7%; width: 114%; height: 114%; object-fit: cover; object-position: 50% 50%; translate: var(--flight-far-x) var(--flight-far-y); scale: var(--flight-far-scale); filter: saturate(.9) contrast(.97); }
+.vv-flight-sun { position: absolute; z-index: 1; inset: 0; background: radial-gradient(circle at 23% 24%,rgba(255,244,191,.48),transparent 27%),linear-gradient(180deg,rgba(255,248,214,.03),rgba(20,66,46,.12)); mix-blend-mode: screen; }
+.vv-flight-path { z-index: 2; left: 50%; top: 23%; width: min(64vw,980px); height: 92%; object-fit: contain; object-position: top center; translate: calc(-50% + var(--flight-path-x)) var(--flight-path-y); scale: var(--flight-path-scale); transform-origin: 50% 12%; filter: drop-shadow(0 32px 34px rgba(30,70,40,.16)); }
+.vv-flight-pavilion { z-index: 3; left: 50%; bottom: -10%; width: 92%; height: 91%; object-fit: contain; translate: calc(-50% + var(--flight-mid-x)) 0; scale: var(--flight-mid-scale); opacity: var(--flight-pavilion); transform-origin: 50% 75%; filter: drop-shadow(0 25px 45px rgba(17,55,38,.19)); }
+.vv-flight-arch { z-index: 4; bottom: 0; width: min(47vw,760px); height: 84%; object-fit: contain; opacity: .67; scale: var(--flight-mid-scale); filter: drop-shadow(0 23px 33px rgba(17,54,37,.18)); }
+.vv-flight-arch-left { left: -14%; translate: var(--flight-mid-x) 4%; }
+.vv-flight-arch-right { right: -14%; translate: var(--flight-mid-x) 4%; transform: scaleX(-1); }
+.vv-flight-couple { z-index: 5; left: 50%; bottom: -5%; width: auto; height: min(89dvh,960px); object-fit: contain; translate: calc(-50% + var(--flight-couple-x)) var(--flight-couple-y); scale: var(--flight-couple-scale); opacity: var(--flight-couple-opacity); transform-origin: 50% 100%; filter: drop-shadow(0 35px 34px rgba(11,42,28,.3)); }
+.vv-flight-gate { z-index: 7; inset: -8%; width: 116%; height: 116%; object-fit: contain; translate: 0 var(--flight-gate-y); scale: var(--flight-gate-scale); opacity: var(--flight-gate-opacity); transform-origin: 50% 51%; filter: drop-shadow(0 24px 36px rgba(18,53,35,.24)); }
+.vv-flight-canopy { z-index: 8; left: 50%; top: -15%; width: 116%; height: 56%; object-fit: contain; translate: calc(-50% + var(--flight-near-x)) -4%; scale: var(--flight-near-scale); opacity: var(--flight-gate-opacity); transform-origin: 50% 0; filter: drop-shadow(0 22px 30px rgba(14,48,33,.23)); }
+.vv-flight-near { z-index: 9; bottom: -31%; width: min(56vw,920px); height: auto; scale: var(--flight-near-scale); opacity: var(--flight-near-opacity); transform-origin: 50% 100%; filter: drop-shadow(0 28px 38px rgba(12,45,30,.28)); }
+.vv-flight-near-left { left: -14%; translate: var(--flight-near-x) 0; rotate: -8deg; }
+.vv-flight-near-right { right: -14%; translate: var(--flight-near-x) 0; rotate: 8deg; transform: scaleX(-1); }
+.vv-flight-fireflies { position: absolute; z-index: 10; inset: 0; pointer-events: none; }
+.vv-flight-fireflies i { position: absolute; left: var(--x); top: var(--y); width: 3px; height: 3px; border-radius: 50%; background: #ffefab; box-shadow: 0 0 12px 4px rgba(255,232,137,.46); animation: vv-flight-firefly calc(4.4s + var(--i) * .13s) calc(var(--i) * -.27s) ease-in-out infinite alternate; }
+
+.vv-flight-copy { position: absolute; z-index: 14; width: min(510px,43vw); padding: clamp(36px,5vw,70px); text-align: center; text-shadow: 0 1px 0 rgba(255,255,255,.6); pointer-events: none; will-change: opacity, transform; }
+.vv-flight-copy::before { content: ""; position: absolute; z-index: -1; inset: -14%; background: radial-gradient(ellipse at center,rgba(255,253,243,.98) 0 35%,rgba(250,249,232,.88) 48%,rgba(244,246,225,.52) 62%,transparent 76%),url('/assets/images/templates/verdant-vow/cinematic/scene-04-event-clouds-v1.webp') center / 100% 100% no-repeat; filter: drop-shadow(0 22px 32px rgba(28,64,43,.15)); opacity: .98; }
+.vv-flight-copy small { display: block; margin-bottom: 12px; color: #6c7f61; font: 700 9px/1.5 Manrope,sans-serif; letter-spacing: .24em; text-transform: uppercase; }
+.vv-flight-copy h1,.vv-flight-copy h2 { margin: 0; color: #174634; font: 500 clamp(48px,6.2vw,96px)/.88 'Cormorant Garamond',serif; }
+.vv-flight-copy h1 { display: grid; justify-items: center; }
+.vv-flight-copy h1 i { margin: -3px 0; color: #aa8e51; font-size: .4em; }
+.vv-flight-copy p { margin: 18px auto 0; max-width: 400px; color: #294f3d; font: 500 clamp(17px,1.45vw,22px)/1.42 'Cormorant Garamond',serif; }
+.vv-flight-copy p b { font-weight: 600; }
+.vv-flight-copy > span { display: inline-block; margin-top: 17px; color: #8d7748; font-size: 8px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; }
+.vv-flight-title { left: 50%; top: 49%; translate: -50% -50%; opacity: var(--flight-title); }
+.vv-flight-bride-copy { left: 7%; top: 49%; translate: 0 -50%; opacity: var(--flight-bride); }
+.vv-flight-groom-copy { right: 7%; top: 49%; translate: 0 -50%; opacity: var(--flight-groom); }
+.vv-flight-event-copy { left: 50%; top: 47%; width: min(600px,52vw); translate: -50% -50%; opacity: var(--flight-event); }
+.vv-flight-event-copy h2 { font-size: clamp(46px,5vw,78px); }
+.vv-flight-skip { position: absolute; z-index: 20; right: max(22px,env(safe-area-inset-right)); top: max(22px,env(safe-area-inset-top)); min-height: 38px; padding: 0 16px; border: 1px solid rgba(255,255,255,.56); border-radius: 999px; color: white; font: 600 9px/1 Manrope,sans-serif; letter-spacing: .08em; text-transform: uppercase; background: rgba(14,58,43,.48); box-shadow: 0 9px 24px rgba(12,43,31,.15); backdrop-filter: blur(9px); cursor: pointer; }
+.vv-flight-skip:focus-visible { outline: 2px solid #f6d98c; outline-offset: 3px; }
+.vv-flight-timeline { position: absolute; z-index: 20; left: 50%; bottom: max(22px,env(safe-area-inset-bottom)); width: min(280px,42vw); height: 2px; translate: -50% 0; overflow: hidden; border-radius: 2px; background: rgba(255,255,255,.35); }
+.vv-flight-timeline i { display: block; width: 100%; height: 100%; background: #fff8d8; scale: var(--flight-progress) 1; transform-origin: left; }
+@keyframes vv-flight-firefly { from { opacity: .16; transform: translate3d(-8px,10px,0) scale(.55); } to { opacity: .9; transform: translate3d(18px,-24px,0) scale(1.12); } }
+
+/* Seamless cover-to-garden handoff */
+.vv-opening-path { position: absolute; z-index: 3; left: 50%; top: 21%; width: min(64vw,980px); height: 96%; object-fit: contain; object-position: top center; translate: -50% 0; filter: drop-shadow(0 28px 30px rgba(24,60,38,.15)); animation: vv-opening-path-in 1.2s .18s cubic-bezier(.2,.75,.2,1) both; }
+.vv-opening-gate { position: absolute; z-index: 5; inset: -7%; width: 114%; height: 114%; object-fit: contain; filter: drop-shadow(0 25px 36px rgba(11,43,29,.25)); animation: vv-opening-gate-in 1.25s .24s cubic-bezier(.2,.75,.2,1) both; }
+.vv-cinematic-opening.is-entering .vv-opening-path { animation: vv-opening-path-pass 1.55s cubic-bezier(.24,.72,.22,1) both; }
+.vv-cinematic-opening.is-entering .vv-opening-gate { animation: vv-opening-gate-pass 1.55s cubic-bezier(.24,.72,.22,1) both; }
+.vv-cinematic-opening.is-entering .vv-opening-couple { animation: vv-opening-couple-pass 1.55s cubic-bezier(.42,0,.18,1) both; }
+@keyframes vv-opening-path-in { from { opacity: 0; transform: scale(.84) translateY(5%); } to { opacity: 1; transform: none; } }
+@keyframes vv-opening-gate-in { from { opacity: 0; transform: scale(.76); } to { opacity: 1; transform: scale(.92); } }
+@keyframes vv-opening-path-pass { to { transform: scale(1.13) translateY(-3%); } }
+@keyframes vv-opening-gate-pass { 0% { opacity: 1; transform: scale(.92); } 45% { opacity: .24; } to { opacity: 0; transform: scale(1.08) translateY(-1%); } }
+@keyframes vv-opening-couple-pass { from { opacity: 1; translate: -50% 0; scale: 1; } 78% { opacity: 1; } to { opacity: .2; translate: -50% -40%; scale: .34; } }
+
+.vv-opening-couple { z-index: 7; height: min(60vh,690px); bottom: 0; }
+.vv-opening-card button:disabled { color: rgba(22,69,51,.72); cursor: wait; opacity: .82; transform: none; box-shadow: 0 7px 20px rgba(6,31,23,.12); }
+.vv-opening-ready { display: block; min-height: 13px; margin-top: 9px; color: rgba(255,255,255,.58); font: 600 7px/1.4 Manrope,sans-serif; font-style: normal; letter-spacing: .13em; text-transform: uppercase; transition: color .35s ease; }
+.vv-opening-ready.is-ready { color: #ead7a6; }
+
+@media (max-width: 800px) {
+  .vv-flight-world { inset: -5%; }
+  .vv-flight-far { inset: -12% -55%; width: 210%; height: 124%; object-position: 50% 51%; }
+  .vv-flight-path { top: 27%; width: 150vw; height: 88%; }
+  .vv-flight-pavilion { bottom: 5%; width: 165%; height: 82%; }
+  .vv-flight-arch { bottom: 10%; width: 94vw; height: 72%; opacity: .52; }
+  .vv-flight-arch-left { left: -53%; }
+  .vv-flight-arch-right { right: -53%; }
+  .vv-flight-couple { bottom: 7%; height: 72dvh; max-width: 108vw; }
+  .vv-flight-gate { inset: -2% -48%; width: 196%; height: 106%; }
+  .vv-flight-canopy { top: -7%; width: 190%; height: 46%; }
+  .vv-flight-near { bottom: -13%; width: min(82vw,610px); }
+  .vv-flight-near-left { left: -42%; }
+  .vv-flight-near-right { right: -42%; }
+  .vv-flight-copy,.vv-flight-event-copy { left: 50%; right: auto; top: auto; bottom: 8%; width: min(92vw,520px); padding: 34px 38px; translate: -50% 0; }
+  .vv-flight-copy h1,.vv-flight-copy h2 { font-size: clamp(45px,13vw,68px); }
+  .vv-flight-copy p { margin-top: 12px; font-size: 17px; }
+  .vv-flight-copy::before { inset: -10% -5%; }
+  .vv-flight-bride-copy,.vv-flight-groom-copy { bottom: 7%; }
+  .vv-flight-event-copy h2 { font-size: clamp(39px,10.5vw,56px); }
+  .vv-flight-skip { top: max(15px,env(safe-area-inset-top)); right: 14px; }
+  .vv-flight-timeline { bottom: max(14px,env(safe-area-inset-bottom)); width: 36vw; }
+  .vv-opening-path { top: 28%; width: 150vw; height: 86%; }
+  .vv-opening-gate { inset: -2% -45%; width: 190%; height: 108%; }
+  .vv-opening-couple { height: min(48dvh,520px); bottom: 8%; }
+}
+
+@media (max-width: 480px) {
+  .vv-flight-copy,.vv-flight-event-copy { bottom: 8.5%; padding: 29px 25px; }
+  .vv-flight-copy small { margin-bottom: 8px; font-size: 7px; }
+  .vv-flight-copy p { max-width: 300px; font-size: 15px; }
+  .vv-flight-couple { bottom: 10%; height: 66dvh; }
+  .vv-flight-near { width: 88vw; }
+  .vv-flight-title { bottom: 12%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vv-flight-fireflies i { animation: none; }
+}
+
+/* WebGL garden journey — real geometry near the camera, image layers only at distance */
+.vv3-flight { position: absolute; inset: 0; overflow: hidden; isolation: isolate; background: #61785d; --vv3-progress: 0; --vv3-names: 0; --vv3-bride: 0; --vv3-groom: 0; --vv3-event: 0; --vv3-finale: 0; }
+.vv3-canvas,.vv3-static-world { position: absolute; inset: 0; }
+.vv3-canvas { opacity: 0; transition: opacity .42s ease; }
+.vv3-flight.is-ready .vv3-canvas { opacity: 1; }
+.vv3-canvas canvas { display: block; width: 100% !important; height: 100% !important; outline: 0; }
+.vv3-static-world { background: linear-gradient(180deg,rgba(255,240,196,.08),rgba(22,61,43,.17)),url('/assets/images/templates/verdant-vow/cinematic/distant-garden-panorama-v2.webp') center / cover no-repeat; }
+.vv3-overlay { position: absolute; z-index: 4; inset: 0; pointer-events: none; transition: opacity .35s ease; }
+.vv3-flight.is-loading .vv3-overlay { opacity: 0; }
+.vv3-copy { position: absolute; width: min(520px,42vw); padding: clamp(44px,5vw,74px); color: #183f30; text-align: center; text-shadow: 0 1px rgba(255,255,255,.65); isolation: isolate; pointer-events: none; will-change: opacity; }
+.vv3-copy::before { content: ""; position: absolute; z-index: -1; inset: -20% -15%; opacity: .94; background: radial-gradient(ellipse at center,rgba(255,253,241,.94) 0 29%,rgba(248,247,229,.84) 43%,rgba(232,239,213,.5) 59%,rgba(220,232,204,.14) 70%,transparent 78%),url('/assets/images/templates/verdant-vow/cinematic/scene-04-event-clouds-v1.webp') center / 100% 100% no-repeat; filter: drop-shadow(0 20px 30px rgba(15,52,34,.12)); }
+.vv3-copy small { display: block; margin-bottom: 12px; color: #647d63; font: 700 9px/1.5 Manrope,sans-serif; letter-spacing: .25em; text-transform: uppercase; }
+.vv3-copy h1,.vv3-copy h2 { margin: 0; color: #174634; font: 500 clamp(49px,6.2vw,94px)/.9 'Cormorant Garamond',serif; }
+.vv3-copy h1 { display: grid; justify-items: center; }
+.vv3-copy h1 i { margin: -4px 0; color: #a9874d; font-size: .4em; font-weight: 500; }
+.vv3-copy h2 { font-size: clamp(46px,5vw,78px); }
+.vv3-copy p { max-width: 410px; margin: 18px auto 0; color: #294f3d; font: 500 clamp(17px,1.5vw,22px)/1.48 'Cormorant Garamond',serif; }
+.vv3-copy p b { font-weight: 600; }
+.vv3-copy-names { left: 7%; top: 50%; translate: 0 -50%; opacity: var(--vv3-names); }
+.vv3-copy-bride { right: 6%; top: 49%; translate: 0 -50%; opacity: var(--vv3-bride); }
+.vv3-copy-groom { left: 6%; top: 49%; translate: 0 -50%; opacity: var(--vv3-groom); }
+.vv3-copy-event { left: 50%; top: 46%; width: min(630px,52vw); translate: -50% -50%; opacity: var(--vv3-event); }
+.vv3-finale { position: absolute; z-index: 8; inset: 0; display: grid; place-content: center; gap: 14px; color: #426351; text-align: center; opacity: var(--vv3-finale); background: radial-gradient(ellipse at center,rgba(255,254,244,.98),rgba(246,248,232,.86) 43%,rgba(232,240,220,.42) 70%,transparent); }
+.vv3-finale small { font-size: 9px; font-weight: 700; letter-spacing: .25em; text-transform: uppercase; }
+.vv3-finale span { justify-self: center; width: 1px; height: 48px; background: linear-gradient(#9f8957,transparent); }
+.vv3-controls { position: absolute; z-index: 12; top: max(20px,env(safe-area-inset-top)); right: max(20px,env(safe-area-inset-right)); display: flex; gap: 8px; pointer-events: auto; }
+.vv3-controls button { min-height: 40px; padding: 0 17px; border: 1px solid rgba(255,255,255,.54); border-radius: 999px; color: #fffdf2; font: 700 9px/1 Manrope,sans-serif; letter-spacing: .07em; text-transform: uppercase; background: rgba(16,59,43,.64); box-shadow: 0 10px 26px rgba(10,38,27,.17); backdrop-filter: blur(10px); cursor: pointer; }
+.vv3-controls button:hover { background: rgba(13,55,39,.86); }
+.vv3-controls button:focus-visible { outline: 2px solid #f2d28b; outline-offset: 3px; }
+.vv3-progress { position: absolute; z-index: 12; left: 50%; bottom: max(22px,env(safe-area-inset-bottom)); width: min(330px,45vw); height: 3px; translate: -50% 0; overflow: hidden; border-radius: 3px; background: rgba(255,255,255,.38); box-shadow: 0 1px 8px rgba(12,48,34,.18); }
+.vv3-progress i { display: block; width: 100%; height: 100%; scale: var(--vv3-progress) 1; transform-origin: left; background: linear-gradient(90deg,#fff9df,#d9ba74); }
+.vv3-loader { position: absolute; z-index: 20; inset: 0; display: grid; place-content: center; justify-items: center; gap: 15px; color: #fff9e8; opacity: 1; visibility: visible; background: linear-gradient(180deg,rgba(12,47,35,.08),rgba(8,38,28,.54)),url('/assets/images/templates/verdant-vow/cinematic/distant-garden-panorama-v2.webp') center 58% / cover no-repeat; transition: opacity .42s ease,visibility 0s linear .42s; }
+.vv3-flight.is-ready .vv3-loader { opacity: 0; visibility: hidden; pointer-events: none; }
+.vv3-loader i { width: 42px; height: 42px; border: 2px solid rgba(255,255,255,.22); border-top-color: #fff6d5; border-radius: 50%; animation: vv3-spin 1s linear infinite; }
+.vv3-loader span { font-size: 9px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.vv3-flight.is-paused .vv3-progress::after { content: "Cinematic dijeda"; position: absolute; left: 50%; bottom: 10px; width: max-content; translate: -50% 0; color: #fff; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.vv3-flight.is-fallback .vv3-controls { opacity: 1; }
+.vv3-flight.is-fallback .vv3-progress { display: none; }
+.vv-replay-cinematic { position: absolute; z-index: 6; top: clamp(20px,4vw,48px); right: clamp(20px,4vw,56px); min-height: 43px; padding: 0 20px; border: 1px solid rgba(23,73,54,.23); border-radius: 999px; color: #174936; font: 700 9px/1 Manrope,sans-serif; letter-spacing: .09em; text-transform: uppercase; background: rgba(255,253,244,.8); box-shadow: 0 12px 30px rgba(24,67,47,.1); backdrop-filter: blur(8px); cursor: pointer; }
+.vv-replay-cinematic:hover { color: white; background: #174936; }
+.vv-replay-cinematic:focus-visible { outline: 2px solid #b79858; outline-offset: 3px; }
+@keyframes vv3-spin { to { rotate: 360deg; } }
+
+@media (max-width: 800px) {
+  .vv3-copy,.vv3-copy-event { top: auto; width: min(84vw,380px); padding: 24px 24px 26px; text-align: center; }
+  .vv3-copy::before { inset: -15% -8%; border: 0; border-radius: 0; opacity: .94; background: radial-gradient(ellipse at center,rgba(255,253,241,.95) 0 29%,rgba(248,247,229,.84) 44%,rgba(232,239,213,.46) 61%,transparent 77%),url('/assets/images/templates/verdant-vow/cinematic/scene-04-event-clouds-v1.webp') center / 100% 100% no-repeat; box-shadow: none; filter: drop-shadow(0 18px 28px rgba(15,52,34,.1)); backdrop-filter: none; }
+  .vv3-copy h1,.vv3-copy h2 { font-size: clamp(34px,9.3vw,47px); line-height: .91; overflow-wrap: anywhere; text-wrap: balance; }
+  .vv3-copy p { max-width: 285px; margin-top: 8px; font-size: 14px; line-height: 1.32; }
+  .vv3-copy small { margin-bottom: 6px; font-size: 6px; letter-spacing: .21em; }
+  .vv3-copy-names { left: 50%; right: auto; bottom: calc(5.5% + env(safe-area-inset-bottom)); width: min(76vw,340px); translate: -50% 0; }
+  .vv3-copy-names h1 { font-size: clamp(36px,10.2vw,49px); }
+  .vv3-copy-bride { left: 50%; right: auto; bottom: calc(7.5% + env(safe-area-inset-bottom)); width: min(82vw,370px); translate: -50% 0; text-align: center; }
+  .vv3-copy-bride p { margin-inline: auto; }
+  .vv3-copy-groom { left: 50%; right: auto; bottom: calc(7.5% + env(safe-area-inset-bottom)); width: min(82vw,370px); translate: -50% 0; text-align: center; }
+  .vv3-copy-groom p { margin-inline: auto; }
+  .vv3-copy-bride h2,.vv3-copy-groom h2 { font-size: clamp(30px,8.2vw,41px); }
+  .vv3-copy-event { left: 50%; right: auto; bottom: calc(5.5% + env(safe-area-inset-bottom)); width: min(82vw,365px); translate: -50% 0; }
+  .vv3-copy-event h2 { font-size: clamp(34px,8.8vw,46px); }
+  .vv3-controls { top: max(14px,env(safe-area-inset-top)); right: 12px; left: 12px; justify-content: flex-end; }
+  .vv3-controls button { min-height: 38px; padding-inline: 13px; font-size: 8px; }
+  .vv3-progress { bottom: max(13px,env(safe-area-inset-bottom)); width: 38vw; }
+  .vv-replay-cinematic { top: 16px; right: 14px; min-height: 39px; padding-inline: 15px; }
+}
+
+@media (max-width: 420px) {
+  .vv3-copy,.vv3-copy-event { padding: 17px 18px 18px; }
+  .vv3-copy p { max-width: 270px; font-size: 13px; }
+  .vv3-copy-bride,.vv3-copy-groom { bottom: calc(8% + env(safe-area-inset-bottom)); }
+  .vv3-copy-event { bottom: calc(6% + env(safe-area-inset-bottom)); }
+  .vv3-controls { justify-content: space-between; }
+  .vv3-controls button { padding-inline: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vv3-loader i { animation-duration: 1.8s; }
+  .vv3-overlay,.vv3-copy { transition: none; }
+}
+
+/* Verdant Vow entrance gate: separate static portal and hinged door leaves. */
+.vv-gate-opening { color: #244636; background: transparent; perspective: 1600px; }
+.vv-gate-prelude { position: absolute; z-index: 40; inset: 0; display: grid; place-content: center; justify-items: center; gap: 13px; color: #f8efd7; text-align: center; background: radial-gradient(circle at 50% 42%,rgba(101,132,99,.46),transparent 34%),linear-gradient(145deg,#0e3027,#1d4c3b 55%,#102f27); transition: opacity .72s cubic-bezier(.4,0,.2,1),visibility 0s linear .72s; }
+.vv-gate-prelude span { font: 500 clamp(34px,4vw,54px)/1 'Cormorant Garamond',serif; letter-spacing: .04em; }
+.vv-gate-prelude i { width: 92px; height: 1px; overflow: hidden; background: rgba(235,211,155,.2); }
+.vv-gate-prelude i::after { content: ""; display: block; width: 44%; height: 100%; background: #e6ca8d; animation: vv-gate-prelude-line 1.35s ease-in-out infinite alternate; }
+.vv-gate-prelude small { color: rgba(255,250,231,.62); font: 600 7px/1.4 Manrope,sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+.vv-gate-opening.is-scene-ready .vv-gate-prelude { opacity: 0; visibility: hidden; pointer-events: none; }
+.vv-gate-opening.is-preparing .vv-gate-copy { opacity: 0; pointer-events: none; }
+@keyframes vv-gate-prelude-line { from { translate: -100% 0; } to { translate: 228% 0; } }
+.vv-gate-world { position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 56%; }
+.vv-gate-backdrop { position: absolute; inset: -3%; width: 106%; height: 106%; object-fit: cover; object-position: center 58%; filter: brightness(.82) saturate(.9); animation: vv-gate-scene-in 1.4s ease-out both; }
+.vv-gate-sunset { position: absolute; z-index: 1; inset: 0; background: radial-gradient(circle at 31% 19%,rgba(255,237,181,.42),transparent 31%),linear-gradient(180deg,rgba(24,51,38,.02),rgba(15,45,31,.31)); }
+.vv-gate-path { position: absolute; z-index: 2; left: 50%; top: 19%; width: min(70vw,1050px); height: 103%; object-fit: contain; object-position: top center; translate: -50% 0; filter: drop-shadow(0 28px 32px rgba(29,55,35,.16)); }
+.vv-gate-depth-mist { position: absolute; z-index: 3; left: 50%; top: 43%; width: min(72vw,1050px); height: 26vh; translate: -50% -50%; border-radius: 50%; opacity: .36; background: rgba(246,240,207,.7); filter: blur(44px); }
+
+.vv-gate-assembly { --gate-height: min(98svh,1080px); position: absolute; z-index: 6; left: 50%; bottom: -1.5%; width: calc(var(--gate-height) * .954); height: var(--gate-height); translate: -50% 0; transform-origin: 50% 60%; animation: vv-gate-portal-in 1.2s .15s cubic-bezier(.2,.76,.2,1) both; }
+.vv-gate-portal { position: absolute; z-index: 5; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 28px 30px rgba(28,37,21,.32)); }
+.vv-gate-doorway { position: absolute; z-index: 3; left: 15%; right: 15%; top: 17.5%; bottom: 5.5%; perspective: 1350px; perspective-origin: 50% 45%; transform-style: preserve-3d; }
+.vv-gate-leaf { position: absolute; top: 0; bottom: 0; width: 50.15%; overflow: hidden; transform-style: preserve-3d; backface-visibility: visible; will-change: transform,filter; filter: drop-shadow(0 18px 14px rgba(62,43,19,.25)); }
+.vv-gate-leaf img { position: absolute; top: 0; width: 200%; height: 100%; object-fit: fill; pointer-events: none; backface-visibility: visible; }
+.vv-gate-leaf-left { left: 0; transform-origin: 0 50%; }
+.vv-gate-leaf-left img { left: 0; }
+.vv-gate-leaf-right { right: 0; transform-origin: 100% 50%; }
+.vv-gate-leaf-right img { right: 0; }
+.vv-gate-leaf i { position: absolute; z-index: 3; top: 7%; bottom: 4%; width: 7px; border-radius: 4px; background: linear-gradient(90deg,#8c693f,#fff2c8 40%,#8f6a3b); box-shadow: 0 0 0 1px rgba(84,58,26,.24),0 8px 17px rgba(43,28,13,.22); }
+.vv-gate-leaf-left i { right: 0; }
+.vv-gate-leaf-right i { left: 0; }
+.vv-gate-floor-shadow { position: absolute; z-index: 2; left: 50%; bottom: 3%; width: 65%; height: 9%; translate: -50% 0; border-radius: 50%; opacity: .42; background: radial-gradient(ellipse,rgba(33,42,23,.48),transparent 68%); filter: blur(10px); }
+
+.vv-gate-foreground { position: absolute; z-index: 8; bottom: -18%; width: min(38vw,680px); filter: drop-shadow(0 22px 30px rgba(20,40,25,.28)); }
+.vv-gate-foreground-left { left: -9%; }
+.vv-gate-foreground-right { right: -9%; transform: scaleX(-1); }
+
+.vv-gate-copy { position: absolute; z-index: 18; left: 50%; top: 51%; width: min(360px,calc(100% - 44px)); translate: -50% -50%; display: grid; justify-items: center; text-align: center; animation: vv-gate-copy-in 1s 1s cubic-bezier(.2,.75,.2,1) both; }
+.vv-gate-medallion { position: relative; display: grid; place-content: center; width: min(360px,80vw); min-height: 244px; padding: 36px 34px 32px; border: 1px solid rgba(158,123,65,.82); border-radius: 28px 28px 10px 10px; color: #224c3b; background: linear-gradient(145deg,rgba(255,254,244,.98),rgba(244,238,211,.95) 68%,rgba(231,218,179,.88)); box-shadow: inset 0 0 0 7px rgba(255,252,235,.55),inset 0 0 0 8px rgba(171,134,69,.18),0 23px 52px rgba(34,45,27,.25); backdrop-filter: blur(5px); }
+.vv-gate-medallion::before,.vv-gate-medallion::after { content: ""; position: absolute; left: 50%; width: 42px; height: 13px; translate: -50% 0; border: solid #b49558; border-width: 1px 0; opacity: .8; }
+.vv-gate-medallion::before { top: 16px; }
+.vv-gate-medallion::after { bottom: 16px; }
+.vv-gate-medallion small { color: #8b7247; font: 700 8px/1.2 Manrope,sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+.vv-gate-medallion h1 { display: grid; grid-template-columns: minmax(0,1fr); justify-items: center; gap: 0; width: 100%; margin: 12px 0 10px; color: #214a39; font: 500 clamp(42px,3.6vw,56px)/.72 'Cormorant Garamond',serif; }
+.vv-gate-medallion h1 b { display: block; max-width: 100%; font-weight: 500; overflow-wrap: anywhere; text-wrap: balance; }
+.vv-gate-medallion h1 i { display: block; margin: 4px 0 2px; color: #b18c4c; font-size: .44em; line-height: .8; font-weight: 500; }
+.vv-gate-medallion time { color: #786744; font: 700 8px/1.4 Manrope,sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+.vv-gate-copy > p { min-width: 245px; margin: -8px 0 0; padding: 10px 20px 11px; border: 1px solid rgba(167,131,70,.55); border-radius: 999px; color: rgba(255,255,245,.78); font: 700 7px/1.3 Manrope,sans-serif; letter-spacing: .15em; text-transform: uppercase; background: rgba(29,67,50,.84); box-shadow: 0 12px 25px rgba(20,41,29,.18); backdrop-filter: blur(8px); }
+.vv-gate-copy > p strong { display: block; margin-top: 3px; color: #fffdf0; font: 600 17px/1.1 'Cormorant Garamond',serif; letter-spacing: normal; text-transform: none; }
+.vv-gate-copy > button { display: inline-flex; align-items: center; justify-content: center; gap: 15px; min-height: 47px; margin-top: 12px; padding: 0 24px; border: 1px solid rgba(153,118,58,.52); border-radius: 999px; color: #244b3a; font: 700 9px/1 Manrope,sans-serif; letter-spacing: .05em; background: #fffaf0; box-shadow: 0 12px 28px rgba(24,43,29,.2); cursor: pointer; transition: transform .24s ease,box-shadow .24s ease,opacity .24s ease; }
+.vv-gate-copy > button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(24,43,29,.27); }
+.vv-gate-copy > button:disabled { cursor: wait; opacity: .74; }
+.vv-gate-copy > button:focus-visible { outline: 3px solid #e8cd8e; outline-offset: 4px; }
+.vv-gate-copy .vv-opening-ready { color: rgba(255,255,245,.72); text-shadow: 0 1px 5px rgba(20,44,31,.55); }
+
+.vv-gate-opening.is-entering { animation: none; }
+.vv-gate-opening.is-entering .vv-gate-copy { animation: vv-gate-copy-leave .72s cubic-bezier(.4,0,.2,1) both; pointer-events: none; }
+.vv-gate-opening.is-entering .vv-gate-leaf-left { animation: vv-gate-left-open 3.25s .45s cubic-bezier(.3,.03,.13,1) both; }
+.vv-gate-opening.is-entering .vv-gate-leaf-right { animation: vv-gate-right-open 3.25s .45s cubic-bezier(.3,.03,.13,1) both; }
+.vv-gate-opening.is-entering .vv-gate-assembly { animation: vv-gate-camera-pass 5.05s cubic-bezier(.42,0,.16,1) both; }
+.vv-gate-opening.is-entering .vv-gate-foreground-left { animation: vv-gate-near-left 4.4s .2s cubic-bezier(.4,0,.2,1) both; }
+.vv-gate-opening.is-entering .vv-gate-foreground-right { animation: vv-gate-near-right 4.4s .2s cubic-bezier(.4,0,.2,1) both; }
+.vv-gate-opening.is-entering .vv-gate-floor-shadow { animation: vv-gate-shadow-open 3.25s .45s ease both; }
+
+@keyframes vv-gate-scene-in { from { opacity: 0; transform: scale(1.05); filter: brightness(.55) blur(6px); } to { opacity: 1; transform: scale(1); filter: brightness(.82) saturate(.9); } }
+@keyframes vv-gate-portal-in { from { opacity: 0; translate: -50% 4%; scale: .94; } to { opacity: 1; translate: -50% 0; scale: 1; } }
+@keyframes vv-gate-copy-in { from { opacity: 0; transform: translateY(22px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes vv-gate-copy-leave { to { opacity: 0; transform: translateY(-18px) scale(.93); filter: blur(4px); } }
+@keyframes vv-gate-left-open { 0%,10% { transform: rotateY(0deg); filter: drop-shadow(0 18px 14px rgba(62,43,19,.25)); } 100% { transform: rotateY(-108deg) translateZ(-22px); filter: drop-shadow(20px 20px 18px rgba(50,38,22,.3)); } }
+@keyframes vv-gate-right-open { 0%,10% { transform: rotateY(0deg); filter: drop-shadow(0 18px 14px rgba(62,43,19,.25)); } 100% { transform: rotateY(108deg) translateZ(-22px); filter: drop-shadow(-20px 20px 18px rgba(50,38,22,.3)); } }
+@keyframes vv-gate-camera-pass { 0%,58% { translate: -50% 0; scale: 1; } 100% { translate: -50% 2%; scale: 2.55; } }
+@keyframes vv-gate-garden-approach { 0%,45% { transform: scale(1); } 100% { transform: scale(1.18) translateY(1.5%); } }
+@keyframes vv-gate-path-approach { 0%,45% { transform: scale(1); } 100% { transform: scale(1.35) translateY(-5%); } }
+@keyframes vv-gate-near-left { 0%,42% { transform: none; opacity: 1; } 100% { transform: translate(-94%,22%) scale(1.48) rotate(-11deg); opacity: 1; } }
+@keyframes vv-gate-near-right { 0%,42% { transform: scaleX(-1); opacity: 1; } 100% { transform: translate(94%,22%) scaleX(-1) scale(1.48) rotate(-11deg); opacity: 1; } }
+@keyframes vv-gate-shadow-open { to { opacity: .12; scale: 1.4 .62; } }
+
+@media (max-width: 800px) {
+  .vv-gate-backdrop { inset: 0; width: 100%; height: 100%; object-position: 50% 55%; }
+  .vv-gate-path { top: 27%; width: 148vw; height: 88%; }
+  .vv-gate-depth-mist { width: 140vw; top: 44%; }
+  .vv-gate-assembly { --gate-height: 100svh; bottom: -1%; }
+  .vv-gate-doorway { left: 14%; right: 14%; top: 18%; bottom: 5.5%; perspective: 950px; }
+  .vv-gate-foreground { bottom: -6%; width: min(77vw,540px); }
+  .vv-gate-foreground-left { left: -33%; }
+  .vv-gate-foreground-right { right: -33%; }
+  .vv-gate-copy { top: 53%; width: calc(100% - 28px); }
+  .vv-gate-medallion { width: min(300px,77vw); min-height: 232px; padding: 31px 25px 27px; border-radius: 24px 24px 9px 9px; }
+  .vv-gate-medallion h1 { font-size: clamp(38px,10.4vw,49px); }
+  .vv-gate-copy > p { min-width: min(238px,72vw); }
+  .vv-gate-copy > button { min-height: 45px; margin-top: 10px; }
+}
+
+@media (max-width: 420px) {
+  .vv-gate-medallion { width: min(275px,74vw); min-height: 220px; padding-inline: 22px; }
+  .vv-gate-medallion h1 { font-size: clamp(35px,9.8vw,44px); }
+  .vv-gate-copy > p strong { font-size: 15px; }
+  .vv-gate-copy .vv-opening-ready { margin-top: 7px; font-size: 6px; }
+}

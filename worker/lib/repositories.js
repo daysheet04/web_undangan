@@ -29,6 +29,24 @@ const FALLBACK_TEMPLATES = [
       { id: 6, code: 'prestige', name: 'Prestige', tagline: 'Pengalaman lengkap dengan seluruh fitur premium.', price: 249000, gallery_limit: 5, has_music: true, has_gift: true, has_wishes: true, sort_order: 3, is_active: true },
     ],
   },
+  {
+    id: 3, code: 'aurelia_grande', name: 'Aurelia Grande', category: 'Interactive 3D Ballroom',
+    description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.', thumbnail: 'aurelia-grande', is_active: true,
+    template_packages: [
+      { id: 7, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
+      { id: 8, code: 'signature', name: 'Signature', tagline: 'Ballroom hidup dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
+      { id: 9, code: 'prestige', name: 'Prestige', tagline: 'Pengalaman 3D lengkap dengan seluruh fitur premium.', price: 299000, gallery_limit: 5, has_music: true, has_gift: true, has_wishes: true, sort_order: 3, is_active: true },
+    ],
+  },
+  {
+    id: 4, code: 'verdant_vow', name: 'Verdant Vow', category: 'Sage Garden 4D',
+    description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.', thumbnail: 'verdant-vow', is_active: true,
+    template_packages: [
+      { id: 10, code: 'essential', name: 'Essential', tagline: 'Undangan garden 4D yang cantik dan ringan.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
+      { id: 11, code: 'signature', name: 'Signature', tagline: 'Garden story dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
+      { id: 12, code: 'prestige', name: 'Prestige', tagline: 'Pengalaman 4D lengkap dengan seluruh fitur premium.', price: 299000, gallery_limit: 5, has_music: true, has_gift: true, has_wishes: true, sort_order: 3, is_active: true },
+    ],
+  },
 ];
 
 function normalizeTemplates(templates) {
@@ -68,7 +86,8 @@ export async function activeTemplates(env) {
 
 export async function templateByCode(env, code) {
   const templates = await activeTemplates(env);
-  const template = templates.find((item) => item.code === code);
+  const template = templates.find((item) => item.code === code)
+    || normalizeTemplates(FALLBACK_TEMPLATES).find((item) => item.code === code);
   if (!template) {
     const error = new Error('Template tidak ditemukan.');
     error.status = 404;

@@ -178,17 +178,6 @@ orders.post('/orders/:code/payment-token', async (c) => {
     const order = DEMO_ORDERS.get(c.req.param('code'));
     if (!order) return c.json({ ok: false, message: 'Order demo tidak ditemukan.' }, 404);
     if (order.payment_status === 'paid') return c.json({ ok: true, paid: true, redirect: `/edit/${order.editor_token}?payment=success` });
-    if (order.snap_token) {
-      return c.json({
-        ok: true,
-        token: order.snap_token,
-        redirectUrl: order.snap_redirect_url,
-        clientKey: c.env.MIDTRANS_CLIENT_KEY,
-        scriptUrl: String(c.env.MIDTRANS_IS_PRODUCTION || '').toLowerCase() === 'true'
-          ? 'https://app.midtrans.com/snap/snap.js'
-          : 'https://app.sandbox.midtrans.com/snap/snap.js',
-      });
-    }
     const gatewayOrderId = `${order.order_code}-${Date.now().toString(36)}`.slice(0, 50);
     const appUrl = String(c.env.APP_URL || new URL(c.req.url).origin).replace(/\/$/, '');
     const snap = await createSnapTransaction(c.env, {
@@ -213,20 +202,9 @@ orders.post('/orders/:code/payment-token', async (c) => {
   const order = await orderByCode(c.env, c.req.param('code'));
   if (order.payment_status === 'paid') return c.json({ ok: true, paid: true, redirect: `/edit/${order.editor_token}?payment=success` });
   const payment = await paymentForOrder(c.env, order.id);
-  if (payment.status === 'pending' && payment.snap_token) {
-    const isProduction = String(c.env.MIDTRANS_IS_PRODUCTION || '').toLowerCase() === 'true';
-    return c.json({
-      ok: true,
-      token: payment.snap_token,
-      redirectUrl: payment.snap_redirect_url,
-      clientKey: c.env.MIDTRANS_CLIENT_KEY,
-      scriptUrl: isProduction ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js',
-    });
-  }
-
-  const gatewayOrderId = payment.gateway_order_id && payment.status === 'pending'
-    ? payment.gateway_order_id
-    : `${order.order_code}-${Date.now().toString(36)}`.slice(0, 50);
+  // A failed/closed Snap session must not permanently pin an order to the
+  // previous token. Generate a fresh gateway order id for every new attempt.
+  const gatewayOrderId = `${order.order_code}-${Date.now().toString(36)}`.slice(0, 50);
   const appUrl = String(c.env.APP_URL || new URL(c.req.url).origin).replace(/\/$/, '');
   const snap = await createSnapTransaction(c.env, {
     transaction_details: { order_id: gatewayOrderId, gross_amount: Math.round(Number(order.package_price)) },
