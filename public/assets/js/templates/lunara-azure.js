@@ -1,11 +1,29 @@
-(() => {
+(async () => {
     'use strict';
-    const root = document.querySelector('.lunara-azure');
+    // The template component is lazy-loaded. On a cold visit this runtime can
+    // arrive before React commits the Lunara DOM, so wait for that specific
+    // root instead of exiting permanently and leaving the cover transparent.
+    const root = await new Promise((resolve) => {
+        let attempt = 0;
+        const findRoot = () => {
+            const node = document.querySelector('.lunara-azure');
+            if (node || attempt >= 240) {
+                resolve(node);
+                return;
+            }
+            attempt += 1;
+            requestAnimationFrame(findRoot);
+        };
+        findRoot();
+    });
     if (!root) return;
+    if (root.dataset.lunaraRuntimeReady === 'true') return;
+    root.dataset.lunaraRuntimeReady = 'true';
 
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const openButton = root.querySelector('[data-open-invitation]');
-    openButton?.setAttribute('disabled', '');
+    const invitationContent = root.querySelector('.invitation-content');
+    invitationContent?.setAttribute('aria-hidden', 'true');
     const openingImages = [...root.querySelectorAll('.opening-garden img')];
     const waitForOpeningImages = Promise.allSettled(openingImages.map((image) => {
         if (image.complete && image.naturalWidth) return image.decode?.() || Promise.resolve();
@@ -82,8 +100,36 @@
         window.setTimeout(() => root.classList.add('lunara-hero-settled'), reducedMotion ? 80 : 5700);
     };
 
-    openButton?.addEventListener('click', () => window.setTimeout(startScrollMotion, 420), { once: true });
-    openButton?.addEventListener('click', playHeroOpening, { once: true });
+    let openingStarted = false;
+    const openInvitation = (event) => {
+        event.preventDefault();
+        // The shared preview runtime may have attached its own instant-open
+        // handler. Lunara owns this interaction so its curtain sequence can
+        // finish before the fixed cover is hidden.
+        event.stopImmediatePropagation();
+        if (openingStarted) return;
+        openingStarted = true;
+
+        const transitionDuration = reducedMotion ? 80 : 1650;
+        const buttonLabel = openButton?.querySelector('span');
+        root.classList.add('lunara-is-opening');
+        openButton?.setAttribute('disabled', '');
+        openButton?.setAttribute('aria-busy', 'true');
+        if (buttonLabel) buttonLabel.textContent = 'Membuka...';
+        document.body.style.overflow = 'hidden';
+
+        // Start audio inside the actual user gesture so mobile browsers allow it.
+        void startMusic();
+        window.setTimeout(playHeroOpening, Math.max(0, transitionDuration - 300));
+        window.setTimeout(() => {
+            root.classList.add('invitation-open');
+            root.classList.remove('lunara-is-opening');
+            document.body.style.overflow = '';
+            invitationContent?.setAttribute('aria-hidden', 'false');
+            startScrollMotion();
+        }, transitionDuration);
+    };
+    openButton?.addEventListener('click', openInvitation, { once: true, capture: true });
     if (root.classList.contains('invitation-open')) {
         startScrollMotion();
         playHeroOpening();
@@ -246,7 +292,6 @@
         musicTimer = window.setInterval(playTone, 1900);
         musicButton.setAttribute('aria-pressed', 'true');
     };
-    root.querySelector('[data-open-invitation]')?.addEventListener('click', () => window.setTimeout(startMusic, 240), { once: true });
     musicButton?.addEventListener('click', async () => {
         if (musicButton.getAttribute('aria-pressed') === 'true') {
             uploadedAudio?.pause();

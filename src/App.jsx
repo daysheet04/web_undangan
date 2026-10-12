@@ -20,7 +20,7 @@ export default function App() {
   if (path === '/') page = <HomePage />;
   else if (path === '/admin') page = <NotFoundPage />;
   else if (path === '/order') page = <OrderPage />;
-  if ((match = path.match(/^\/template\/([a-z0-9_]+)$/))) {
+  else if ((match = path.match(/^\/template\/([a-z0-9_]+)$/))) {
     page = new URLSearchParams(window.location.search).get('embed') === '1'
       ? <InvitationPage templateCode={match[1]} preview />
       : <TemplatePreviewPage code={match[1]} />;
