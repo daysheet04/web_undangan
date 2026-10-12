@@ -3,7 +3,7 @@ import { ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { useInvitationRealtime } from '../lib/realtime.js';
-import LunaraAzureTemplate from '../templates/LunaraAzureTemplate.jsx';
+const LunaraAzureTemplate = lazy(() => import('../templates/LunaraAzureTemplate.jsx'));
 const AureliaGrandeTemplate = lazy(() => import('../templates/AureliaGrandeTemplate.jsx'));
 const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.jsx'));
 
@@ -12,7 +12,7 @@ const TEMPLATE_RUNTIME={
   puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20260918-1',script:'/assets/js/templates/puspa-jawi.js'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20260927-14',script:'/assets/js/templates/lunara-azure.js?v=20260927-7'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20260928-1',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
-  ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261007-2',script:'/assets/js/templates/verdant-vow.js?v=20261003-1'}
+  ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261007-2',script:null}
 };
 const MONTHS=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 const DAYS=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -40,17 +40,32 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     window.addEventListener('daymoment:greeting-sent',receiveGreeting);
     return ()=>window.removeEventListener('daymoment:greeting-sent',receiveGreeting);
   },[preview]);
-  const activeCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||'puspa_jawi';
-  const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi;
-  useDocumentTitle(runtime.title);
-  useHeadLinks([runtime.font,'/assets/css/templates/base.css?v=20260918-1',runtime.css]);
-  useLegacyScripts(['/assets/js/preview.js','/assets/js/greeting.js?v=20260927-1',runtime.script],!state.loading&&!state.error);
+  const resolvedCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||null;
+  const activeCode=resolvedCode||'puspa_jawi';
+  const runtime=resolvedCode?(TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi):null;
+  useEffect(()=>{
+    if(resolvedCode!=='verdant_vow')return;
+    import('../templates/VerdantVowExperience.jsx');
+  },[resolvedCode]);
+  useDocumentTitle(runtime?.title||'Undangan Pernikahan — Daymoment');
+  useHeadLinks(runtime?[runtime.font]:[]);
+  const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css]:[]);
+  useEffect(() => {
+    const coverPath=state.data?.invitation?.cover_image;
+    if(!coverPath)return undefined;
+    const image=new Image();
+    image.decoding='async';
+    image.fetchPriority='high';
+    image.src=mediaUrl(coverPath);
+    return()=>{ image.onload=null; image.onerror=null; };
+  },[state.data?.invitation?.cover_image]);
+  useLegacyScripts(runtime?.script?['/assets/js/preview.js','/assets/js/greeting.js?v=20260927-1',runtime.script]:[],!state.loading&&!state.error&&templateStylesReady);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
   // Keep a small, styled shell visible while the invitation payload and its
   // template stylesheet are loading. Returning null here made a hard refresh
   // look like a broken/unstyled page (the boot screen could disappear before
   // the API response arrived).
-  if(state.loading)return <InvitationLoading/>;
+  if(state.loading||!templateStylesReady)return <InvitationLoading/>;
   if(state.error)return <ErrorState error={state.error}/>;
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
   if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
@@ -72,7 +87,7 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
   const cover=mediaUrl(i.cover_image),bridePhoto=mediaUrl(i.bride_photo||media[0]?.file_path||i.cover_image),groomPhoto=mediaUrl(i.groom_photo||media[1]?.file_path||i.cover_image);
   const eventDate=i.reception_date||sampleDate(),eventTime=String(i.reception_start_time||'11:00').slice(0,5), calendar=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Pernikahan ${groom} & ${bride}`)}&dates=${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00/${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00&location=${encodeURIComponent(i.venue_name||'')}`;
   return <><Symbols/><div className="invitation-page puspa-jawi" data-template-root data-slug={i.slug||''}>
-    <section className="opening-cover jawi-opening-cover" aria-label="Cover undangan"><div className="opening-scenery"/><div className="opening-shade"/><div className="gate-panel gate-left"/><div className="gate-panel gate-right"/><Botanical className="opening-botanical"/><Hanging side="left"/><Hanging side="right"/><div className="opening-copy" data-cover-content><span className="jawi-kicker">The Wedding of</span><h1><span data-live="bride_nickname">{bride}</span><i>&amp;</i><span data-live="groom_nickname">{groom}</span></h1><time data-date-field="reception_date">{idDate(eventDate,false)}</time><div className="opening-guest"><small>{guestSalutation}</small><strong>{guestName}</strong></div><button className="jawi-button open-invitation" type="button" data-open-invitation><span>Buka Undangan</span><Icon name="jawi-arrow"/></button></div></section>
+    <section className="opening-cover jawi-opening-cover" aria-label="Cover undangan"><div className="opening-scenery"/><div className="opening-shade"/><div className="gate-panel gate-left"/><div className="gate-panel gate-right"/><Botanical className="opening-botanical" eager/><Hanging side="left"/><Hanging side="right"/><div className="opening-copy" data-cover-content><span className="jawi-kicker">The Wedding of</span><h1><span data-live="bride_nickname">{bride}</span><i>&amp;</i><span data-live="groom_nickname">{groom}</span></h1><time data-date-field="reception_date">{idDate(eventDate,false)}</time><div className="opening-guest"><small>{guestSalutation}</small><strong>{guestName}</strong></div><button className="jawi-button open-invitation" type="button" data-open-invitation><span>Buka Undangan</span><Icon name="jawi-arrow"/></button></div></section>
     <main className="invitation-content jawi-layout"><aside className="jawi-stage" aria-label="Latar kisah pasangan"><div className="stage-parallax"/><div className="stage-vignette"/><Botanical className="stage-botanical"/><div className="stage-copy"><small>The Wedding of</small><h2><span data-live="bride_nickname">{bride}</span><i>&amp;</i><span data-live="groom_nickname">{groom}</span></h2><div className="stage-guest"><span>{guestSalutation}</span><strong>{guestName}</strong></div></div><div className="stage-petals">{Array.from({length:5},(_,n)=><i key={n}/>)}</div></aside>
       <div className="jawi-scroll"><section className="jawi-section jawi-prologue"><Botanical className="section-botanical botanical-full"/><div className="prologue-frame jawi-reveal" data-reveal="scale"><span className="jawi-kicker">Pawiwahan</span><h2><span data-live="bride_nickname">{bride}</span> <i>&amp;</i> <span data-live="groom_nickname">{groom}</span></h2><div className="couple-portrait"><img src={cover} alt="Foto pasangan" decoding="async"/><span/></div><p>#{`${bride}${groom}`.replace(/[^A-Za-z0-9]/g,'')}Forever</p></div><Cloud className="floating-cloud prologue-cloud"/></section>
       <section className="jawi-section jawi-greeting"><div className="greeting-floral-frame"><img src={`${A}floral-frame-v2.webp`} alt="" decoding="async"/></div><Cloud className="greeting-cloud greeting-cloud-left"/><Cloud className="greeting-cloud greeting-cloud-right"/><div className="greeting-card jawi-reveal" data-reveal="scale"><div className="greeting-crest"><span/><img src={`${A}gunungan-line.svg`} alt=""/><span/></div><small className="greeting-eyebrow">Atas Rahmat Allah</small><h2>The Wedding</h2><div className="greeting-divider"><i/><b>&amp;</b><i/></div><p className="arabic">السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللهِ وَبَرَكَاتُهُ</p><p className="greeting-message">Dengan memohon rahmat dan ridho Allah SWT, kami mengundang Bapak/Ibu/Saudara/i untuk hadir dan menjadi bagian dari hari bahagia kami.</p><span className="greeting-signature">Pawiwahan · {bride} &amp; {groom}</span></div></section>
@@ -88,7 +103,7 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
 
 function Symbols(){return <svg className="jawi-symbols"><defs><symbol id="jawi-arrow" viewBox="0 0 24 24"><path d="M5 12h13m-5-5 5 5-5 5"/></symbol><symbol id="jawi-map" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-12A6 6 0 0 0 6 9c0 6.6 6 12 6 12Z"/><circle cx="12" cy="9" r="2"/></symbol><symbol id="jawi-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol><symbol id="jawi-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 10l10-2"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol></defs></svg>}
 function Icon({name}){return <svg><use href={`#${name}`}/></svg>}
-function Botanical({className}){return <div className={className} aria-hidden="true"><img className="decor-janur" src={`${A}janur-arch-v2.webp`} srcSet={`${A}janur-arch-v2-mobile.webp 900w, ${A}janur-arch-v2.webp 1536w`} sizes="100vw" alt="" decoding="async"/><img className="decor-floral" src={`${A}floral-frame-v2.webp`} srcSet={`${A}floral-frame-v2-mobile.webp 900w, ${A}floral-frame-v2.webp 1536w`} sizes="100vw" alt="" decoding="async"/></div>}
+function Botanical({className,eager=false}){return <div className={className} aria-hidden="true"><img className="decor-janur" src={`${A}janur-arch-v2.webp`} srcSet={`${A}janur-arch-v2-mobile.webp 900w, ${A}janur-arch-v2.webp 1536w`} sizes="100vw" alt="" loading={eager?'eager':'lazy'} fetchPriority={eager?'high':'low'} decoding="async"/><img className="decor-floral" src={`${A}floral-frame-v2.webp`} srcSet={`${A}floral-frame-v2-mobile.webp 900w, ${A}floral-frame-v2.webp 1536w`} sizes="100vw" alt="" loading={eager?'eager':'lazy'} fetchPriority={eager?'high':'low'} decoding="async"/></div>}
 function Hanging({side}){return <div className={`hanging-ornament hang-${side}`} aria-hidden="true"><i/><i/><i/><i/></div>}
 function Cloud({className}){return <img className={className} src={`${A}cloud-line.svg`} alt=""/>}
 function Heading({small,title}){return <div className="jawi-heading jawi-reveal"><small>{small}</small><h2>{title}</h2></div>}

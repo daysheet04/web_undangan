@@ -144,9 +144,12 @@
         updatePreview(event.data.data);
     });
 
-    document.querySelector('[data-preview-form]')?.addEventListener('submit', (event) => {
+    document.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) return;
+        const form = event.target;
+        if (!form || !form.matches('[data-preview-form]')) return;
         event.preventDefault();
-        const feedback = event.currentTarget.querySelector('[data-form-feedback]');
+        const feedback = form.querySelector('[data-form-feedback]');
         if (feedback) feedback.textContent = 'Ucapan siap dikirim setelah undangan dipublikasikan.';
     });
 

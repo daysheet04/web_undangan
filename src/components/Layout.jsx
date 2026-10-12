@@ -4,7 +4,7 @@ import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 export function Layout({ children, title, className = '' }) {
   useBodyClass(className);
   useDocumentTitle(title);
-  useHeadLinks(['/assets/css/app.css', ...(['homepage', 'order-page', 'preview-page'].includes(className) ? ['/assets/css/homepage.css'] : []), ...(className === 'admin-page' ? ['/assets/css/admin.css'] : [])]);
+  const stylesReady = useHeadLinks(['/assets/css/app.css', ...(['homepage', 'order-page', 'preview-page'].includes(className) ? ['/assets/css/homepage.css'] : []), ...(className === 'admin-page' ? ['/assets/css/admin.css'] : [])]);
   useEffect(() => {
     window.showToast = (message, type = 'success') => {
       const region = document.getElementById('toastRegion');
@@ -16,6 +16,7 @@ export function Layout({ children, title, className = '' }) {
       window.setTimeout(() => toast.remove(), 3800);
     };
   }, []);
+  if (!stylesReady) return <Loading />;
   return <>
     <header className="site-header">
       <a className="brand" href="/" aria-label="Daymoment, kembali ke beranda">

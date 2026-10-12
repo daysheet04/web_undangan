@@ -152,7 +152,7 @@ export default function AureliaGrandeTemplate({
       className={`invitation-page aurelia-grande ${entered ? "ag-entered" : ""}`}
       data-template-root
     >
-      <BallroomWorld
+      {entered && <BallroomWorld
         active={entered && !panel}
         onInteract={setPanel}
         onNear={setNear}
@@ -165,10 +165,10 @@ export default function AureliaGrandeTemplate({
         coverPhoto={cover}
         coupleNames={`${bride} & ${groom}`}
         galleryPhotos={photos.map((photo) => mediaUrl(photo.file_path))}
-      />
+      />}
       {!entered && (
         <section className="ag-game-cover">
-          <img src={cover} />
+          <img src={cover} alt="" fetchPriority="high" decoding="async" />
           <div className="ag-cover-vignette" />
           <div className="ag-cover-card">
             <span>DAYMOMENT MEMPERSEMBAHKAN</span>

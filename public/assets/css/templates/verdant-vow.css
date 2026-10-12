@@ -56,7 +56,9 @@ body:has(.verdant-vow) #root {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-color: rgba(43, 91, 73, .38) transparent;
   background: var(--vv-ivory);
 }
@@ -568,6 +570,7 @@ body:has(.verdant-vow) #root {
   .vv-closing h2 { justify-items: center; font-size: clamp(58px, 19vw, 85px); }
   .vv-closing h2 span { margin-inline: 0; }
   .vv-share-button { margin-top: 24px; }
+  .vv-closing > div > strong { margin-top: 10px; }
   .vv-nav { max-width: calc(100vw - 88px); bottom: max(13px, env(safe-area-inset-bottom)); }
   .vv-nav button { padding-inline: 11px; }
   .vv-music-toggle { right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); width: 48px; height: 48px; }

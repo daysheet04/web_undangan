@@ -148,11 +148,11 @@ export default function VerdantVowTemplate({ invitation: i, media = [], giftAcco
               <div className="vv-world-glow" />
               <div className="vv-cloud vv-cloud-rear" />
               <div className="vv-garden-arch" />
-              <img className="vv-world-couple" src={`${ASSET}/couple-cinematic.webp`} alt="" fetchPriority="high" />
+              <img className="vv-world-couple" src={`${ASSET}/couple-cinematic-v2.webp`} alt="" fetchPriority="high" />
               <div className="vv-cloud vv-cloud-front" />
               <img className="vv-canopy" src={`${ASSET}/hanging-canopy.webp`} alt="" fetchPriority="high" />
-              <img className="vv-foreground vv-foreground-left" src={`${ASSET}/foreground-botanical.webp`} alt="" />
-              <img className="vv-foreground vv-foreground-right" src={`${ASSET}/foreground-botanical.webp`} alt="" />
+              <img className="vv-foreground vv-foreground-left" src={`${ASSET}/foreground-botanical-indonesian-v1.webp`} alt="" />
+              <img className="vv-foreground vv-foreground-right" src={`${ASSET}/foreground-botanical-indonesian-v1.webp`} alt="" />
               <div className="vv-fireflies">{Array.from({ length: 16 }, (_, n) => <i key={n} style={{ "--n": n, "--x": `${(n * 17) % 91}%`, "--y": `${(n * 29) % 83}%` }} />)}</div>
             </div>
 
@@ -237,7 +237,7 @@ export default function VerdantVowTemplate({ invitation: i, media = [], giftAcco
         </section>}
 
         <section className="vv-after vv-closing" id="vv-closing" data-vv-reveal>
-          <img src={`${ASSET}/couple-cinematic.webp`} alt="" loading="lazy" />
+          <img src={`${ASSET}/couple-cinematic-v2.webp`} alt="" loading="lazy" />
           <div><small>Terima kasih</small><p>Merupakan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu.</p><h2><b>{bride}</b><span>&amp;</span><b>{groom}</b></h2><time>{formatDate(eventDate, { day: "numeric", month: "long", year: "numeric" })}</time>{!preview && <button type="button" className="vv-share-button" data-share data-share-url={`${window.location.origin}/${i.slug}`}>Bagikan undangan <span>→</span></button>}<strong>DAYMOMENT · BY DAYSHEET GROUP</strong></div>
         </section>
       </div>}

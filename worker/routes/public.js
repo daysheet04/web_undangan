@@ -6,10 +6,27 @@ import { invitationExtras, publishedInvitation } from '../lib/repositories.js';
 const publicRoutes = new Hono();
 
 publicRoutes.get('/invitations/:slug', async (c) => {
-  const invitation = await publishedInvitation(c.env, c.req.param('slug'));
-  const extras = await invitationExtras(c.env, invitation.id);
+  const slug = c.req.param('slug');
+  const edgeCache = globalThis.caches?.default;
+  const cacheRequest = new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(slug)}`);
+  let core;
+  const cached = edgeCache ? await edgeCache.match(cacheRequest) : null;
+  if (cached) {
+    core = await cached.json();
+  } else {
+    const invitation = await publishedInvitation(c.env, slug);
+    const extras = await invitationExtras(c.env, invitation.id);
+    core = { invitation, ...extras };
+    if (edgeCache) {
+      const response = new Response(JSON.stringify(core), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
+      });
+      c.executionCtx.waitUntil(edgeCache.put(cacheRequest, response));
+    }
+  }
   const guestName = cleanText(c.req.query('to'), 150) || 'Bapak/Ibu/Saudara/i';
-  return c.json({ ok: true, invitation, ...extras, guestName, guestSalutation: 'Kepada Yth.', isPreview: false });
+  c.header('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+  return c.json({ ok: true, ...core, guestName, guestSalutation: 'Kepada Yth.', isPreview: false });
 });
 
 publicRoutes.post('/greetings', async (c) => {

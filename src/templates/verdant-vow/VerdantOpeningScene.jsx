@@ -2,35 +2,40 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const LAYER = "/assets/images/templates/verdant-vow/layers";
 const CINEMATIC = "/assets/images/templates/verdant-vow/cinematic";
-const GATE_DURATION = 5100;
-const CAMERA_START_DELAY = 2400;
-const CRITICAL_ASSETS = [
-  `${CINEMATIC}/garden-gate-portal-v2.webp`,
-  `${CINEMATIC}/garden-gate-leaves-v2.webp`,
-  `${LAYER}/foreground-botanical.webp`,
-];
+const GATE_DURATION = 6500;
+const JOURNEY_START_DELAY = 4050;
 
-export default function VerdantOpeningScene({ bride, groom, guestName, date, sceneReady = false, autoEnter = false, onStart, onEnter }) {
+export default function VerdantOpeningScene({ bride, groom, guestName, date, sceneReady = false, autoEnter = false, onPrepare, onStart, onEnter }) {
+  const compact = typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches;
+  const gatePortal = `${CINEMATIC}/garden-gate-portal-indonesian-${compact ? 'mobile-' : ''}v1.webp`;
+  const gateLeaves = `${CINEMATIC}/garden-gate-leaves-indonesian-${compact ? 'mobile-' : ''}v1.webp`;
+  const foreground = `${LAYER}/foreground-botanical-indonesian-${compact ? 'mobile-' : ''}v1.webp`;
+  const criticalAssets = [gatePortal, gateLeaves, foreground];
   const [leaving, setLeaving] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadedAssets, setLoadedAssets] = useState(0);
   const finishTimer = useRef();
-  const startTimer = useRef();
+  const journeyTimer = useRef();
   const autoTimer = useRef();
   const canEnter = ready && sceneReady;
 
   const enter = useCallback(() => {
     if (leaving || !canEnter) return;
+    onPrepare?.();
     setLeaving(true);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const duration = reducedMotion ? 100 : GATE_DURATION;
-    startTimer.current = window.setTimeout(() => onStart?.(), reducedMotion ? 0 : CAMERA_START_DELAY);
+    if (reducedMotion) onStart?.();
+    else journeyTimer.current = window.setTimeout(() => onStart?.(), JOURNEY_START_DELAY);
     finishTimer.current = window.setTimeout(onEnter, duration);
-  }, [canEnter, leaving, onEnter, onStart]);
+  }, [canEnter, leaving, onEnter, onPrepare, onStart]);
 
   useEffect(() => {
     let active = true;
     let completed = 0;
+    const maxWait = window.setTimeout(() => {
+      if (active) setReady(true);
+    }, compact ? 1200 : 1800);
     const preload = (source) => new Promise((resolve) => {
       const image = new Image();
       let settled = false;
@@ -51,14 +56,16 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
       }
     });
 
-    Promise.all(CRITICAL_ASSETS.map(preload)).then(() => {
+    Promise.all(criticalAssets.map(preload)).then(() => {
+      window.clearTimeout(maxWait);
       if (active) setReady(true);
     });
 
     return () => {
       active = false;
+      window.clearTimeout(maxWait);
       window.clearTimeout(finishTimer.current);
-      window.clearTimeout(startTimer.current);
+      window.clearTimeout(journeyTimer.current);
       window.clearTimeout(autoTimer.current);
     };
   }, []);
@@ -75,20 +82,25 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
         <div className="vv-gate-assembly">
           <div className="vv-gate-doorway">
             <div className="vv-gate-leaf vv-gate-leaf-left">
-              <img src={`${CINEMATIC}/garden-gate-leaves-v2.webp`} alt="" fetchPriority="high" />
-              <i aria-hidden="true" />
+              <span className="vv-gate-leaf-face">
+                <img src={gateLeaves} alt="" fetchPriority="high" decoding="async" />
+              </span>
+              <span className="vv-gate-lock-plate" aria-hidden="true"><i /></span>
             </div>
             <div className="vv-gate-leaf vv-gate-leaf-right">
-              <img src={`${CINEMATIC}/garden-gate-leaves-v2.webp`} alt="" fetchPriority="high" />
-              <i aria-hidden="true" />
+              <span className="vv-gate-leaf-face">
+                <img src={gateLeaves} alt="" fetchPriority="high" decoding="async" />
+              </span>
+              <span className="vv-gate-lock-plate" aria-hidden="true"><i /></span>
             </div>
+            <span className="vv-gate-latch" aria-hidden="true"><i><b /></i></span>
           </div>
           <div className="vv-gate-floor-shadow" />
-          <img className="vv-gate-portal" src={`${CINEMATIC}/garden-gate-portal-v2.webp`} alt="" fetchPriority="high" />
+          <img className="vv-gate-portal" src={gatePortal} alt="" fetchPriority="high" decoding="async" />
         </div>
 
-        <img className="vv-gate-foreground vv-gate-foreground-left" src={`${LAYER}/foreground-botanical.webp`} alt="" />
-        <img className="vv-gate-foreground vv-gate-foreground-right" src={`${LAYER}/foreground-botanical.webp`} alt="" />
+        <img className="vv-gate-foreground vv-gate-foreground-left" src={foreground} alt="" decoding="async" />
+        <img className="vv-gate-foreground vv-gate-foreground-right" src={foreground} alt="" decoding="async" />
         <div className="vv-opening-sparks">
           {Array.from({ length: 16 }, (_, index) => <i key={index} style={{ "--spark": index, "--x": `${(index * 29) % 95}%`, "--y": `${(index * 41) % 88}%` }} />)}
         </div>
@@ -102,7 +114,7 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
         </div>
         <p>Kepada Yth.<strong>{guestName}</strong></p>
         <button type="button" onClick={enter} disabled={!canEnter || leaving}>
-          {canEnter ? <>Buka Undangan <b aria-hidden="true">→</b></> : <>Menyiapkan gerbang <b aria-hidden="true">{loadedAssets}/{CRITICAL_ASSETS.length}</b></>}
+          {canEnter ? <>Buka Undangan <b aria-hidden="true">→</b></> : <>{ready ? "Menyiapkan sinematik" : "Menyiapkan gerbang"} <b aria-hidden="true">{loadedAssets}/{criticalAssets.length}</b></>}
         </button>
         <em className={`vv-opening-ready ${canEnter ? "is-ready" : ""}`}>
           {canEnter ? "Daymoment mempersembahkan" : "Menyusun taman sebelum Anda masuk"}
@@ -110,9 +122,7 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
       </div>
 
       <div className="vv-gate-prelude" role="status" aria-hidden={canEnter}>
-        <span>Daymoment</span>
         <i aria-hidden="true" />
-        <small>Menyiapkan satu perjalanan istimewa</small>
       </div>
     </section>
   );

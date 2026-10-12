@@ -85,17 +85,41 @@ function makeStoneTexture() {
   canvas.height = 512;
   const context = canvas.getContext("2d");
   const rng = makeRng(41);
-  context.fillStyle = "#d8cbae";
+  context.fillStyle = "#d9c79d";
   context.fillRect(0, 0, 512, 512);
-  for (let y = 0; y < 512; y += 64) {
-    const offset = (Math.floor(y / 64) % 2) * 64;
-    for (let x = -offset; x < 512; x += 128) {
-      const tone = 205 + Math.floor(rng() * 22);
-      context.fillStyle = `rgb(${tone + 9},${tone + 2},${tone - 14})`;
-      context.fillRect(x + 3, y + 3, 122, 58);
-      context.strokeStyle = "rgba(112,101,78,.22)";
-      context.strokeRect(x + 3, y + 3, 122, 58);
+  const wash = context.createLinearGradient(0, 0, 512, 512);
+  wash.addColorStop(0, "rgba(255,248,222,.42)");
+  wash.addColorStop(.48, "rgba(164,126,69,.05)");
+  wash.addColorStop(1, "rgba(255,239,199,.28)");
+  context.fillStyle = wash;
+  context.fillRect(0, 0, 512, 512);
+  context.lineWidth = 2;
+  context.strokeStyle = "rgba(102,63,34,.26)";
+  context.fillStyle = "rgba(245,230,187,.19)";
+  for (let y = -64; y < 576; y += 128) {
+    for (let x = -64; x < 576; x += 128) {
+      context.save();
+      context.translate(x + 64, y + 64);
+      for (let petal = 0; petal < 4; petal += 1) {
+        context.save();
+        context.rotate((Math.PI / 2) * petal);
+        context.beginPath();
+        context.ellipse(0, -30, 21, 38, 0, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        context.restore();
+      }
+      context.beginPath();
+      context.arc(0, 0, 5, 0, Math.PI * 2);
+      context.fillStyle = "rgba(132,89,42,.25)";
+      context.fill();
+      context.restore();
     }
+  }
+  for (let index = 0; index < 900; index += 1) {
+    const alpha = .018 + rng() * .03;
+    context.fillStyle = `rgba(87,63,37,${alpha})`;
+    context.fillRect(rng() * 512, rng() * 512, .6 + rng() * 1.5, .6 + rng() * 1.5);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
@@ -178,20 +202,25 @@ function makeFloralCluster(scale = 1, seed = 1) {
 
 function addArch(scene, z, scale, altar = false) {
   const group = new THREE.Group();
-  const stone = new THREE.MeshStandardMaterial({ color: altar ? 0xe4d7bb : 0xd7c7a5, roughness: .5, metalness: .04 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xb88b45, roughness: .35, metalness: .45 });
-  const pillarGeometry = new THREE.CylinderGeometry(.28, .36, 4.5, 18);
+  const teak = new THREE.MeshStandardMaterial({ color: altar ? 0x8a562f : 0x754525, roughness: .52, metalness: .02 });
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xe8d8ae, roughness: .6, metalness: .03 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xc19a58, roughness: .34, metalness: .38 });
+  const pillarGeometry = new THREE.BoxGeometry(.62, 4.5, .5);
   for (const x of [-4.15, 4.15]) {
-    const pillar = new THREE.Mesh(pillarGeometry, stone);
+    const pillar = new THREE.Mesh(pillarGeometry, teak);
     pillar.position.set(x, 2.25, 0);
     pillar.castShadow = true;
     pillar.receiveShadow = true;
     group.add(pillar);
+    const inset = new THREE.Mesh(new THREE.BoxGeometry(.34, 3.55, .035), ivory);
+    inset.position.set(x, 2.28, .27);
+    group.add(inset);
+    for (const y of [.62, 3.94]) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(.82, .16, .62), gold);
+      band.position.set(x, y, 0);
+      group.add(band);
+    }
   }
-  const arch = new THREE.Mesh(new THREE.TorusGeometry(4.15, .19, 12, 64, Math.PI), gold);
-  arch.position.y = 4.45;
-  arch.castShadow = true;
-  group.add(arch);
   group.position.z = z;
   group.scale.setScalar(scale);
   scene.add(group);
@@ -199,16 +228,26 @@ function addArch(scene, z, scale, altar = false) {
 }
 
 function addAisleFlorals(scene) {
-  const potMaterial = new THREE.MeshStandardMaterial({ color: 0xbda276, roughness: .62 });
-  const potGeometry = new THREE.CylinderGeometry(.28, .38, .9, 16);
+  const teak = new THREE.MeshStandardMaterial({ color: 0x85522d, roughness: .58 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xb98a46, roughness: .35, metalness: .32 });
+  const potGeometry = new THREE.CylinderGeometry(.31, .42, .9, 8);
   const anchors = [];
   for (const z of [19, 14, 9, 4, -1, -6]) {
     for (const side of [-1, 1]) {
-      const pot = new THREE.Mesh(potGeometry, potMaterial);
-      pot.position.set(side * 3.55, .45, z);
+      const pedestal = new THREE.Group();
+      const pot = new THREE.Mesh(potGeometry, teak);
+      pot.rotation.y = Math.PI / 8;
       pot.castShadow = true;
       pot.receiveShadow = true;
-      scene.add(pot);
+      pedestal.add(pot);
+      for (const y of [-.39, .39]) {
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(y > 0 ? .335 : .45, y > 0 ? .335 : .45, .07, 8), gold);
+        band.position.y = y;
+        band.rotation.y = Math.PI / 8;
+        pedestal.add(band);
+      }
+      pedestal.position.set(side * 3.55, .45, z);
+      scene.add(pedestal);
       anchors.push({ x: side * 3.55, y: 1.38, z, side });
     }
   }
@@ -250,8 +289,9 @@ function addSwayingVines(scene) {
   const vines = [];
   // Keep these tiny animated details self-lit; shadowed standard materials made
   // their narrow stems read as black scratches against the bright panorama.
-  const stemMaterial = new THREE.MeshBasicMaterial({ color: 0x708267 });
-  const leafMaterial = new THREE.MeshBasicMaterial({ color: 0x87977a });
+  const stemMaterial = new THREE.MeshBasicMaterial({ color: 0x4f714e });
+  const leafMaterial = new THREE.MeshBasicMaterial({ color: 0x68805b });
+  const jasmineMaterial = new THREE.MeshBasicMaterial({ color: 0xfff4d8 });
   for (const side of [-1, 1]) {
     const vine = new THREE.Group();
     const stem = new THREE.Mesh(new THREE.CylinderGeometry(.018, .024, 1.28, 6), stemMaterial);
@@ -264,6 +304,12 @@ function addSwayingVines(scene) {
       leaf.position.set(side * (.08 + (index % 2) * .08), -.12 - index * .23, .03);
       leaf.rotation.set(.15, index * .7, side * (.6 + index * .08));
       vine.add(leaf);
+      if (index < 4) {
+        const jasmine = new THREE.Mesh(new THREE.SphereGeometry(.055, 7, 5), jasmineMaterial);
+        jasmine.scale.set(.8, 1.15, .8);
+        jasmine.position.set(-side * .035, -.17 - index * .24, .08);
+        vine.add(jasmine);
+      }
     }
     vine.position.set(side * 3.35, 7.05, -9.25);
     vine.userData = { phase: side > 0 ? 1.7 : .2, baseRotationZ: side * .045 };
@@ -332,9 +378,9 @@ function addFloralPhoto(parent, texture, { x, y, z, width, height, rotationY = 0
 async function buildWorld(scene, renderer, onAssetProgress) {
   const loader = new THREE.TextureLoader();
   const sources = [
-    `${CINEMATIC}/distant-garden-panorama-v2.webp`,
+    `${CINEMATIC}/distant-indonesian-highland-panorama-garden-v4.webp`,
     `${CINEMATIC}/short-grass-texture-v1.webp`,
-    `${LAYER}/couple-cinematic.webp`,
+    `${LAYER}/couple-cinematic-v2.webp`,
     `${CINEMATIC}/guests-seated-left-inward-v2.webp`,
     `${CINEMATIC}/guests-standing-right-inward-v2.webp`,
     `${CINEMATIC}/seated-guest-sage-chair-v1.webp`,
@@ -345,10 +391,10 @@ async function buildWorld(scene, renderer, onAssetProgress) {
     `${CINEMATIC}/seated-guest-navy-chair-look-left-inward-v3.webp`,
     `${CINEMATIC}/seated-guest-rose-chair-look-left-inward-v3.webp`,
     `${CINEMATIC}/seated-guest-taupe-chair-look-left-inward-v3.webp`,
-    `${CINEMATIC}/altar-floral-garland-v3.webp`,
-    `${CINEMATIC}/altar-pedestal-left-v1.webp`,
-    `${CINEMATIC}/altar-pedestal-right-v1.webp`,
-    `${CINEMATIC}/aisle-bouquet-v1.webp`,
+    `${CINEMATIC}/altar-floral-garland-indonesian-v1.webp`,
+    `${CINEMATIC}/altar-pedestal-left-indonesian-v1.webp`,
+    `${CINEMATIC}/altar-pedestal-right-indonesian-v1.webp`,
+    `${CINEMATIC}/aisle-bouquet-indonesian-v1.webp`,
   ];
   let loaded = 0;
   const textures = await Promise.all(sources.map((source) => loader.loadAsync(source).then((texture) => {
@@ -395,6 +441,11 @@ async function buildWorld(scene, renderer, onAssetProgress) {
   scene.add(sunlight);
 
   const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(88, 49.5), new THREE.MeshBasicMaterial({ map: landscape, fog: true }));
+  landscape.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  landscape.minFilter = THREE.LinearMipmapLinearFilter;
+  landscape.magFilter = THREE.LinearFilter;
+  landscape.generateMipmaps = true;
+  landscape.needsUpdate = true;
   backdrop.position.set(0, 9.2, -20);
   scene.add(backdrop);
 
@@ -422,12 +473,16 @@ async function buildWorld(scene, renderer, onAssetProgress) {
   path.receiveShadow = true;
   scene.add(path);
 
-  const borderMaterial = new THREE.MeshStandardMaterial({ color: 0xc8b88d, roughness: .72 });
+  const borderMaterial = new THREE.MeshStandardMaterial({ color: 0x754726, roughness: .58 });
+  const borderInlayMaterial = new THREE.MeshStandardMaterial({ color: 0xc49a52, roughness: .38, metalness: .28 });
   for (const x of [-3.35, 3.35]) {
     const border = new THREE.Mesh(new THREE.BoxGeometry(.16, .12, 54), borderMaterial);
     border.position.set(x, .02, 7);
     border.receiveShadow = true;
     scene.add(border);
+    const inlay = new THREE.Mesh(new THREE.BoxGeometry(.035, .035, 54), borderInlayMaterial);
+    inlay.position.set(x - Math.sign(x) * .095, .095, 7);
+    scene.add(inlay);
   }
 
   addRealisticGuestRows(scene, {
@@ -445,11 +500,11 @@ async function buildWorld(scene, renderer, onAssetProgress) {
     ],
   });
   const floralGroups = addSwayingVines(scene);
-  const altarArch = addArch(scene, -9.7, .95, true);
+  const altarArch = addArch(scene, -10.75, .95, true);
   const archFloral = addImagePlane(scene, altarGarland, {
     x: 0,
     y: 5.52,
-    z: -9.5,
+    z: -10.2,
     width: 9.45,
     height: 6.3,
     alphaTest: .08,
@@ -466,13 +521,17 @@ async function buildWorld(scene, renderer, onAssetProgress) {
     mirror: anchor.side > 0,
   }));
 
-  const platformMaterial = new THREE.MeshStandardMaterial({ color: 0xe4d7b9, roughness: .55 });
+  const platformMaterial = new THREE.MeshStandardMaterial({ color: 0xd8bf8c, roughness: .56 });
+  const platformNosingMaterial = new THREE.MeshStandardMaterial({ color: 0x83502b, roughness: .5 });
   for (let level = 0; level < 3; level += 1) {
     const step = new THREE.Mesh(new THREE.BoxGeometry(10.8 - level * .75, .28, 2.2), platformMaterial);
     step.position.set(0, .14 + level * .28, -8.7 - level * .72);
     step.castShadow = true;
     step.receiveShadow = true;
     scene.add(step);
+    const nosing = new THREE.Mesh(new THREE.BoxGeometry(10.84 - level * .75, .09, .12), platformNosingMaterial);
+    nosing.position.set(0, .25 + level * .28, -7.64 - level * .72);
+    scene.add(nosing);
   }
 
   const pedestalHeight = compact ? 3.05 : 3.35;
@@ -625,16 +684,14 @@ export default function VerdantCinematicJourney({ invitation: i, bride, groom, b
         renderer.toneMappingExposure = .94;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = lowPower ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1.25 : 1.75));
+        const pixelRatioCap = mobile ? (lowPower ? 1.35 : 1.6) : (lowPower ? 1.75 : 2);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
         renderer.setSize(mount.clientWidth, mount.clientHeight, false);
         mount.replaceChildren(renderer.domElement);
 
         const camera = new THREE.PerspectiveCamera(mobile ? 56 : 44, mount.clientWidth / Math.max(1, mount.clientHeight), .1, 100);
         const world = await buildWorld(scene, renderer, (loaded, total) => setLoadingLabel(`Menyiapkan taman ${loaded}/${total}`));
         if (disposed) return;
-        setReady(true);
-        readyCallbackRef.current?.();
-        state.last = performance.now();
 
         const resize = () => {
           const width = Math.max(1, mount.clientWidth);
@@ -646,6 +703,17 @@ export default function VerdantCinematicJourney({ invitation: i, bride, groom, b
         };
         resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(mount);
+
+        // Paint the exact opening frame before enabling the gate button. This
+        // keeps the handoff on one continuous canvas and prevents a black flash.
+        const openingFrame = sampleCamera(0, reducedMotion, mobile);
+        camera.position.copy(openingFrame.position);
+        camera.lookAt(openingFrame.target);
+        if (mobile && openingFrame.roll) camera.rotateZ(openingFrame.roll);
+        renderer.render(scene, camera);
+        setReady(true);
+        readyCallbackRef.current?.();
+        state.last = performance.now();
 
         const render = (now) => {
           if (disposed) return;

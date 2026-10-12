@@ -188,7 +188,7 @@ function MotionGarden({ className, choreo = 'fan', opening = false, sequence = f
       const pieceProps = { key: piece, 'data-lunara-piece': '', ...(opening ? { 'data-opening-step': '' } : {}), style: { '--piece-order': order[index], ...(opening ? { '--open-step': order[index] + 1 } : {}) } };
       return piece === 'butterfly'
         ? <FlyingButterfly className="garden-piece garden-butterfly" {...pieceProps} />
-        : <img className={`garden-piece garden-${piece}`} src={`${LAYER_ASSET}${file}`} alt="" decoding="async" {...pieceProps} />;
+        : <img className={`garden-piece garden-${piece}`} src={`${LAYER_ASSET}${file}`} alt="" loading={opening ? 'eager' : 'lazy'} decoding="async" {...pieceProps} />;
     })}
     <div className="garden-sparkles" {...(opening ? { 'data-opening-step': '', style: { '--open-step': 5 } } : {})}>{Array.from({ length: 7 }, (_, index) => <i key={index} />)}</div>
   </div>;

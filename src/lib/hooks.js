@@ -1,8 +1,37 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { get } from './api.js';
 
+const REMOTE_CACHE_PREFIX = 'daymoment:remote:';
+const cacheLifetime = (path) => path.startsWith('/api/templates') ? 30 * 60 * 1000
+  : path.startsWith('/api/invitations/') ? 5 * 60 * 1000
+    : 0;
+const readRemoteCache = (path) => {
+  const lifetime = cacheLifetime(path);
+  if (!lifetime || typeof sessionStorage === 'undefined') return null;
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(REMOTE_CACHE_PREFIX + path) || 'null');
+    return cached?.data && Date.now() - cached.savedAt < lifetime ? cached.data : null;
+  } catch {
+    return null;
+  }
+};
+const writeRemoteCache = (path, data) => {
+  if (!cacheLifetime(path) || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(REMOTE_CACHE_PREFIX + path, JSON.stringify({ savedAt: Date.now(), data }));
+  } catch {
+    // Storage can be unavailable in private/embedded contexts; network data
+    // still works normally in that case.
+  }
+};
+
 export function useRemote(path, dependencies = []) {
-  const [state, setState] = useState({ loading: true, data: null, error: null });
+  const [state, setState] = useState(() => {
+    const cached = readRemoteCache(path);
+    return cached
+      ? { loading: false, refreshing: true, data: cached, error: null }
+      : { loading: true, refreshing: false, data: null, error: null };
+  });
   const [revision, setRevision] = useState(0);
   const reload = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
@@ -10,8 +39,16 @@ export function useRemote(path, dependencies = []) {
     setState((current) => current.data
       ? { ...current, refreshing: true, error: null }
       : { loading: true, refreshing: false, data: null, error: null });
-    get(path).then((data) => active && setState({ loading: false, data, error: null }))
-      .catch((error) => active && setState({ loading: false, data: null, error }));
+    get(path).then((data) => {
+      if (!active) return;
+      writeRemoteCache(path, data);
+      setState({ loading: false, refreshing: false, data, error: null });
+    }).catch((error) => {
+      if (!active) return;
+      setState((current) => current.data
+        ? { ...current, loading: false, refreshing: false, error: null }
+        : { loading: false, refreshing: false, data: null, error });
+    });
     return () => { active = false; };
   }, [...dependencies, revision]); // eslint-disable-line react-hooks/exhaustive-deps
   return { ...state, reload };
@@ -32,7 +69,7 @@ export function useDocumentTitle(title) {
 export function useLegacyScripts(paths, ready = true) {
   useEffect(() => {
     if (!ready) return undefined;
-    const scripts = paths.map((src) => {
+    const scripts = paths.filter(Boolean).map((src) => {
       const script = document.createElement('script');
       script.src = `${src}${src.includes('?') ? '&' : '?'}react=1`;
       script.async = false;
@@ -45,13 +82,9 @@ export function useLegacyScripts(paths, ready = true) {
 
 export function useHeadLinks(links) {
   const signature = links.filter(Boolean).join('|');
+  const [readySignature, setReadySignature] = useState('');
   useLayoutEffect(() => {
     let disposed = false;
-    // A route can switch from the fallback template stylesheet to the real
-    // invitation stylesheet after the API response arrives. Keep the boot
-    // veil up until the new set of links is ready; otherwise a refresh can
-    // briefly reveal raw, unstyled invitation markup.
-    document.documentElement.classList.remove('app-styles-ready');
     const createdNodes = [];
     const hrefs = [...new Set(links.filter(Boolean))];
     const waits = hrefs.map((href) => new Promise((resolve) => {
@@ -77,7 +110,7 @@ export function useHeadLinks(links) {
       if (!link.isConnected) document.head.appendChild(link);
     }));
     const reveal = () => {
-      if (!disposed) document.documentElement.classList.add('app-styles-ready');
+      if (!disposed) setReadySignature(signature);
     };
     const fallback = window.setTimeout(reveal, 3500);
     Promise.all(waits).then(() => {
@@ -90,4 +123,5 @@ export function useHeadLinks(links) {
       createdNodes.forEach((node) => node.remove());
     };
   }, [signature]); // eslint-disable-line react-hooks/exhaustive-deps
+  return !signature || readySignature === signature;
 }
