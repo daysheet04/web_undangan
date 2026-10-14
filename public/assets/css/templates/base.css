@@ -65,6 +65,14 @@ a { color: inherit; }
 .preview-form-badge { width: fit-content; margin: 0 auto 15px; padding: 6px 11px; border-radius: 999px; font-size: .64rem; letter-spacing: .04em; }
 [data-preview-form] { position: relative; }
 [data-preview-form]::after { position: absolute; top: 10px; right: 12px; padding: 4px 8px; border-radius: 99px; background: rgba(255,255,255,.8); content: "Demo"; font-size: .56rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 900px) {
+    html { scroll-behavior: auto !important; }
+    html, body {
+        touch-action: pan-y;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: auto;
+    }
+}
 @media (max-width: 600px) {
     .inv-section { padding: 66px 16px; }
     .greeting-head { align-items: flex-start; }

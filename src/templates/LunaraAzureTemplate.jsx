@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { mediaUrl } from '../lib/api.js';
 
 const ASSET = '/assets/images/templates/lunara-azure/';
@@ -30,9 +30,60 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
   const eventTime = String(i.reception_start_time || '11:00').slice(0, 5);
   const calendar = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Pernikahan ${bride} & ${groom}`)}&dates=${eventDate.replaceAll('-', '')}T${eventTime.replace(':', '')}00/${eventDate.replaceAll('-', '')}T${eventTime.replace(':', '')}00&location=${encodeURIComponent(i.venue_name || '')}`;
 
+  const [lightbox, setLightbox] = useState(null);
+  const touchStartX = useRef(0);
+
+  const openPhoto = (photo) => {
+    setLightbox({
+      items: [photo],
+      index: 0
+    });
+  };
+
+  const openGalleryPhoto = (index) => {
+    const galleryItems = (photos.length ? photos : Array.from({ length: limit })).map((p, idx) => ({
+      src: p ? mediaUrl(p.file_path) : cover,
+      title: `Memory · ${String(idx + 1).padStart(2, '0')}`,
+      caption: `${groom} & ${bride} — Momen Bahagia`
+    }));
+    setLightbox({
+      items: galleryItems,
+      index: Math.max(0, Math.min(index, galleryItems.length - 1))
+    });
+  };
+
+  const nextPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index + 1) % prev.items.length } : prev);
+  };
+  const prevPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index - 1 + prev.items.length) % prev.items.length } : prev);
+  };
+
+  useEffect(() => {
+    if (!lightbox) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setLightbox(null);
+      } else if (e.key === 'ArrowRight' && lightbox.items.length > 1) {
+        nextPhoto();
+      } else if (e.key === 'ArrowLeft' && lightbox.items.length > 1) {
+        prevPhoto();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [lightbox]);
+
   return <>
     <AzureSymbols />
-    <div className="invitation-page lunara-azure" data-template-root data-slug={i.slug || ''}>
+    <div className="invitation-page lunara-azure lunara-deferred-backgrounds" data-template-root data-slug={i.slug || ''}>
       <section className="opening-cover lunara-cover" aria-label="Cover undangan">
         <div className="lunara-cover-sky" data-lunara-depth="back" />
         <div className="lunara-opening-light" data-opening-step style={{ '--open-step': 0 }} />
@@ -53,7 +104,8 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
       </section>
 
       <main className="invitation-content lunara-content">
-        <section className="lunara-section lunara-hero" data-lunara-scene>
+        <section className="lunara-section lunara-hero" data-lunara-scene data-lunara-bg="lunara-hero-aurora-collage-v1">
+          <SceneTransition />
           <div className="porcelain-glow" data-lunara-depth="back" />
           <MotionGarden className="section-garden hero-sequence-garden garden-hero-left" choreo="fan" sequence />
           <MotionGarden className="section-garden hero-sequence-garden garden-hero-right" choreo="reverse" sequence />
@@ -71,8 +123,16 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
             </span>
             <div className="lunara-mirror-surface" data-hero-step="portrait">
               <div className="lunara-photo-orbit"><i /><i /></div>
-              <div className="lunara-hero-photo">
+              <div
+                className="lunara-hero-photo lunara-clickable-photo"
+                onClick={() => openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — Our beautiful moment' })}
+                role="button"
+                tabIndex={0}
+                aria-label="Lihat foto sampul ukuran penuh"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — Our beautiful moment' }); } }}
+              >
                 <img src={cover} alt="Foto pasangan" decoding="async" />
+                <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
                 <span className="lunara-photo-label" data-hero-caption>Our beautiful moment</span>
               </div>
             </div>
@@ -83,8 +143,8 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           <a className="lunara-button lunara-save-date" data-hero-step="button" href={calendar} target="_blank" rel="noreferrer">Simpan Tanggal <AzureIcon name="azure-arrow" /></a>
         </section>
 
-        <section className="lunara-section lunara-greeting" data-lunara-scene>
-          <div className="lunara-wave wave-top" aria-hidden="true" />
+        <section className="lunara-section lunara-greeting" data-lunara-scene data-lunara-bg="lunara-wedding-aurora-ceremony-v1">
+          <SceneTransition />
           <div className="lunara-stars" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <i key={index} />)}</div>
           <MotionGarden className="section-garden garden-greeting" choreo="orbit" />
           <div className="lunara-greeting-inner" data-lunara-reveal="tilt">
@@ -94,20 +154,35 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
             <p>Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud menyelenggarakan pernikahan putra-putri kami.</p>
             <span className="lunara-signature">{bride} <i>&amp;</i> {groom}</span>
           </div>
-          <div className="lunara-wave wave-bottom" aria-hidden="true" />
         </section>
 
-        <section className="lunara-section lunara-couple" data-lunara-scene>
+        <section className="lunara-section lunara-couple" data-lunara-scene data-lunara-bg="lunara-couple-editorial-collage-v1">
+          <SceneTransition />
           <MotionGarden className="section-garden garden-couple" choreo="bloom" />
           <SectionHeading eyebrow="Dua hati, satu tujuan" title="Mempelai" />
           <div className="lunara-couple-grid">
-            <PersonCard type="bride" photo={bridePhoto} full={i.bride_full_name || 'Nisa Maharani'} father={i.bride_father || 'Bapak Firmansyah'} mother={i.bride_mother || 'Ibu Lestari'} />
+            <PersonCard
+              type="bride"
+              photo={bridePhoto}
+              full={i.bride_full_name || 'Nisa Maharani'}
+              father={i.bride_father || 'Bapak Firmansyah'}
+              mother={i.bride_mother || 'Ibu Lestari'}
+              onPhotoClick={() => openPhoto({ src: bridePhoto, title: i.bride_full_name || `${bride} — Mempelai Wanita`, caption: `Putri dari ${i.bride_father || 'Bapak Firmansyah'} & ${i.bride_mother || 'Ibu Lestari'}` })}
+            />
             <div className="lunara-couple-amp" data-lunara-reveal="spin"><span>&amp;</span><i /></div>
-            <PersonCard type="groom" photo={groomPhoto} full={i.groom_full_name || 'Andi Pratama'} father={i.groom_father || 'Bapak Suryanto'} mother={i.groom_mother || 'Ibu Rahayu'} />
+            <PersonCard
+              type="groom"
+              photo={groomPhoto}
+              full={i.groom_full_name || 'Andi Pratama'}
+              father={i.groom_father || 'Bapak Suryanto'}
+              mother={i.groom_mother || 'Ibu Rahayu'}
+              onPhotoClick={() => openPhoto({ src: groomPhoto, title: i.groom_full_name || `${groom} — Mempelai Pria`, caption: `Putra dari ${i.groom_father || 'Bapak Suryanto'} & ${i.groom_mother || 'Ibu Rahayu'}` })}
+            />
           </div>
         </section>
 
-        <section className="lunara-section lunara-events" data-lunara-scene>
+        <section className="lunara-section lunara-events" data-lunara-scene data-lunara-bg="lunara-events-editorial-flow-v1">
+          <SceneTransition />
           <MotionGarden className="section-garden garden-events" choreo="rise" />
           <SectionHeading eyebrow="Catat hari bahagia kami" title="Rangkaian Acara" />
           <div className="lunara-event-date" data-lunara-reveal="rise"><strong>{new Date(`${eventDate}T12:00:00`).getDate()}</strong><span>{MONTHS[new Date(`${eventDate}T12:00:00`).getMonth()]}<i />{new Date(`${eventDate}T12:00:00`).getFullYear()}</span></div>
@@ -117,9 +192,22 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           </div>
         </section>
 
-        <section className="lunara-section lunara-story" data-lunara-scene>
+        <section className="lunara-section lunara-story" data-lunara-scene data-lunara-bg="lunara-story-editorial-memory-v1">
+          <SceneTransition />
           <MotionGarden className="section-garden garden-story" choreo="drift" />
-          <div className="lunara-story-photo" data-lunara-reveal="left" data-lunara-depth="mid"><img src={cover} alt="Kisah pasangan" loading="lazy" decoding="async" /></div>
+          <div
+            className="lunara-story-photo lunara-clickable-photo"
+            data-lunara-reveal="left"
+            data-lunara-depth="mid"
+            onClick={() => openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Written in the moonlight — Kisah Kami' })}
+            role="button"
+            tabIndex={0}
+            aria-label="Lihat foto kisah ukuran penuh"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Written in the moonlight — Kisah Kami' }); } }}
+          >
+            <img src={cover} alt="Kisah pasangan" loading="lazy" decoding="async" />
+            <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
+          </div>
           <div className="lunara-story-copy" data-lunara-reveal="tilt">
             <span className="lunara-eyebrow">Kisah kami</span>
             <h2>Written in<br />the moonlight</h2>
@@ -127,26 +215,59 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           </div>
         </section>
 
-        <section className="lunara-section lunara-gallery" data-lunara-scene>
+        <section className="lunara-section lunara-gallery" data-lunara-scene data-lunara-bg="lunara-gallery-zine-collage-v1">
+          <SceneTransition />
           <MotionGarden className="section-garden garden-gallery" choreo="cascade" />
           <SectionHeading eyebrow="Potongan waktu yang kami simpan" title="Moonlit Memories" />
           <div className={`lunara-gallery-deck gallery-count-${Math.min(photos.length || limit, 5)}`}>
-            {photos.length ? photos.map((photo, index) => <figure key={photo.id} data-lunara-reveal={index % 2 ? 'right' : 'left'} style={{ '--card-index': index }}><img src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index + 1}`} loading="lazy" decoding="async" /><figcaption>Memory · {String(index + 1).padStart(2, '0')}</figcaption></figure>) : Array.from({ length: limit }, (_, index) => <figure className="lunara-gallery-placeholder" key={index} data-lunara-reveal={index % 2 ? 'right' : 'left'} style={{ '--card-index': index }}><span>{String(index + 1).padStart(2, '0')}</span><figcaption>Our moment</figcaption></figure>)}
+            {photos.length ? photos.map((photo, index) => (
+              <figure
+                key={photo.id}
+                className="lunara-clickable-photo"
+                data-lunara-reveal={index % 2 ? 'right' : 'left'}
+                style={{ '--card-index': index }}
+                onClick={() => openGalleryPhoto(index)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGalleryPhoto(index); } }}
+              >
+                <img src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index + 1}`} loading="lazy" decoding="async" />
+                <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
+                <figcaption>Memory · {String(index + 1).padStart(2, '0')}</figcaption>
+              </figure>
+            )) : Array.from({ length: limit }, (_, index) => (
+              <figure
+                className="lunara-gallery-placeholder lunara-clickable-photo"
+                key={index}
+                data-lunara-reveal={index % 2 ? 'right' : 'left'}
+                style={{ '--card-index': index }}
+                onClick={() => openPhoto({ src: cover, title: `Memory · ${String(index + 1).padStart(2, '0')}`, caption: `${groom} & ${bride}` })}
+                role="button"
+                tabIndex={0}
+                aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
+              >
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <figcaption>Our moment</figcaption>
+              </figure>
+            ))}
           </div>
         </section>
 
         {i.has_gift && <GiftSection accounts={giftAccounts} />}
         {i.has_wishes && <RsvpSection invitation={i} guestName={guestName} greetings={greetings} preview={preview} />}
 
-        <section className="lunara-section lunara-closing" data-lunara-scene>
+        <section className="lunara-section lunara-closing" data-lunara-scene data-lunara-bg="lunara-closing-editorial-finale-v1">
+          <SceneTransition />
           <div className="lunara-closing-moon" data-lunara-depth="back"><i /></div>
           <MotionGarden className="section-garden garden-closing" choreo="finale" />
           <div className="lunara-closing-copy" data-lunara-reveal="tilt">
-            <span className="lunara-eyebrow">Terima kasih</span>
+            <span className="lunara-closing-stamp" aria-hidden="true">{groom.slice(0, 1)} · {bride.slice(0, 1)}</span>
+            <span className="lunara-eyebrow">Terima kasih sudah menjadi bagian cerita kami</span>
             <p>Merupakan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu.</p>
             <h2 className="lunara-name-stack"><span data-live="groom_nickname">{groom}</span><i>&amp;</i><span data-live="bride_nickname">{bride}</span></h2>
             <time data-date-field="reception_date">{idDate(eventDate, false)}</time>
-            {!preview && <button className="lunara-button lunara-button-light share-button" type="button" data-share data-share-url={`${location.origin}/${i.slug}`}>Bagikan Undangan <AzureIcon name="azure-arrow" /></button>}
+            <small className="lunara-closing-note">With love, today and always.</small>
           </div>
         </section>
 
@@ -155,6 +276,82 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
 
       {i.has_music && i.music_file && <audio data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)} />}
       {i.has_music && <button className="lunara-music" type="button" data-music-controller aria-label="Kontrol musik" aria-pressed="false" title={i.music_title || 'Musik undangan'}><AzureIcon name="azure-music" /></button>}
+
+      {lightbox && lightbox.items[lightbox.index] && (
+        <div
+          className="lunara-lightbox is-open"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Lihat foto penuh"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="lunara-lightbox-backdrop" aria-hidden="true" />
+          <button
+            className="lunara-lightbox-close"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+            aria-label="Tutup tampilan foto"
+          >
+            <AzureIcon name="azure-close" />
+          </button>
+          {lightbox.items.length > 1 && (
+            <>
+              <button
+                className="lunara-lightbox-nav prev"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevPhoto();
+                }}
+                aria-label="Foto sebelumnya"
+              >
+                <AzureIcon name="azure-chevron-left" />
+              </button>
+              <button
+                className="lunara-lightbox-nav next"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextPhoto();
+                }}
+                aria-label="Foto berikutnya"
+              >
+                <AzureIcon name="azure-chevron-right" />
+              </button>
+            </>
+          )}
+          <div
+            className="lunara-lightbox-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+            onTouchEnd={(e) => {
+              if (lightbox.items.length <= 1) return;
+              const diff = e.changedTouches[0].clientX - touchStartX.current;
+              if (Math.abs(diff) > 42) {
+                if (diff < 0) nextPhoto();
+                else prevPhoto();
+              }
+            }}
+          >
+            <div className="lunara-lightbox-frame">
+              <img
+                className="lunara-lightbox-img"
+                src={lightbox.items[lightbox.index].src}
+                alt={lightbox.items[lightbox.index].title || 'Foto ukuran penuh'}
+              />
+            </div>
+            <div className="lunara-lightbox-caption">
+              <strong>{lightbox.items[lightbox.index].title}</strong>
+              {lightbox.items[lightbox.index].caption && <p>{lightbox.items[lightbox.index].caption}</p>}
+              {lightbox.items.length > 1 && (
+                <span className="lunara-lightbox-counter">
+                  {lightbox.index + 1} / {lightbox.items.length}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </>;
 }
@@ -188,7 +385,7 @@ function MotionGarden({ className, choreo = 'fan', opening = false, sequence = f
       const pieceProps = { key: piece, 'data-lunara-piece': '', ...(opening ? { 'data-opening-step': '' } : {}), style: { '--piece-order': order[index], ...(opening ? { '--open-step': order[index] + 1 } : {}) } };
       return piece === 'butterfly'
         ? <FlyingButterfly className="garden-piece garden-butterfly" {...pieceProps} />
-        : <img className={`garden-piece garden-${piece}`} src={`${LAYER_ASSET}${file}`} alt="" loading={opening ? 'eager' : 'lazy'} decoding="async" {...pieceProps} />;
+        : <img className={`garden-piece garden-${piece}`} src={`${LAYER_ASSET}${file}`} alt="" loading={opening ? 'eager' : 'lazy'} fetchPriority={opening ? 'high' : 'auto'} decoding="async" {...pieceProps} />;
     })}
     <div className="garden-sparkles" {...(opening ? { 'data-opening-step': '', style: { '--open-step': 5 } } : {})}>{Array.from({ length: 7 }, (_, index) => <i key={index} />)}</div>
   </div>;
@@ -196,6 +393,10 @@ function MotionGarden({ className, choreo = 'fan', opening = false, sequence = f
 
 function SectionHeading({ eyebrow, title }) {
   return <div className="lunara-heading" data-lunara-reveal="rise"><span className="lunara-eyebrow">{eyebrow}</span><h2>{title}</h2><i /></div>;
+}
+
+function SceneTransition() {
+  return <div className="lunara-scene-transition" aria-hidden="true"><i /><span /></div>;
 }
 
 function FlyingButterfly({ className, style, ...props }) {
@@ -210,9 +411,20 @@ function FlyingButterfly({ className, style, ...props }) {
   </span>;
 }
 
-function PersonCard({ type, photo, full, father, mother }) {
+function PersonCard({ type, photo, full, father, mother, onPhotoClick }) {
   return <article className={`lunara-person person-${type}`} data-lunara-reveal={type === 'bride' ? 'left' : 'right'}>
-    <div className="lunara-person-photo"><span /><img src={photo} alt={`Foto mempelai ${type === 'bride' ? 'wanita' : 'pria'}`} loading="lazy" decoding="async" /></div>
+    <div
+      className="lunara-person-photo lunara-clickable-photo"
+      onClick={onPhotoClick}
+      role={onPhotoClick ? 'button' : undefined}
+      tabIndex={onPhotoClick ? 0 : undefined}
+      aria-label={onPhotoClick ? `Lihat foto ${type === 'bride' ? 'mempelai wanita' : 'mempelai pria'} ukuran penuh` : undefined}
+      onKeyDown={(e) => { if (onPhotoClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPhotoClick(); } }}
+    >
+      <span />
+      <img src={photo} alt={`Foto mempelai ${type === 'bride' ? 'wanita' : 'pria'}`} loading="lazy" decoding="async" />
+      <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
+    </div>
     <small>{type === 'bride' ? 'Mempelai Wanita' : 'Mempelai Pria'}</small>
     <h3 data-live={`${type}_full_name`}>{full}</h3>
     <p>{type === 'bride' ? 'Putri' : 'Putra'} dari</p>
@@ -236,34 +448,43 @@ function EventCard({ type, invitation: i }) {
 }
 
 function GiftSection({ accounts }) {
-  return <section className="lunara-section lunara-gift" data-lunara-scene>
-    <div className="lunara-gift-ribbon" aria-hidden="true" />
+  return <section className="lunara-section lunara-gift" data-lunara-scene data-lunara-bg="lunara-gift-editorial-envelope-v1">
+    <SceneTransition />
     <MotionGarden className="section-garden garden-gift" choreo="crown" />
-    <SectionHeading eyebrow="Tanda kasih" title="Wedding Gift" />
-    <p className="lunara-gift-lead">Doa restu Anda adalah hadiah terindah. Bagi yang ingin mengirimkan tanda kasih, silakan melalui rekening berikut.</p>
-    {accounts.length ? <>
-      <div className="lunara-bank-picker" data-lunara-bank-picker data-lunara-reveal="rise">
-        <span className="lunara-bank-picker-title">Pilih bank / e-wallet</span>
-        <button className="lunara-bank-trigger" type="button" data-lunara-bank-trigger aria-haspopup="listbox" aria-expanded="false">
-          <strong data-lunara-bank-label>{accounts[0].provider}{accounts[0].label ? ` — ${accounts[0].label}` : ''}</strong>
-          <span className="lunara-bank-chevron" aria-hidden="true" />
-        </button>
-        <div className="lunara-bank-options" role="listbox" data-lunara-bank-options>
-          {accounts.map((account, index) => <button className="lunara-bank-option" type="button" role="option" aria-selected={index === 0 ? 'true' : 'false'} data-lunara-bank-option={index} key={account.id || index}>
-            <span><strong>{account.provider}</strong>{account.label && <small>{account.label}</small>}</span><i aria-hidden="true" />
-          </button>)}
-        </div>
+    <div className="lunara-gift-ribbon" aria-hidden="true" />
+    <div className="lunara-gift-shell">
+      <div className="lunara-gift-intro">
+        <SectionHeading eyebrow="Tanda kasih" title="Wedding Gift" />
+        <p className="lunara-gift-lead" data-lunara-reveal="left">Doa restu Anda adalah hadiah terindah. Bagi yang ingin mengirimkan tanda kasih, silakan melalui rekening berikut.</p>
+        <div className="lunara-gift-orbit" aria-hidden="true"><i /><span>✦</span><b /></div>
       </div>
-      <div className="lunara-bank-stack">{accounts.map((account, index) => <article className="lunara-bank-card" data-lunara-bank-card={index} hidden={index > 0} key={account.id || index}>
-        <small>{account.provider}</small><strong data-account-number>{account.account_number}</strong><p>a.n. {account.account_name}</p>{account.label && <em>{account.label}</em>}
-        <button type="button" data-copy-account><AzureIcon name="azure-copy" /> Salin Nomor</button>
-      </article>)}</div>
-    </> : <div className="lunara-empty">Informasi amplop digital belum ditambahkan.</div>}
+      <div className="lunara-gift-content" data-lunara-reveal="right">
+        {accounts.length ? <>
+          <div className="lunara-bank-picker" data-lunara-bank-picker>
+            <span className="lunara-bank-picker-title">Pilih bank / e-wallet</span>
+            <button className="lunara-bank-trigger" type="button" data-lunara-bank-trigger aria-haspopup="listbox" aria-expanded="false">
+              <strong data-lunara-bank-label>{accounts[0].provider}{accounts[0].label ? ` — ${accounts[0].label}` : ''}</strong>
+              <span className="lunara-bank-chevron" aria-hidden="true" />
+            </button>
+            <div className="lunara-bank-options" role="listbox" data-lunara-bank-options>
+              {accounts.map((account, index) => <button className="lunara-bank-option" type="button" role="option" aria-selected={index === 0 ? 'true' : 'false'} data-lunara-bank-option={index} key={account.id || index}>
+                <span><strong>{account.provider}</strong>{account.label && <small>{account.label}</small>}</span><i aria-hidden="true" />
+              </button>)}
+            </div>
+          </div>
+          <div className="lunara-bank-stack">{accounts.map((account, index) => <article className="lunara-bank-card" data-lunara-bank-card={index} hidden={index > 0} key={account.id || index}>
+            <small>{account.provider}</small><strong data-account-number>{account.account_number}</strong><p>a.n. {account.account_name}</p>{account.label && <em>{account.label}</em>}
+            <button type="button" data-copy-account><AzureIcon name="azure-copy" /> Salin Nomor</button>
+          </article>)}</div>
+        </> : <div className="lunara-empty">Informasi amplop digital belum ditambahkan.</div>}
+      </div>
+    </div>
   </section>;
 }
 
 function RsvpSection({ invitation: i, guestName, greetings, preview }) {
-  return <section className="lunara-section lunara-rsvp" id="rsvp" data-lunara-scene>
+  return <section className="lunara-section lunara-rsvp" id="rsvp" data-lunara-scene data-lunara-bg="lunara-rsvp-editorial-response-v1">
+    <SceneTransition />
     <MotionGarden className="section-garden garden-rsvp" choreo="embrace" />
     <div className="lunara-rsvp-shell" data-lunara-reveal="tilt">
       <SectionHeading eyebrow="Ucapan & konfirmasi" title="Kehadiran Anda" />
@@ -300,5 +521,9 @@ function AzureSymbols() {
     <symbol id="azure-map" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-12A6 6 0 0 0 6 9c0 6.6 6 12 6 12Z" /><circle cx="12" cy="9" r="2" /></symbol>
     <symbol id="azure-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></symbol>
     <symbol id="azure-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 10l10-2" /><circle cx="6" cy="18" r="3" /><circle cx="16" cy="16" r="3" /></symbol>
+    <symbol id="azure-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
+    <symbol id="azure-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol>
+    <symbol id="azure-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+    <symbol id="azure-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35M11 8v6M8 11h6" /></symbol>
   </defs></svg>;
 }
