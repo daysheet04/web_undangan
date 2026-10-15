@@ -91,3 +91,704 @@
 .opening-scenery,.gate-panel,.stage-parallax{background-image:url("../../images/templates/puspa-jawi/jawi-landscape.webp")}.jawi-story-section{background-image:linear-gradient(rgba(63,74,64,.62),rgba(63,74,64,.72)),url("../../images/templates/puspa-jawi/jawi-landscape.webp")}.gallery-empty{background-image:linear-gradient(rgba(247,239,228,.35),rgba(247,239,228,.55)),url("../../images/templates/puspa-jawi/jawi-landscape.webp")!important}.jawi-closing-section{background-image:linear-gradient(rgba(247,239,228,.48),rgba(247,239,228,.8)),url("../../images/templates/puspa-jawi/jawi-landscape.webp")}.greeting-floral-frame::before,.greeting-floral-frame::after{background-image:url("../../images/templates/puspa-jawi/floral-frame-v2.webp")}
 @media(max-width:620px){.opening-scenery,.gate-panel,.stage-parallax{background-image:url("../../images/templates/puspa-jawi/jawi-landscape-mobile.webp")}.jawi-story-section{background-image:linear-gradient(rgba(63,74,64,.62),rgba(63,74,64,.72)),url("../../images/templates/puspa-jawi/jawi-landscape-mobile.webp")}.gallery-empty{background-image:linear-gradient(rgba(247,239,228,.35),rgba(247,239,228,.55)),url("../../images/templates/puspa-jawi/jawi-landscape-mobile.webp")!important}.jawi-closing-section{background-image:linear-gradient(rgba(247,239,228,.48),rgba(247,239,228,.8)),url("../../images/templates/puspa-jawi/jawi-landscape-mobile.webp")}.greeting-floral-frame::before,.greeting-floral-frame::after{background-image:url("../../images/templates/puspa-jawi/floral-frame-v2-mobile.webp")}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}.jawi-reveal{opacity:1;transform:none;filter:none;clip-path:none}.moving-clouds>div{animation:none}.stage-parallax{transform:none}}
+
+/* 2026 Puspa Jawi: full-width Nusantara editorial prologue. */
+.jawi-layout{display:block!important;padding-left:0!important;background:#f8f0e7}.jawi-stage{display:none!important}.jawi-scroll{position:relative!important;z-index:1!important;width:100%!important;max-width:none!important;min-height:100vh;margin:0!important;overflow:hidden;box-shadow:none!important}
+.jawi-prologue{position:relative;display:flex;min-height:max(760px,100svh);align-items:center;justify-content:center;padding:clamp(72px,7vw,116px) clamp(28px,6vw,108px);isolation:isolate;color:#173e4b;background-image:linear-gradient(90deg,rgba(255,248,239,.93) 0%,rgba(255,248,239,.73) 42%,rgba(228,238,232,.16) 72%),url("../../images/templates/puspa-jawi/puspa-prologue-pop-v2.webp");background-position:center;background-size:cover}
+.jawi-prologue::before{position:absolute;z-index:0;inset:0;background:radial-gradient(circle at 26% 45%,rgba(255,255,255,.72),transparent 34%),linear-gradient(115deg,rgba(221,137,113,.12),transparent 37%,rgba(29,96,109,.09));content:"";pointer-events:none}.jawi-prologue::after{z-index:0;opacity:.055;background-size:94px;mix-blend-mode:multiply}
+.jawi-prologue-grid{position:relative;z-index:3;display:grid;width:min(1360px,100%);grid-template-columns:minmax(390px,.9fr) minmax(430px,1.1fr);align-items:center;gap:clamp(48px,8vw,132px);margin:auto}
+.jawi-prologue-copy{text-align:left}.jawi-prologue-copy .jawi-kicker{display:inline-flex;align-items:center;gap:12px;color:#a56150;font-weight:700;letter-spacing:.25em}.jawi-prologue-copy .jawi-kicker::before{width:38px;height:1px;background:#c79b57;content:""}.jawi-prologue-copy h2{display:flex;flex-direction:column;align-items:flex-start;margin:19px 0 24px;color:#153a49;font-size:clamp(5.2rem,8.2vw,8.5rem);line-height:.61;letter-spacing:-.035em;text-shadow:0 4px 28px rgba(255,250,243,.82)}.jawi-prologue-copy h2 i{align-self:center;margin:.08em 0 .03em;color:#c48f4e;font-size:.44em;line-height:1}.jawi-prologue-copy>p{max-width:560px;margin:0;color:#50686b;font-size:clamp(.95rem,1.25vw,1.13rem);line-height:1.9}.jawi-prologue-copy>time{display:block;margin-top:20px;color:#1d6877;font:700 .67rem var(--jawi-sans);letter-spacing:.15em;text-transform:uppercase}
+.jawi-prologue-calendar{margin-top:25px;border-color:#16485a;background:#16485a;box-shadow:0 13px 32px rgba(22,72,90,.18)}
+.jawi-prologue-countdown{display:grid;width:min(500px,100%);grid-template-columns:repeat(4,1fr);gap:10px;margin-top:26px}.jawi-prologue-countdown>div{display:grid;min-height:84px;place-content:center;border:1px solid rgba(37,91,101,.16);border-radius:20px 7px 20px 7px;background:linear-gradient(145deg,rgba(255,253,247,.86),rgba(221,232,236,.7));box-shadow:inset 0 1px rgba(255,255,255,.85),0 12px 25px rgba(39,81,88,.08);text-align:center}.jawi-prologue-countdown>div:nth-child(2){background:linear-gradient(145deg,rgba(255,248,237,.9),rgba(244,217,199,.66))}.jawi-prologue-countdown>div:nth-child(3){background:linear-gradient(145deg,rgba(255,252,247,.9),rgba(231,219,240,.72))}.jawi-prologue-countdown strong{color:#153a49;font:400 clamp(2.2rem,3.1vw,3.15rem) var(--jawi-display);line-height:.72}.jawi-prologue-countdown span{margin-top:8px;color:#45646c;font:700 .48rem var(--jawi-sans);letter-spacing:.14em;text-transform:uppercase}
+.jawi-prologue-portrait{position:relative;justify-self:center;width:min(520px,43vw);padding:18px}.jawi-prologue-portrait::before,.jawi-prologue-portrait::after{position:absolute;border:1px solid rgba(28,96,109,.24);border-radius:50%;content:"";pointer-events:none}.jawi-prologue-portrait::before{inset:-7% -13% -5%;animation:prologue-orbit 16s ease-in-out infinite alternate}.jawi-prologue-portrait::after{inset:3% -21% 12%;border-color:rgba(197,145,75,.34);animation:prologue-orbit 20s -7s ease-in-out infinite alternate-reverse}.jawi-prologue-arch{position:relative;z-index:2;aspect-ratio:4/5;padding:10px;border:1px solid rgba(255,255,255,.92);border-radius:48% 48% 28px 28px/24% 24% 28px 28px;background:rgba(255,255,255,.3);box-shadow:inset 0 0 0 7px rgba(255,255,255,.22),0 28px 70px rgba(20,60,70,.2)}.jawi-prologue-arch::before{position:absolute;inset:-13px;border:1px solid rgba(197,145,75,.72);border-radius:inherit;content:"";pointer-events:none}.jawi-prologue-arch img{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover}.jawi-prologue-arch>span{position:absolute;z-index:3;left:50%;top:25px;padding:10px 20px;border:1px solid rgba(255,255,255,.55);border-radius:999px;color:#fff;background:#173f4e;box-shadow:0 10px 25px rgba(18,55,64,.2);font:700 .52rem var(--jawi-sans);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;transform:translateX(-50%)}
+.jawi-prologue-floral{position:absolute;z-index:4;left:-25%;bottom:-14%;width:150%;max-width:none;pointer-events:none;filter:drop-shadow(0 18px 18px rgba(31,70,75,.15));animation:prologue-bloom 7s ease-in-out infinite alternate}.jawi-prologue-seal{position:absolute;z-index:5;right:-11px;bottom:12%;display:grid;width:74px;height:74px;place-items:center;border:1px solid rgba(255,255,255,.75);border-radius:50%;color:#fff;background:#b46e5d;box-shadow:inset 0 0 0 6px rgba(255,255,255,.18),0 12px 30px rgba(80,45,38,.2);font:400 1.55rem var(--jawi-display)}.jawi-prologue-seal i{margin-inline:-8px;color:#f8dfad;font-size:.65em}
+.jawi-prologue-contours{position:absolute!important;z-index:1!important;inset:0;overflow:hidden;pointer-events:none}.jawi-prologue-contours i{position:absolute;border:1px solid rgba(31,103,116,.14);border-radius:46% 54% 61% 39%}.jawi-prologue-contours i:nth-child(1){left:-9%;top:9%;width:38vw;aspect-ratio:1}.jawi-prologue-contours i:nth-child(2){right:15%;top:4%;width:31vw;aspect-ratio:1;transform:rotate(18deg)}.jawi-prologue-contours i:nth-child(3){right:-8%;bottom:-26%;width:42vw;aspect-ratio:1;border-color:rgba(197,145,75,.19)}
+.jawi-prologue-gunungan{position:absolute!important;z-index:1!important;left:2%;bottom:-9%;width:clamp(160px,20vw,330px);opacity:.13;filter:sepia(.5);pointer-events:none}.jawi-prologue-botanical{position:absolute!important;z-index:2!important;inset:0;overflow:hidden;pointer-events:none}.jawi-prologue-botanical .decor-janur{position:absolute;inset:-2%;width:104%;height:104%;max-width:none;object-fit:fill;opacity:.26;transform-origin:50% 0;animation:janur-alive 10s ease-in-out infinite alternate}.jawi-prologue-botanical .decor-floral{position:absolute;left:-11%;bottom:-17%;width:62%;max-width:none;opacity:.72;filter:drop-shadow(0 14px 20px rgba(40,69,69,.1));transform-origin:30% 100%;animation:flowers-alive 8s ease-in-out infinite alternate}
+@keyframes prologue-orbit{to{transform:rotate(3deg) scale(1.02)}}@keyframes prologue-bloom{to{transform:translateY(-7px) scale(1.018)}}
+
+@media(max-width:900px){.jawi-prologue{min-height:auto;padding:92px 24px 108px;background-image:linear-gradient(rgba(255,249,242,.9),rgba(242,237,238,.38)),url("../../images/templates/puspa-jawi/puspa-prologue-pop-v2-mobile.webp");background-position:center top}.jawi-prologue-grid{width:min(680px,100%);grid-template-columns:1fr;gap:66px}.jawi-prologue-copy{text-align:center}.jawi-prologue-copy .jawi-kicker{justify-content:center}.jawi-prologue-copy h2{align-items:center;font-size:clamp(5.1rem,17vw,7.5rem)}.jawi-prologue-copy>p{margin-inline:auto}.jawi-prologue-countdown{margin-inline:auto}.jawi-prologue-portrait{width:min(460px,82vw)}.jawi-prologue-botanical .decor-floral{left:-27%;bottom:-7%;width:110%;opacity:.7}.jawi-prologue-gunungan{left:-8%;bottom:18%;opacity:.1}}
+@media(max-width:620px){.jawi-prologue{width:100%;min-height:auto;padding:76px 15px 96px;background-position:center top}.jawi-prologue::before{background:radial-gradient(circle at 50% 18%,rgba(255,255,255,.67),transparent 28%),linear-gradient(180deg,rgba(255,247,239,.38),transparent 46%,rgba(221,232,237,.25))}.jawi-prologue-grid{gap:52px}.jawi-prologue-copy .jawi-kicker{font-size:.55rem;letter-spacing:.19em}.jawi-prologue-copy .jawi-kicker::before{width:24px}.jawi-prologue-copy h2{margin:19px 0 25px;font-size:clamp(4.65rem,24vw,6.15rem);line-height:.64}.jawi-prologue-copy>p{max-width:340px;font-size:.9rem;line-height:1.82}.jawi-prologue-copy>time{font-size:.6rem;line-height:1.7}.jawi-prologue-countdown{gap:7px;margin-top:24px}.jawi-prologue-countdown>div{min-height:75px;border-radius:15px 5px 15px 5px}.jawi-prologue-countdown strong{font-size:2.25rem}.jawi-prologue-countdown span{font-size:.43rem}.jawi-prologue-calendar{margin-top:22px}.jawi-prologue-portrait{width:min(355px,88vw);padding:12px}.jawi-prologue-arch{padding:7px;border-radius:48% 48% 21px 21px/18% 18% 21px 21px}.jawi-prologue-arch::before{inset:-8px}.jawi-prologue-arch>span{top:20px;padding:9px 15px;font-size:.45rem}.jawi-prologue-floral{left:-24%;bottom:-12%;width:148%}.jawi-prologue-seal{right:-2px;bottom:10%;width:62px;height:62px;font-size:1.3rem}.jawi-prologue-contours i:nth-child(1){left:-35%;top:7%;width:100vw}.jawi-prologue-contours i:nth-child(2){right:-35%;top:46%;width:90vw}.jawi-prologue-contours i:nth-child(3){right:-43%;bottom:-10%;width:110vw}.jawi-prologue-botanical .decor-janur{inset:-1% -15%;width:130%;height:74%;opacity:.22}.jawi-prologue-botanical .decor-floral{left:-48%;bottom:-2%;width:148%;opacity:.62}.jawi-prologue-gunungan{left:-18%;bottom:14%;width:230px}}
+
+/* Puspa Jawi v2: bright Nusantara Pop Sunrise, without the former janur/floral language. */
+.jawi-prologue{color:#103b75;background-image:linear-gradient(90deg,rgba(255,250,235,.9) 0%,rgba(255,250,235,.66) 39%,rgba(255,255,255,.05) 68%),url("../../images/templates/puspa-jawi/puspa-prologue-pop-v2.webp");background-position:center;background-size:cover}.jawi-prologue::before{background:radial-gradient(circle at 22% 48%,rgba(255,253,240,.82),transparent 31%),linear-gradient(118deg,rgba(255,126,89,.08),transparent 41%,rgba(20,184,204,.09))}.jawi-prologue::after{opacity:.035;mix-blend-mode:soft-light}
+.jawi-prologue-grid{grid-template-columns:minmax(400px,.92fr) minmax(430px,1.08fr);gap:clamp(50px,7vw,118px)}.jawi-prologue-copy{padding:clamp(25px,3vw,44px);border:1px solid rgba(16,88,133,.12);border-radius:42px 12px 42px 12px;background:linear-gradient(145deg,rgba(255,253,242,.79),rgba(255,255,255,.43));box-shadow:inset 0 1px rgba(255,255,255,.9),0 24px 70px rgba(15,76,119,.08)}.jawi-prologue-copy .jawi-kicker{color:#ec684f}.jawi-prologue-copy .jawi-kicker::before{background:#f4b52f}.jawi-prologue-copy h2{color:#073b7a;text-shadow:0 4px 24px rgba(255,255,255,.75)}.jawi-prologue-copy h2 i{color:#ef704d}.jawi-prologue-copy>p{color:#315e72}.jawi-prologue-copy>time{color:#087e9e}.jawi-prologue-calendar{border-color:#063e80;background:linear-gradient(115deg,#063e80,#087f9d 58%,#13aeb3);box-shadow:0 14px 32px rgba(4,85,124,.24)}.jawi-prologue-calendar:hover{background:linear-gradient(115deg,#082f66,#086b8b 58%,#0c929c)}
+.jawi-prologue-countdown>div{border-color:rgba(4,104,151,.18);border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.9),rgba(101,218,223,.48));box-shadow:inset 0 1px rgba(255,255,255,.9),0 11px 22px rgba(0,103,152,.09)}.jawi-prologue-countdown>div:nth-child(2){background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(255,197,55,.55))}.jawi-prologue-countdown>div:nth-child(3){background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(255,126,89,.46))}.jawi-prologue-countdown>div:nth-child(4){background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(133,119,239,.42))}.jawi-prologue-countdown strong{color:#073b7a}.jawi-prologue-countdown span{color:#135d78}
+.jawi-prologue-portrait{width:min(510px,42vw);padding:0}.jawi-prologue-portrait::before{inset:4% -5% -4% 5%;border:0;border-radius:34px 34px 145px 34px;background:linear-gradient(145deg,#ff795d,#ffc83c 54%,#f5e8ac);box-shadow:0 25px 65px rgba(2,76,122,.18);animation:portrait-card-a 10s ease-in-out infinite alternate}.jawi-prologue-portrait::after{inset:-4% 5% 5% -5%;border:0;border-radius:34px 145px 34px 34px;background:linear-gradient(145deg,#13bec3,#147fe0 54%,#685be8);opacity:.94;animation:portrait-card-b 12s -5s ease-in-out infinite alternate}.jawi-prologue-arch{border:0;border-radius:34px 34px 135px 34px;padding:8px;background:#fff;box-shadow:0 26px 65px rgba(5,55,101,.22)}.jawi-prologue-arch::before{inset:13px;border:1px solid rgba(255,255,255,.84);border-radius:25px 25px 122px 25px;box-shadow:inset 0 0 0 1px rgba(7,59,122,.16)}.jawi-prologue-arch img{border-radius:27px 27px 128px 27px}.jawi-prologue-arch>span{top:22px;border-color:rgba(255,255,255,.7);color:#073b7a;background:#ffcf45;box-shadow:0 10px 24px rgba(7,59,122,.16)}.jawi-prologue-seal{right:-20px;bottom:8%;border-color:rgba(255,255,255,.86);color:#073b7a;background:#71e0db;box-shadow:inset 0 0 0 6px rgba(255,255,255,.33),0 13px 28px rgba(5,67,109,.22)}.jawi-prologue-seal i{color:#ee6049}
+.jawi-prologue-botanical,.jawi-prologue-gunungan,.jawi-prologue-floral{display:none!important}.jawi-prologue-ornaments{position:absolute!important;z-index:1!important;inset:0;overflow:hidden;pointer-events:none}.jawi-prologue-ornaments img{position:absolute;max-width:none;will-change:transform;filter:drop-shadow(0 18px 24px rgba(4,63,104,.12))}.jawi-prologue-orbit{right:-6%;top:-15%;width:clamp(260px,28vw,455px);opacity:.42;animation:kawung-orbit-float 24s linear infinite}.jawi-prologue-ribbon{width:clamp(400px,45vw,730px);opacity:.72}.jawi-prologue-ribbon.ribbon-one{left:-16%;bottom:-13%;animation:wayang-ribbon-drift 16s ease-in-out infinite alternate}.jawi-prologue-ribbon.ribbon-two{right:-21%;top:20%;opacity:.28;transform:scaleX(-1) rotate(-10deg);animation:wayang-ribbon-drift-mirror 19s -8s ease-in-out infinite alternate}
+.jawi-prologue-contours i{border-color:rgba(2,136,180,.16);animation:contour-breathe 12s ease-in-out infinite alternate}.jawi-prologue-contours i:nth-child(3){border-color:rgba(255,105,77,.18);animation-delay:-5s}
+@keyframes kawung-orbit-float{from{transform:rotate(0deg) translate3d(0,0,0)}50%{transform:rotate(180deg) translate3d(-8px,7px,0)}to{transform:rotate(360deg) translate3d(0,0,0)}}@keyframes wayang-ribbon-drift{to{transform:translate3d(28px,-16px,0) rotate(2deg)}}@keyframes wayang-ribbon-drift-mirror{from{transform:scaleX(-1) rotate(-10deg) translate3d(0,0,0)}to{transform:scaleX(-1) rotate(-6deg) translate3d(24px,-12px,0)}}@keyframes contour-breathe{to{transform:scale(1.05) rotate(3deg)}}@keyframes portrait-card-a{to{transform:translate3d(7px,-5px,0) rotate(1deg)}}@keyframes portrait-card-b{to{transform:translate3d(-6px,6px,0) rotate(-1deg)}}
+@media(max-width:900px){.jawi-prologue{background-image:linear-gradient(180deg,rgba(255,252,239,.76),rgba(255,255,255,.18) 53%,rgba(225,250,249,.16)),url("../../images/templates/puspa-jawi/puspa-prologue-pop-v2-mobile.webp");background-position:center top}.jawi-prologue-grid{grid-template-columns:1fr}.jawi-prologue-copy{width:min(620px,100%);margin:auto;background:linear-gradient(145deg,rgba(255,253,240,.82),rgba(255,255,255,.5))}.jawi-prologue-portrait{width:min(450px,82vw)}.jawi-prologue-orbit{right:-18%;top:30%;width:340px;opacity:.3}.jawi-prologue-ribbon.ribbon-one{left:-42%;bottom:-3%;width:650px;opacity:.62}.jawi-prologue-ribbon.ribbon-two{right:-55%;top:8%;width:560px;opacity:.18}}
+@media(max-width:620px){.jawi-prologue{padding:68px 14px 102px;background-position:center top}.jawi-prologue-copy{padding:30px 14px 28px;border-radius:30px 9px 30px 9px}.jawi-prologue-copy h2{font-size:clamp(4.45rem,23vw,5.95rem)}.jawi-prologue-portrait{width:min(350px,88vw)}.jawi-prologue-arch{border-radius:25px 25px 92px 25px}.jawi-prologue-arch::before{inset:10px;border-radius:19px 19px 82px 19px}.jawi-prologue-arch img{border-radius:20px 20px 86px 20px}.jawi-prologue-portrait::before{border-radius:25px 25px 100px 25px}.jawi-prologue-portrait::after{border-radius:25px 100px 25px 25px}.jawi-prologue-seal{right:-5px;width:61px;height:61px}.jawi-prologue-orbit{right:-30%;top:36%;width:280px;opacity:.28}.jawi-prologue-ribbon.ribbon-one{left:-78%;bottom:-2%;width:580px;opacity:.55}.jawi-prologue-ribbon.ribbon-two{right:-94%;top:4%;width:520px;opacity:.14}}
+
+/* Interactive batik-envelope cover. */
+.jawi-opening-cover{color:#073b7a;background:#8adbe9;perspective:1600px}.jawi-cover-backdrop,.jawi-cover-glow,.jawi-cover-charms{position:absolute;inset:0}.jawi-cover-backdrop{z-index:-3;inset:-3%;background:url("../../images/templates/puspa-jawi/puspa-cover-sunrise-v1.webp") center/cover no-repeat;transform:scale(1.025);animation:jawi-cover-breathe 18s ease-in-out infinite alternate;transition:transform 1.1s cubic-bezier(.2,.72,.2,1),filter .9s,opacity .9s}.jawi-cover-glow{z-index:-2;background:radial-gradient(circle at 50% 48%,rgba(255,251,226,.5),transparent 37%),linear-gradient(180deg,rgba(22,167,210,.06),rgba(255,195,88,.08));pointer-events:none}.jawi-cover-charms{z-index:1;overflow:hidden;pointer-events:none;transition:opacity .65s,transform .9s}.jawi-cover-charm{position:absolute;top:-3%;width:clamp(110px,13vw,210px);max-width:none;filter:drop-shadow(0 18px 28px rgba(3,57,110,.16));transform-origin:50% 0;animation:jawi-charm-sway 8s ease-in-out infinite alternate}.jawi-cover-charm.charm-left{left:2%}.jawi-cover-charm.charm-right{right:2%;transform:scaleX(-1);animation-name:jawi-charm-sway-right;animation-delay:-3.5s}
+.jawi-envelope-stage{position:relative;z-index:4;width:min(780px,88vw);height:min(700px,92svh);perspective:1700px;transform-style:preserve-3d;transition:transform 1.05s cubic-bezier(.18,.72,.18,1),opacity .8s ease,filter .8s ease}.jawi-envelope-stage::before{position:absolute;left:50%;bottom:26px;width:82%;height:55px;border-radius:50%;background:rgba(0,51,105,.24);filter:blur(24px);content:"";transform:translateX(-50%);transition:opacity .7s,transform .8s}.jawi-envelope-shell{position:absolute;left:0;bottom:52px;width:100%;aspect-ratio:1.48;transform-style:preserve-3d}.jawi-envelope-back{position:absolute;z-index:1;inset:0;border:2px solid rgba(255,255,255,.82);border-radius:34px;background-image:linear-gradient(rgba(4,51,134,.12),rgba(4,51,134,.12)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v1.webp");background-position:center;background-size:330px;box-shadow:inset 0 0 0 9px rgba(255,255,255,.13),0 32px 75px rgba(0,49,102,.25)}
+.jawi-envelope-letter[data-cover-content]{position:absolute;z-index:2;left:11%;bottom:7%;display:flex;width:78%;height:94%;flex-direction:column;align-items:center;justify-content:center;padding:44px 34px 50px;border:1px solid rgba(7,76,132,.2);border-radius:30px 30px 80px 30px;color:#073b7a;background:linear-gradient(145deg,rgba(255,255,249,.98),rgba(255,247,218,.96));box-shadow:0 22px 55px rgba(0,51,107,.2),inset 0 0 0 8px rgba(85,211,218,.09);text-align:center;transform:translate3d(0,27%,1px) scale(.94);transform-origin:50% 100%;transition:transform 1.05s cubic-bezier(.18,.8,.2,1),box-shadow .8s;animation:none}.jawi-envelope-letter::before{position:absolute;inset:13px;border:1px solid rgba(15,137,165,.16);border-radius:21px 21px 66px 21px;background-image:radial-gradient(circle at 15% 15%,rgba(255,116,81,.12),transparent 23%),radial-gradient(circle at 85% 82%,rgba(53,199,212,.14),transparent 28%);content:"";pointer-events:none}.jawi-envelope-letter>*{position:relative;z-index:1}.jawi-envelope-letter .jawi-kicker{color:#ed694f;font-weight:700;letter-spacing:.27em}.jawi-envelope-letter h1{display:flex;align-items:center;justify-content:center;gap:.13em;margin:17px 0 11px;color:#073b7a;font-size:clamp(3.8rem,7.1vw,6.4rem);line-height:.7}.jawi-envelope-letter h1 i{color:#ef704d;font-size:.52em}.jawi-envelope-letter>time{color:#087e9e;font:700 .64rem var(--jawi-sans);letter-spacing:.17em;text-transform:uppercase}.jawi-envelope-letter-guest{display:grid;width:min(340px,92%);gap:4px;margin-top:24px;padding:11px 20px;border-block:1px solid rgba(7,86,132,.19);background:rgba(105,220,222,.09)}.jawi-envelope-letter-guest small{font:700 .48rem var(--jawi-sans);letter-spacing:.16em;text-transform:uppercase}.jawi-envelope-letter-guest strong{font-size:.92rem}
+.jawi-envelope-flap{position:absolute;z-index:5;inset:0 0 auto;height:70%;overflow:hidden;border-radius:32px 32px 0 0;background-image:linear-gradient(155deg,rgba(13,185,194,.22),rgba(6,48,134,.12)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v1.webp");background-position:center;background-size:330px;clip-path:polygon(0 0,100% 0,50% 100%);transform:rotateX(0deg);transform-origin:50% 0;backface-visibility:hidden;transition:transform .95s cubic-bezier(.35,.02,.18,1),filter .8s,opacity .8s}.jawi-envelope-flap::after{position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.27),transparent 44%,rgba(1,35,105,.14));content:""}.jawi-envelope-flap-copy{position:absolute;z-index:1;left:50%;top:21%;display:grid;gap:6px;width:60%;color:#fff;text-align:center;text-shadow:0 2px 15px rgba(0,30,85,.5);transform:translateX(-50%)}.jawi-envelope-flap-copy small{font:700 .52rem var(--jawi-sans);letter-spacing:.24em;text-transform:uppercase}.jawi-envelope-flap-copy strong{font:400 clamp(2.5rem,5vw,4.4rem) var(--jawi-display);line-height:.75}.jawi-envelope-flap-copy i{color:#ffcf45}
+.jawi-envelope-pocket{position:absolute;z-index:4;inset:0;overflow:hidden;border:2px solid rgba(255,255,255,.7);border-radius:34px;background-image:linear-gradient(145deg,rgba(6,61,139,.36),rgba(12,183,193,.17)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v1.webp");background-position:center;background-size:330px;clip-path:polygon(0 19%,50% 57%,100% 19%,100% 100%,0 100%);box-shadow:inset 0 -26px 45px rgba(1,30,94,.18)}.jawi-envelope-pocket::after{position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.26),transparent 42%,rgba(4,30,94,.15));content:""}.jawi-envelope-address{position:absolute;z-index:1;left:50%;bottom:10%;display:grid;min-width:min(330px,68%);gap:3px;padding:10px 20px;border-block:1px solid rgba(255,255,255,.46);color:#fff;background:rgba(2,43,113,.28);text-align:center;text-shadow:0 2px 10px rgba(0,29,87,.38);transform:translateX(-50%)}.jawi-envelope-address small{font:700 .48rem var(--jawi-sans);letter-spacing:.18em;text-transform:uppercase}.jawi-envelope-address strong{font-size:.93rem}
+.jawi-envelope-seal{position:absolute;z-index:7;left:50%;top:45%;display:grid;grid-template-columns:54px auto auto;align-items:center;gap:10px;min-height:62px;padding:4px 17px 4px 4px;border:1px solid rgba(255,255,255,.8);border-radius:999px;color:#fff;background:linear-gradient(110deg,#ef6950,#f2a52d 58%,#f7c33d);box-shadow:0 16px 34px rgba(1,42,103,.28),inset 0 1px rgba(255,255,255,.45);font:700 .63rem var(--jawi-sans);letter-spacing:.06em;transform:translate(-50%,-50%);transition:transform .48s cubic-bezier(.2,.8,.2,1),opacity .4s,filter .4s}.jawi-envelope-seal b{display:grid;width:54px;height:54px;grid-template-columns:auto auto auto;place-content:center;border:1px solid rgba(255,255,255,.64);border-radius:50%;color:#073b7a;background:#7ee1df;box-shadow:inset 0 0 0 5px rgba(255,255,255,.3);font:400 1.16rem var(--jawi-display)}.jawi-envelope-seal b i{margin-inline:-4px;color:#ee6049;font-size:.67em}.jawi-envelope-seal svg{width:15px;height:15px}.jawi-envelope-seal:hover{transform:translate(-50%,-54%) scale(1.025);box-shadow:0 21px 42px rgba(1,42,103,.34)}.jawi-envelope-seal:disabled{cursor:default}.jawi-envelope-hint{position:absolute;left:50%;bottom:4px;color:#073b7a;font:700 .52rem var(--jawi-sans);letter-spacing:.2em;text-transform:uppercase;text-shadow:0 1px 10px rgba(255,255,255,.9);transform:translateX(-50%);transition:opacity .35s;white-space:nowrap}
+.jawi-envelope-aura{position:absolute;z-index:-1;inset:8% 6% 0;pointer-events:none}.jawi-envelope-aura i{position:absolute;left:50%;top:50%;border:1px solid rgba(255,255,255,.5);border-radius:50%;transform:translate(-50%,-50%);animation:jawi-envelope-ring 11s ease-in-out infinite alternate}.jawi-envelope-aura i:nth-child(1){width:78%;aspect-ratio:1}.jawi-envelope-aura i:nth-child(2){width:96%;aspect-ratio:1;animation-delay:-4s}.jawi-envelope-aura i:nth-child(3){width:116%;aspect-ratio:1;border-color:rgba(255,201,66,.34);animation-delay:-7s}
+.invitation-open .jawi-opening-cover{visibility:visible;opacity:1;pointer-events:auto}.invitation-open:not(.jawi-envelope-complete) .invitation-content{opacity:0}.invitation-open.jawi-envelope-complete .jawi-opening-cover{visibility:hidden;opacity:0;pointer-events:none}.invitation-open.jawi-envelope-complete .invitation-content{opacity:1}.jawi-envelope-opening .jawi-envelope-seal{opacity:0;filter:blur(3px);transform:translate(-50%,-58%) scale(.72)}.jawi-envelope-opening .jawi-envelope-flap{z-index:2;opacity:.92;filter:brightness(1.06);transform:rotateX(178deg)}.jawi-envelope-opening .jawi-envelope-hint{opacity:0}.jawi-envelope-letter-up .jawi-envelope-letter{z-index:3;box-shadow:0 35px 85px rgba(0,50,107,.3),inset 0 0 0 8px rgba(85,211,218,.09);transform:translate3d(0,-28%,24px) scale(1)}.jawi-envelope-letter-up .jawi-envelope-pocket{transform:translateY(3%);transition:transform .75s ease}.jawi-envelope-zooming .jawi-envelope-stage{opacity:0;filter:blur(7px);transform:translateY(-3%) scale(1.38)}.jawi-envelope-zooming .jawi-envelope-stage::before{opacity:0;transform:translateX(-50%) scale(1.5)}.jawi-envelope-zooming .jawi-cover-backdrop{opacity:.34;filter:saturate(1.2) brightness(1.08);transform:scale(1.11)}.jawi-envelope-zooming .jawi-cover-charms{opacity:0;transform:scale(1.08)}
+@keyframes jawi-cover-breathe{to{transform:scale(1.065) translateY(-.8%)}}@keyframes jawi-charm-sway{to{transform:rotate(3deg) translateY(8px)}}@keyframes jawi-charm-sway-right{from{transform:scaleX(-1) rotate(-2deg)}to{transform:scaleX(-1) rotate(3deg) translateY(8px)}}@keyframes jawi-envelope-ring{to{transform:translate(-50%,-50%) rotate(5deg) scale(1.04);opacity:.58}}
+@media(max-width:700px){.jawi-opening-cover{padding-inline:8px}.jawi-cover-backdrop{background-image:url("../../images/templates/puspa-jawi/puspa-cover-sunrise-v1-mobile.webp");background-position:center}.jawi-cover-glow{background:radial-gradient(circle at 50% 49%,rgba(255,252,230,.47),transparent 33%),linear-gradient(180deg,rgba(24,167,208,.05),rgba(255,194,89,.08))}.jawi-cover-charm{top:-2%;width:96px;opacity:.7}.jawi-cover-charm.charm-left{left:-4%}.jawi-cover-charm.charm-right{right:-4%}.jawi-envelope-stage{width:min(370px,94vw);height:min(690px,91svh)}.jawi-envelope-shell{bottom:54px;aspect-ratio:1.2}.jawi-envelope-back,.jawi-envelope-pocket{border-radius:22px;background-size:225px}.jawi-envelope-flap{height:68%;border-radius:21px 21px 0 0;background-size:225px}.jawi-envelope-flap-copy{top:18%;width:76%}.jawi-envelope-flap-copy small{font-size:.43rem}.jawi-envelope-flap-copy strong{font-size:2.55rem}.jawi-envelope-letter[data-cover-content]{left:7%;bottom:6%;width:86%;height:420px;padding:42px 14px 38px;border-radius:23px 23px 62px 23px;transform:translate3d(0,31%,1px) scale(.94)}.jawi-envelope-letter::before{inset:9px;border-radius:16px 16px 50px 16px}.jawi-envelope-letter h1{flex-direction:column;gap:0;margin:14px 0 8px;font-size:4.65rem;line-height:.57}.jawi-envelope-letter h1 i{margin:.14em 0;font-size:.42em}.jawi-envelope-letter .jawi-kicker{font-size:.49rem}.jawi-envelope-letter>time{font-size:.54rem}.jawi-envelope-letter-guest{margin-top:20px}.jawi-envelope-address{bottom:9%;min-width:75%;padding:8px 12px}.jawi-envelope-seal{top:46%;grid-template-columns:46px auto auto;min-height:54px;padding-right:13px;font-size:.56rem}.jawi-envelope-seal b{width:46px;height:46px;font-size:1rem}.jawi-envelope-hint{bottom:12px;font-size:.43rem}.jawi-envelope-letter-up .jawi-envelope-letter{transform:translate3d(0,-31%,24px) scale(1)}.jawi-envelope-zooming .jawi-envelope-stage{transform:translateY(-1%) scale(1.48)}}
+
+/* Keep the invitation card tucked inside the closed envelope; the seal stays prominent. */
+.jawi-envelope-letter[data-cover-content]{transform:translate3d(0,55%,1px) scale(.92)}
+.jawi-envelope-seal{top:51%;border-color:rgba(255,255,255,.84);background:linear-gradient(110deg,#063e80,#087f9d 62%,#0a93a8);box-shadow:0 18px 38px rgba(1,35,86,.4),inset 0 1px rgba(255,255,255,.38)}
+.jawi-envelope-letter-up .jawi-envelope-letter{transform:translate3d(0,-28%,24px) scale(1)}
+@media(max-width:700px){.jawi-envelope-letter[data-cover-content]{transform:translate3d(0,58%,1px) scale(.92)}.jawi-envelope-seal{top:52%}.jawi-envelope-letter-up .jawi-envelope-letter{transform:translate3d(0,-31%,24px) scale(1)}}
+
+/* Puspa Jawi cover v3 — restrained Indonesian paper theatre. */
+.jawi-cover-v3{isolation:isolate;color:#173b55;background:#eee5d2;perspective:1800px}
+.jawi-cover-v3 .jawi-cover-backdrop{z-index:-3;inset:-2%;background:url("../../images/templates/puspa-jawi/puspa-cover-washi-v2.webp") center/cover no-repeat;filter:saturate(.86) contrast(.98);transform:scale(1.02);animation:jawi-paper-breathe 22s ease-in-out infinite alternate}
+.jawi-cover-v3 .jawi-cover-glow{z-index:-2;background:radial-gradient(ellipse at 50% 48%,rgba(255,253,242,.82) 0,rgba(255,250,232,.47) 28%,transparent 58%),linear-gradient(180deg,rgba(255,255,255,.14),rgba(31,67,74,.05));mix-blend-mode:normal}
+.jawi-cover-wayangs{position:absolute;z-index:1;inset:0;overflow:hidden;pointer-events:none;transition:opacity .9s ease,filter .9s ease,transform 1.2s cubic-bezier(.18,.76,.24,1)}
+.jawi-cover-wayang{position:absolute;bottom:-6%;height:min(88svh,820px);max-width:34vw;object-fit:contain;filter:drop-shadow(0 22px 22px rgba(36,40,32,.19));transform-origin:50% 92%;will-change:transform}
+.jawi-cover-wayang.wayang-left{left:-1.5%;animation:jawi-wayang-left-idle 8.5s ease-in-out infinite alternate}
+.jawi-cover-wayang.wayang-right{right:-1.5%;animation:jawi-wayang-right-idle 9.5s -3s ease-in-out infinite alternate}
+.jawi-cover-v3 .jawi-envelope-stage{z-index:4;width:min(700px,58vw);height:min(650px,88svh);perspective:1900px;transform-style:preserve-3d;transition:transform 1.05s cubic-bezier(.16,.74,.18,1),opacity .9s ease,filter .9s ease}
+.jawi-cover-v3 .jawi-envelope-stage::before{bottom:45px;width:78%;height:42px;background:rgba(22,47,56,.24);filter:blur(22px)}
+.jawi-cover-v3 .jawi-envelope-aura{z-index:-1;inset:7% 0 0}
+.jawi-cover-v3 .jawi-envelope-aura i{border-color:rgba(126,99,52,.18);animation:jawi-envelope-ring 14s ease-in-out infinite alternate}
+.jawi-cover-v3 .jawi-envelope-aura i:nth-child(1){width:88%}.jawi-cover-v3 .jawi-envelope-aura i:nth-child(2){width:112%;border-color:rgba(24,72,82,.12)}
+.jawi-cover-v3 .jawi-envelope-shell{bottom:74px;aspect-ratio:1.52;transform-style:preserve-3d}
+.jawi-cover-v3 .jawi-envelope-back{z-index:1;border:1px solid rgba(111,86,44,.3);border-radius:21px;background-image:linear-gradient(rgba(246,238,215,.18),rgba(246,238,215,.18)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:285px;box-shadow:inset 0 0 0 8px rgba(255,250,232,.2),0 28px 64px rgba(35,47,43,.19)}
+.jawi-cover-v3 .jawi-envelope-letter[data-cover-content]{z-index:2;left:9%;bottom:4%;display:block;width:82%;height:106%;padding:0;border:1px solid rgba(115,93,57,.2);border-radius:17px;color:#173b55;background:#f7f0df;box-shadow:0 17px 42px rgba(38,46,40,.18);transform:translate3d(0,46%,2px) rotateY(0deg) scale(.92);transform-origin:50% 60%;transform-style:preserve-3d;transition:transform 1.12s cubic-bezier(.19,.78,.2,1),box-shadow .8s}
+.jawi-cover-v3 .jawi-envelope-letter::before{inset:10px;border:1px solid rgba(142,108,58,.2);border-radius:12px;background-image:linear-gradient(rgba(255,253,245,.82),rgba(255,253,245,.82)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:245px;opacity:.9}
+.jawi-letter-face{position:absolute!important;z-index:1;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px 36px;overflow:hidden;border-radius:inherit;backface-visibility:hidden;text-align:center}
+.jawi-letter-front{transform:rotateY(0deg)}.jawi-letter-back{gap:12px;color:#f8f0da;background:linear-gradient(145deg,rgba(24,57,78,.96),rgba(37,77,81,.95)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-blend-mode:multiply;transform:rotateY(180deg)}
+.jawi-letter-back::before{position:absolute;inset:13px;border:1px solid rgba(232,197,126,.45);border-radius:10px;content:""}.jawi-letter-back>*{position:relative}.jawi-letter-back small{font:700 .57rem var(--jawi-sans);letter-spacing:.25em;text-transform:uppercase}.jawi-letter-back strong{font:400 clamp(3.1rem,5.8vw,5.4rem) var(--jawi-display);line-height:.75}.jawi-letter-back strong i{color:#c77958}.jawi-letter-back span{font:500 .7rem var(--jawi-sans);letter-spacing:.14em;text-transform:uppercase}
+.jawi-cover-v3 .jawi-envelope-letter .jawi-kicker{color:#a8573d;font-size:.57rem}.jawi-cover-v3 .jawi-envelope-letter h1{margin:15px 0 12px;color:#173b55;font-size:clamp(3.5rem,6.2vw,5.8rem)}.jawi-cover-v3 .jawi-envelope-letter h1 i{color:#b7674a}.jawi-cover-v3 .jawi-envelope-letter>time,.jawi-cover-v3 .jawi-letter-front>time{color:#446d70}.jawi-cover-v3 .jawi-envelope-letter-guest{margin-top:21px;border-color:rgba(49,88,87,.18);background:rgba(88,122,113,.07)}
+.jawi-cover-v3 .jawi-envelope-flap{z-index:5;height:66%;border-radius:20px 20px 0 0;background-image:linear-gradient(155deg,rgba(28,60,73,.06),rgba(153,99,57,.09)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:285px;clip-path:polygon(0 0,100% 0,50% 100%);transform:rotateX(0deg);transform-origin:50% 0;transition:transform 1.05s cubic-bezier(.35,.02,.16,1),filter .85s,opacity .8s}
+.jawi-cover-v3 .jawi-envelope-pocket{z-index:4;border:1px solid rgba(111,86,44,.28);border-radius:21px;background-image:linear-gradient(145deg,rgba(247,239,216,.12),rgba(22,58,73,.05)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:285px;clip-path:polygon(0 18%,50% 57%,100% 18%,100% 100%,0 100%);box-shadow:inset 0 -24px 42px rgba(29,48,49,.11)}
+.jawi-cover-v3 .jawi-envelope-pocket::after{background:linear-gradient(160deg,rgba(255,253,240,.3),transparent 43%,rgba(30,53,54,.08))}
+.jawi-envelope-title{position:absolute;z-index:1;left:50%;top:58%;display:grid;gap:5px;width:68%;color:#f7f0db;text-align:center;text-shadow:0 2px 9px rgba(13,35,46,.4);transform:translate(-50%,-50%)}.jawi-envelope-title small{font:700 .6rem var(--jawi-sans);letter-spacing:.32em;text-transform:uppercase}.jawi-envelope-title strong{font:400 clamp(2.4rem,4.4vw,3.8rem) var(--jawi-display);line-height:.78}.jawi-envelope-title i{color:#d9aa68}
+.jawi-cover-v3 .jawi-envelope-address{bottom:6%;min-width:min(300px,62%);padding:7px 16px;border-color:rgba(255,249,227,.36);color:#f7f0db;background:rgba(23,55,68,.28)}
+.jawi-cover-v3 .jawi-envelope-seal{top:50%;grid-template-columns:48px auto auto;min-height:56px;padding:4px 16px 4px 4px;border-color:rgba(255,250,229,.78);color:#fffaf0;background:linear-gradient(112deg,#173b55,#315e62);box-shadow:0 14px 29px rgba(21,43,48,.28),inset 0 1px rgba(255,255,255,.24);font-size:.6rem}
+.jawi-cover-v3 .jawi-envelope-seal b{width:48px;height:48px;border-color:rgba(255,250,229,.66);color:#173b55;background:#d7ad70;box-shadow:inset 0 0 0 4px rgba(255,248,221,.33)}.jawi-cover-v3 .jawi-envelope-seal b i{color:#8d4937}
+.jawi-cover-v3 .jawi-envelope-hint{bottom:17px;color:#294b55;text-shadow:0 1px 8px rgba(255,250,235,.85)}
+.jawi-envelope-opening .jawi-cover-v3 .jawi-envelope-flap{z-index:2;opacity:.94;filter:brightness(1.04);transform:rotateX(178deg)}
+.jawi-envelope-opening .jawi-cover-v3 .jawi-envelope-seal{opacity:0;filter:blur(2px);transform:translate(-50%,-60%) scale(.74)}
+.jawi-envelope-opening .jawi-cover-v3 .jawi-cover-wayang.wayang-left{animation:none;transform:translate3d(18px,-8px,0) rotate(2.4deg)}
+.jawi-envelope-opening .jawi-cover-v3 .jawi-cover-wayang.wayang-right{animation:none;transform:translate3d(-18px,-8px,0) rotate(-2.4deg)}
+.jawi-envelope-letter-up .jawi-cover-v3 .jawi-envelope-letter{z-index:3;box-shadow:0 36px 72px rgba(33,45,40,.24);transform:translate3d(0,-44%,42px) rotateY(0deg) scale(1)}
+.jawi-envelope-page-turn .jawi-cover-v3 .jawi-envelope-letter{z-index:6;box-shadow:0 39px 80px rgba(33,45,40,.27);transform:translate3d(0,-47%,58px) rotateY(-180deg) scale(1.025)}
+.jawi-envelope-zooming .jawi-cover-v3 .jawi-envelope-stage{opacity:0;filter:blur(5px);transform:translateY(-2%) scale(1.7)}
+.jawi-envelope-zooming .jawi-cover-v3 .jawi-cover-backdrop{opacity:.32;filter:saturate(.82) brightness(1.04);transform:scale(1.08)}
+.jawi-envelope-zooming .jawi-cover-v3 .jawi-cover-wayangs{opacity:0;filter:blur(3px);transform:scale(1.06)}
+@keyframes jawi-paper-breathe{to{transform:scale(1.045) translateY(-.45%)}}
+@keyframes jawi-wayang-left-idle{from{transform:rotate(-1.2deg) translateY(3px)}to{transform:rotate(1.4deg) translateY(-5px)}}
+@keyframes jawi-wayang-right-idle{from{transform:rotate(1deg) translateY(2px)}to{transform:rotate(-1.35deg) translateY(-5px)}}
+@media(max-width:800px){.jawi-cover-v3 .jawi-cover-backdrop{background-image:url("../../images/templates/puspa-jawi/puspa-cover-washi-v2-mobile.webp");background-position:center}.jawi-cover-wayang{bottom:-2%;height:47svh;max-width:49vw;opacity:.68}.jawi-cover-wayang.wayang-left{left:-17%}.jawi-cover-wayang.wayang-right{right:-17%}.jawi-cover-v3 .jawi-envelope-stage{width:min(360px,94vw);height:min(650px,88svh)}.jawi-cover-v3 .jawi-envelope-shell{bottom:94px;aspect-ratio:1.44}.jawi-cover-v3 .jawi-envelope-back,.jawi-cover-v3 .jawi-envelope-pocket{border-radius:17px;background-size:210px}.jawi-cover-v3 .jawi-envelope-flap{height:67%;border-radius:16px 16px 0 0;background-size:210px}.jawi-cover-v3 .jawi-envelope-letter[data-cover-content]{left:8%;bottom:3%;width:84%;height:390px;border-radius:15px;transform:translate3d(0,54%,2px) rotateY(0deg) scale(.92)}.jawi-letter-face{padding:35px 18px}.jawi-cover-v3 .jawi-envelope-letter h1{flex-direction:column;gap:0;margin:13px 0 9px;font-size:4.25rem;line-height:.59}.jawi-cover-v3 .jawi-envelope-letter h1 i{margin:.12em 0;font-size:.4em}.jawi-letter-back strong{font-size:3.45rem}.jawi-envelope-title{top:61%;width:74%}.jawi-envelope-title small{font-size:.48rem;letter-spacing:.24em}.jawi-envelope-title strong{font-size:2.45rem}.jawi-cover-v3 .jawi-envelope-address{bottom:5%;min-width:72%;padding:6px 10px}.jawi-cover-v3 .jawi-envelope-seal{top:52%;grid-template-columns:44px auto auto;min-height:52px;padding-right:12px;font-size:.54rem}.jawi-cover-v3 .jawi-envelope-seal b{width:44px;height:44px}.jawi-cover-v3 .jawi-envelope-hint{bottom:44px;font-size:.43rem}.jawi-envelope-letter-up .jawi-cover-v3 .jawi-envelope-letter{transform:translate3d(0,-43%,42px) rotateY(0deg) scale(1)}.jawi-envelope-page-turn .jawi-cover-v3 .jawi-envelope-letter{transform:translate3d(0,-45%,58px) rotateY(-180deg) scale(1.015)}.jawi-envelope-zooming .jawi-cover-v3 .jawi-envelope-stage{transform:translateY(-1%) scale(1.9)}}
+@media(prefers-reduced-motion:reduce){.jawi-cover-v3 .jawi-cover-backdrop,.jawi-cover-wayang{animation:none}.jawi-cover-v3 .jawi-envelope-flap,.jawi-cover-v3 .jawi-envelope-letter,.jawi-cover-v3 .jawi-envelope-stage,.jawi-cover-v3 .jawi-cover-wayangs{transition-duration:.16s}}
+
+/* The paper stays fully inside until the flap has opened. */
+.jawi-cover-v3 .jawi-envelope-letter[data-cover-content]{opacity:0;transform:translate3d(0,46%,-2px) rotateY(0deg) scale(.92);transition:transform 1.12s cubic-bezier(.19,.78,.2,1),box-shadow .8s,opacity .34s ease}
+.jawi-envelope-letter-up .jawi-cover-v3 .jawi-envelope-letter{opacity:1;transform:translate3d(0,-44%,42px) rotateY(0deg) scale(1)}
+.jawi-envelope-page-turn .jawi-cover-v3 .jawi-envelope-letter{opacity:1;transform:translate3d(0,-47%,58px) rotateY(-180deg) scale(1.025)}
+@media(max-width:800px){.jawi-cover-v3 .jawi-envelope-shell{bottom:160px}.jawi-cover-v3 .jawi-envelope-hint{bottom:108px}.jawi-cover-v3 .jawi-envelope-letter[data-cover-content]{transform:translate3d(0,54%,-2px) rotateY(0deg) scale(.92)}.jawi-envelope-letter-up .jawi-cover-v3 .jawi-envelope-letter{transform:translate3d(0,-43%,42px) rotateY(0deg) scale(1)}.jawi-envelope-page-turn .jawi-cover-v3 .jawi-envelope-letter{transform:translate3d(0,-45%,58px) rotateY(-180deg) scale(1.015)}}
+
+.jawi-envelope-flap-label{position:absolute;z-index:2;left:50%;top:21%;color:#173b55;font:700 .66rem var(--jawi-sans);letter-spacing:.34em;text-transform:uppercase;text-shadow:0 1px 0 rgba(255,255,255,.55);transform:translateX(-50%);white-space:nowrap}
+.jawi-cover-v3 .jawi-envelope-title{top:67%}
+@media(max-width:800px){.jawi-cover-v3 .jawi-cover-wayangs{z-index:5}.jawi-cover-v3 .jawi-cover-wayang{bottom:-1%;height:50svh;max-width:52vw;opacity:.76}.jawi-cover-v3 .jawi-cover-wayang.wayang-left{left:-23%}.jawi-cover-v3 .jawi-cover-wayang.wayang-right{right:-23%}.jawi-envelope-flap-label{top:19%;font-size:.52rem;letter-spacing:.25em}.jawi-cover-v3 .jawi-envelope-title{top:69%}}
+
+/* Puspa Jawi prologue v3 — cover-matched Indonesian editorial composition. */
+.jawi-prologue-v3{min-height:max(790px,100svh);color:#173b55;background-image:linear-gradient(90deg,rgba(249,244,229,.56),rgba(249,244,229,.17) 52%,rgba(249,244,229,.06)),url("../../images/templates/puspa-jawi/puspa-prologue-heritage-v3.webp");background-position:center;background-size:cover}
+.jawi-prologue-v3::before{background:radial-gradient(ellipse at 26% 42%,rgba(255,252,240,.67),transparent 35%),radial-gradient(ellipse at 72% 52%,rgba(255,250,234,.3),transparent 29%),linear-gradient(118deg,rgba(171,91,61,.045),transparent 40%,rgba(39,91,92,.07))}
+.jawi-prologue-v3::after{opacity:.065;background-image:repeating-linear-gradient(108deg,transparent 0 16px,rgba(30,57,62,.12) 17px 18px,transparent 19px 36px);background-size:auto;mix-blend-mode:soft-light}
+.jawi-prologue-v3 .jawi-prologue-grid{width:min(1320px,100%);grid-template-columns:minmax(390px,.94fr) minmax(430px,1.06fr);gap:clamp(58px,8vw,128px)}
+.jawi-prologue-v3 .jawi-prologue-copy{position:relative;overflow:hidden;padding:clamp(33px,3.5vw,53px);border:1px solid rgba(49,76,72,.2);border-radius:20px 66px 20px 66px;background:linear-gradient(145deg,rgba(255,252,239,.91),rgba(246,238,217,.69));box-shadow:inset 0 1px rgba(255,255,255,.9),0 25px 65px rgba(42,57,49,.11);backdrop-filter:blur(3px)}
+.jawi-prologue-v3 .jawi-prologue-copy::before{position:absolute;left:0;top:0;width:12px;height:100%;background:url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp") center/120px;content:"";opacity:.9}
+.jawi-prologue-v3 .jawi-prologue-copy::after{position:absolute;right:-60px;top:-76px;width:180px;aspect-ratio:1;border:1px solid rgba(48,91,91,.14);border-radius:44% 56% 63% 37%;content:"";transform:rotate(24deg)}
+.jawi-prologue-v3 .jawi-prologue-copy>*{position:relative;z-index:1}.jawi-prologue-v3 .jawi-prologue-copy .jawi-kicker{color:#a5523b}.jawi-prologue-v3 .jawi-prologue-copy .jawi-kicker::before{background:#bd9255}.jawi-prologue-v3 .jawi-prologue-copy h2{color:#173b55;text-shadow:0 3px 20px rgba(255,251,236,.85)}.jawi-prologue-v3 .jawi-prologue-copy h2 i{color:#ae5e45}.jawi-prologue-v3 .jawi-prologue-copy>p{color:#4a6667}.jawi-prologue-v3 .jawi-prologue-copy>time{color:#336b6c}
+.jawi-prologue-v3 .jawi-prologue-countdown>div{border-color:rgba(35,74,74,.18);border-radius:16px 5px 16px 5px;background:linear-gradient(145deg,rgba(255,253,243,.94),rgba(202,219,205,.7));box-shadow:inset 0 1px rgba(255,255,255,.9),0 10px 21px rgba(41,63,57,.08)}
+.jawi-prologue-v3 .jawi-prologue-countdown>div:nth-child(2){background:linear-gradient(145deg,rgba(255,253,243,.94),rgba(224,199,142,.62))}.jawi-prologue-v3 .jawi-prologue-countdown>div:nth-child(3){background:linear-gradient(145deg,rgba(255,253,243,.94),rgba(207,144,117,.47))}.jawi-prologue-v3 .jawi-prologue-countdown>div:nth-child(4){background:linear-gradient(145deg,rgba(255,253,243,.94),rgba(104,132,140,.42))}.jawi-prologue-v3 .jawi-prologue-countdown strong{color:#173b55}.jawi-prologue-v3 .jawi-prologue-countdown span{color:#456364}
+.jawi-prologue-v3 .jawi-prologue-calendar{border-color:#173b55;background:linear-gradient(112deg,#173b55,#315e62);box-shadow:0 14px 30px rgba(30,59,63,.2)}.jawi-prologue-v3 .jawi-prologue-calendar:hover{background:linear-gradient(112deg,#102f47,#274e52)}
+.jawi-prologue-v3 .jawi-prologue-portrait{width:min(500px,40vw);padding:0}
+.jawi-prologue-v3 .jawi-prologue-portrait::before{inset:-4% 5% 4% -5%;border:0;border-radius:150px 24px 96px 24px;background-image:linear-gradient(rgba(24,58,76,.22),rgba(24,58,76,.22)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:210px;box-shadow:0 24px 58px rgba(36,55,50,.14);animation:heritage-card-left 11s ease-in-out infinite alternate}
+.jawi-prologue-v3 .jawi-prologue-portrait::after{inset:4% -5% -4% 5%;border:0;border-radius:24px 110px 24px 96px;background:linear-gradient(145deg,#b36a4f,#d2a75f 48%,#426f70);opacity:.7;animation:heritage-card-right 13s -5s ease-in-out infinite alternate}
+.jawi-prologue-v3 .jawi-prologue-arch{padding:8px;border:1px solid rgba(255,253,241,.92);border-radius:142px 22px 92px 22px;background:#f8f1df;box-shadow:0 26px 64px rgba(37,54,49,.2)}
+.jawi-prologue-v3 .jawi-prologue-arch::before{inset:12px;border:1px solid rgba(235,210,158,.68);border-radius:130px 15px 82px 15px;box-shadow:inset 0 0 0 1px rgba(34,66,69,.12)}.jawi-prologue-v3 .jawi-prologue-arch img{border-radius:134px 17px 86px 17px}.jawi-prologue-v3 .jawi-prologue-arch>span{top:24px;border-color:rgba(246,234,202,.76);color:#f8f1df;background:#173b55;box-shadow:0 9px 22px rgba(31,55,57,.18)}
+.jawi-prologue-v3 .jawi-prologue-seal{right:-14px;bottom:11%;border-color:rgba(255,250,229,.8);color:#173b55;background:#d6ad70;box-shadow:inset 0 0 0 6px rgba(255,249,226,.32),0 12px 27px rgba(44,56,47,.18)}.jawi-prologue-v3 .jawi-prologue-seal i{color:#984b3b}
+.jawi-prologue-v3 .portrait-flower{position:absolute;z-index:4;left:50%;bottom:-13%;display:block!important;width:128%;max-width:none;filter:drop-shadow(0 14px 18px rgba(42,56,48,.17));transform:translateX(-50%);transform-origin:50% 80%;animation:heritage-flower-breathe 8s ease-in-out infinite alternate}
+.jawi-prologue-v3 .jawi-prologue-ornaments{z-index:1!important}.jawi-prologue-v3 .jawi-prologue-ornaments img{filter:drop-shadow(0 15px 17px rgba(39,50,43,.13))}
+.jawi-prologue-wayang{position:absolute;max-width:none;object-fit:contain;transform-origin:50% 92%}.jawi-prologue-wayang.prologue-wayang-left{left:-5%;bottom:-12%;height:72%;opacity:.34;animation:heritage-wayang-left 10s ease-in-out infinite alternate}.jawi-prologue-wayang.prologue-wayang-right{right:-4%;top:-4%;height:71%;opacity:.28;animation:heritage-wayang-right 12s -4s ease-in-out infinite alternate}
+.jawi-prologue-flower.flower-scene{position:absolute;left:-9%;bottom:-12%;display:block!important;width:46%;max-width:none;opacity:.7;filter:drop-shadow(0 15px 18px rgba(45,58,48,.12));transform:rotate(-6deg);transform-origin:20% 80%;animation:heritage-flower-scene 12s ease-in-out infinite alternate}
+.jawi-prologue-batik{position:absolute;border:1px solid rgba(123,92,49,.15);background-image:linear-gradient(rgba(246,238,216,.18),rgba(246,238,216,.18)),url("../../images/templates/puspa-jawi/puspa-envelope-batik-v2.webp");background-size:190px;box-shadow:0 18px 44px rgba(38,55,51,.09);opacity:.34}.jawi-prologue-batik.batik-one{right:-5%;bottom:4%;width:26%;height:23%;border-radius:90px 0 0 18px;transform:rotate(-4deg)}.jawi-prologue-batik.batik-two{left:19%;top:-12%;width:23%;height:24%;border-radius:0 0 90px 18px;opacity:.2;transform:rotate(5deg)}
+.jawi-prologue-v3 .jawi-prologue-contours i{border-color:rgba(43,87,86,.17);animation:heritage-contour 14s ease-in-out infinite alternate}.jawi-prologue-v3 .jawi-prologue-contours i:nth-child(2){border-color:rgba(171,93,65,.16);animation-delay:-5s}.jawi-prologue-v3 .jawi-prologue-contours i:nth-child(3){border-color:rgba(163,127,70,.18);animation-delay:-8s}
+@keyframes heritage-card-left{to{transform:translate3d(7px,-5px,0) rotate(.8deg)}}@keyframes heritage-card-right{to{transform:translate3d(-6px,5px,0) rotate(-.8deg)}}@keyframes heritage-flower-breathe{to{transform:translateX(-50%) translateY(-7px) rotate(.7deg)}}@keyframes heritage-flower-scene{to{transform:translate3d(16px,-7px,0) rotate(-3deg)}}@keyframes heritage-wayang-left{from{transform:rotate(-1deg)}to{transform:translate3d(10px,-7px,0) rotate(1.2deg)}}@keyframes heritage-wayang-right{from{transform:rotate(1deg)}to{transform:translate3d(-9px,7px,0) rotate(-1.3deg)}}@keyframes heritage-contour{to{transform:scale(1.055) rotate(3deg)}}
+@media(max-width:900px){.jawi-prologue-v3{min-height:auto;padding:88px 22px 126px;background-image:linear-gradient(180deg,rgba(250,246,232,.44),rgba(250,246,232,.12)),url("../../images/templates/puspa-jawi/puspa-prologue-heritage-v3-mobile.webp");background-position:center top}.jawi-prologue-v3 .jawi-prologue-grid{grid-template-columns:1fr;gap:82px}.jawi-prologue-v3 .jawi-prologue-copy{width:min(620px,100%);margin:auto;text-align:center}.jawi-prologue-v3 .jawi-prologue-copy .jawi-kicker{justify-content:center}.jawi-prologue-v3 .jawi-prologue-copy h2{align-items:center}.jawi-prologue-v3 .jawi-prologue-copy>p{margin-inline:auto}.jawi-prologue-v3 .jawi-prologue-countdown{margin-inline:auto}.jawi-prologue-v3 .jawi-prologue-portrait{width:min(450px,82vw)}.jawi-prologue-wayang.prologue-wayang-left{left:-19%;top:34%;bottom:auto;height:40%;opacity:.19}.jawi-prologue-wayang.prologue-wayang-right{right:-20%;top:48%;height:39%;opacity:.18}.jawi-prologue-flower.flower-scene{left:-35%;bottom:-3%;width:95%;opacity:.48}.jawi-prologue-batik.batik-one{right:-16%;bottom:22%;width:44%;height:16%}.jawi-prologue-batik.batik-two{left:-15%;top:-2%;width:48%;height:12%}}
+@media(max-width:620px){.jawi-prologue-v3{padding:74px 14px 116px}.jawi-prologue-v3 .jawi-prologue-grid{gap:72px}.jawi-prologue-v3 .jawi-prologue-copy{padding:31px 15px 34px;border-radius:16px 44px 16px 44px}.jawi-prologue-v3 .jawi-prologue-copy::before{width:7px}.jawi-prologue-v3 .jawi-prologue-copy h2{font-size:clamp(4.4rem,23vw,5.8rem)}.jawi-prologue-v3 .jawi-prologue-portrait{width:min(350px,86vw)}.jawi-prologue-v3 .jawi-prologue-arch{border-radius:94px 18px 70px 18px}.jawi-prologue-v3 .jawi-prologue-arch::before{inset:9px;border-radius:84px 12px 62px 12px}.jawi-prologue-v3 .jawi-prologue-arch img{border-radius:88px 13px 65px 13px}.jawi-prologue-v3 .portrait-flower{bottom:-12%;width:139%}.jawi-prologue-v3 .jawi-prologue-seal{right:-5px}.jawi-prologue-wayang.prologue-wayang-left{left:-37%;top:39%;height:34%;opacity:.2}.jawi-prologue-wayang.prologue-wayang-right{right:-39%;top:55%;height:33%;opacity:.2}.jawi-prologue-flower.flower-scene{left:-57%;bottom:-1%;width:132%;opacity:.42}.jawi-prologue-batik.batik-one{right:-27%;bottom:17%;width:61%;height:13%}.jawi-prologue-batik.batik-two{left:-28%;top:-1%;width:66%;height:10%}}
+@media(prefers-reduced-motion:reduce){.jawi-prologue-v3 .jawi-prologue-portrait::before,.jawi-prologue-v3 .jawi-prologue-portrait::after,.jawi-prologue-v3 .portrait-flower,.jawi-prologue-v3 .jawi-prologue-wayang,.jawi-prologue-v3 .flower-scene,.jawi-prologue-v3 .jawi-prologue-contours i{animation:none}}
+
+/* ==========================================================================
+   Puspa Jawi Orchestrated Motion System: Typewriter, Background & Card Transitions
+   Full Spectrum Keluar-Masuk (Exit & Entrance) Animations for Maximum Visual WOW
+   Performance Optimized: Composited GPU layers (Zero Layout Shift, SNAPPY INP)
+   ========================================================================== */
+
+/* 1. Typewriter Calligraphy Animation for Couple Names */
+.jawi-typewriter-title {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 1.8em;
+}
+.type-char {
+    display: inline-block;
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.88);
+    filter: blur(3px);
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.24s ease;
+    will-change: opacity, transform;
+}
+.type-char.char-inked {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.type-ampersand {
+    display: inline-block;
+    align-self: center;
+    opacity: 0;
+    transform: scale(0) rotate(-25deg);
+    transition: opacity 0.38s ease, transform 0.48s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: opacity, transform;
+}
+.type-ampersand.is-visible {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+}
+.type-cursor {
+    display: inline-block;
+    width: 2.5px;
+    height: 0.68em;
+    margin-left: 4px;
+    vertical-align: middle;
+    background: linear-gradient(180deg, #c48f4e, #a5523b);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(196, 143, 78, 0.8);
+    animation: type-cursor-blink 0.7s ease-in-out infinite;
+    pointer-events: none;
+}
+.type-cursor.is-finished {
+    animation: type-cursor-fade 0.5s forwards;
+}
+@keyframes type-cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.15; }
+}
+@keyframes type-cursor-fade {
+    to { opacity: 0; transform: scaleY(0.4); }
+}
+
+/* 2. Section 1 (Prologue) Background & Foreground Ceremonial Entrance */
+.invitation-open .jawi-prologue-v3 {
+    animation: prologue-bg-bloom 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes prologue-bg-bloom {
+    from {
+        background-size: 108%;
+        filter: brightness(1.1) contrast(0.95);
+    }
+    to {
+        background-size: 100%;
+        filter: none;
+    }
+}
+.motion-ready .jawi-prologue-wayang.prologue-wayang-left {
+    opacity: 0;
+    transform: translate3d(-110px, 20px, 0) rotate(-8deg);
+    transition: transform 1.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.95s ease;
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-wayang.prologue-wayang-left {
+    opacity: 0.34;
+    transform: none;
+}
+.motion-ready .jawi-prologue-wayang.prologue-wayang-right {
+    opacity: 0;
+    transform: translate3d(110px, -20px, 0) rotate(8deg);
+    transition: transform 1.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.95s ease;
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-wayang.prologue-wayang-right {
+    opacity: 0.28;
+    transform: none;
+}
+.motion-ready .jawi-prologue-flower.flower-scene {
+    opacity: 0;
+    transform: translate3d(-45px, 45px, 0) rotate(-16deg) scale(0.82);
+    transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.95s ease;
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-flower.flower-scene {
+    opacity: 0.7;
+    transform: rotate(-6deg) scale(1);
+}
+.motion-ready .jawi-prologue-batik {
+    opacity: 0;
+    transform: scale(0.85);
+    transition: transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.9s ease;
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-batik.batik-one {
+    opacity: 0.34;
+    transform: rotate(-4deg) scale(1);
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-batik.batik-two {
+    opacity: 0.2;
+    transform: rotate(5deg) scale(1);
+}
+.motion-ready .jawi-prologue-contours i {
+    opacity: 0;
+    transform: scale(0.7);
+    transition: transform 1.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.1s ease;
+}
+.motion-ready .jawi-prologue.is-in-view .jawi-prologue-contours i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 3. Section 1 Cards: 3D Perspective Copy Card & Portrait Card */
+/* Left Copy Card */
+.motion-ready .jawi-reveal[data-reveal="card-3d"] {
+    opacity: 0;
+    transform: perspective(1200px) rotateX(14deg) translateY(50px) scale(0.95);
+    filter: blur(8px);
+    transition: transform 1.05s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.9s ease, filter 0.85s ease;
+    will-change: transform, opacity;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible {
+    opacity: 1;
+    transform: perspective(1200px) rotateX(0deg) translateY(0) scale(1);
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-exiting {
+    opacity: 0;
+    transform: perspective(1200px) rotateX(-9deg) translateY(-38px) scale(0.97);
+    filter: blur(5px);
+}
+
+/* Staggered 3D Flip-In for Countdown Blocks in Prologue Card */
+.motion-ready .jawi-prologue-countdown>div {
+    opacity: 0;
+    transform: perspective(600px) rotateX(-45deg) translateY(22px) scale(0.88);
+    transition: transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.55s ease, box-shadow 0.3s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible .jawi-prologue-countdown>div:nth-child(1) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.32s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible .jawi-prologue-countdown>div:nth-child(2) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.44s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible .jawi-prologue-countdown>div:nth-child(3) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.56s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible .jawi-prologue-countdown>div:nth-child(4) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.68s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-exiting .jawi-prologue-countdown>div {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.94);
+    transition-delay: 0s;
+}
+
+/* Button Simpan Tanggal */
+.motion-ready .jawi-prologue-calendar {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+    transition: transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1.2), opacity 0.55s ease, background 0.25s, box-shadow 0.25s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-visible .jawi-prologue-calendar {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.76s;
+}
+.motion-ready .jawi-reveal[data-reveal="card-3d"].is-exiting .jawi-prologue-calendar {
+    opacity: 0;
+    transform: translateY(-12px);
+    transition-delay: 0s;
+}
+
+/* Right Portrait Card */
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"] {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(-14deg) translateY(45px) scale(0.93);
+    filter: blur(8px);
+    transition: transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.9s ease, filter 0.85s ease;
+    will-change: transform, opacity;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition-delay: 0.14s;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-exiting {
+    opacity: 0;
+    transform: perspective(1200px) rotateY(9deg) translateY(-35px) scale(0.96);
+    filter: blur(5px);
+    transition-delay: 0s;
+}
+/* Arch photo frame with gleaming light sweep */
+.jawi-prologue-arch {
+    position: relative;
+    overflow: hidden;
+}
+.jawi-prologue-arch::after {
+    position: absolute;
+    inset: -60%;
+    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.44) 50%, transparent 60%);
+    content: "";
+    pointer-events: none;
+    transform: translateX(-120%) rotate(25deg);
+    opacity: 0;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-visible .jawi-prologue-arch::after {
+    animation: arch-photo-sheen 1.7s 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes arch-photo-sheen {
+    0% { opacity: 0; transform: translateX(-120%) rotate(25deg); }
+    30% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(120%) rotate(25deg); }
+}
+/* Wax seal stamp down with royal bounce */
+.motion-ready .jawi-prologue-seal {
+    opacity: 0;
+    transform: scale(0) rotate(-45deg);
+    transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.45s ease;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-visible .jawi-prologue-seal {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    transition-delay: 0.82s;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-exiting .jawi-prologue-seal {
+    opacity: 0;
+    transform: scale(0.7);
+    transition-delay: 0s;
+}
+/* Bouquet Flower */
+.motion-ready .portrait-flower {
+    opacity: 0;
+    transform: translateX(-50%) translateY(35px) scale(0.85);
+    transition: transform 0.85s cubic-bezier(0.18, 0.8, 0.2, 1), opacity 0.75s ease;
+}
+.motion-ready .jawi-reveal[data-reveal="portrait-3d"].is-visible .portrait-flower {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    transition-delay: 0.4s;
+}
+
+/* ==========================================================================
+   4. Universal Rich Animation Suite Across All Sections (Keluar & Masuk)
+   ========================================================================== */
+.motion-ready .jawi-reveal {
+    transition: transform 0.85s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.75s ease, filter 0.75s ease, clip-path 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: transform, opacity;
+}
+
+/* Arch Gate (Greeting Card) */
+.motion-ready .jawi-reveal[data-reveal="arch-gate"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(15deg) translateY(55px) scale(0.92);
+    filter: blur(7px);
+}
+.motion-ready .jawi-reveal[data-reveal="arch-gate"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="arch-gate"].is-exiting {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(-8deg) translateY(-38px) scale(0.95);
+    filter: blur(4px);
+}
+
+/* Bride Entrance (Left curved arc) */
+.motion-ready .jawi-reveal[data-reveal="bride-entrance"] {
+    opacity: 0;
+    transform: translate3d(-75px, 35px, 0) rotate(-4.5deg) scale(0.94);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="bride-entrance"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="bride-entrance"].is-exiting {
+    opacity: 0;
+    transform: translate3d(-55px, -30px, 0) rotate(-2deg);
+    filter: blur(4px);
+}
+
+/* Groom Entrance (Right curved arc) */
+.motion-ready .jawi-reveal[data-reveal="groom-entrance"] {
+    opacity: 0;
+    transform: translate3d(75px, 35px, 0) rotate(4.5deg) scale(0.94);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="groom-entrance"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="groom-entrance"].is-exiting {
+    opacity: 0;
+    transform: translate3d(55px, -30px, 0) rotate(2deg);
+    filter: blur(4px);
+}
+
+/* Couple Center Connector */
+.motion-ready .couple-connector.jawi-reveal {
+    opacity: 0;
+    transform: scale(0.4) rotate(-15deg);
+}
+.motion-ready .couple-connector.jawi-reveal.is-visible {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+}
+.motion-ready .couple-connector.jawi-reveal.is-exiting {
+    opacity: 0;
+    transform: scale(0.7);
+}
+
+/* Countdown Wreath Bloom */
+.motion-ready .jawi-reveal[data-reveal="wreath-bloom"] {
+    opacity: 0;
+    transform: scale(0.8) rotate(-14deg);
+    filter: blur(8px);
+}
+.motion-ready .jawi-reveal[data-reveal="wreath-bloom"].is-visible {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="wreath-bloom"].is-exiting {
+    opacity: 0;
+    transform: scale(0.88) rotate(10deg) translateY(-25px);
+    filter: blur(4px);
+}
+
+/* Seal Stamp (Date Lockup) */
+.motion-ready .jawi-reveal[data-reveal="seal-stamp"] {
+    opacity: 0;
+    transform: scale(1.28) translateY(24px);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="seal-stamp"].is-visible {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="seal-stamp"].is-exiting {
+    opacity: 0;
+    transform: scale(0.88) translateY(-22px);
+    filter: blur(3px);
+}
+
+/* Event Cards (Book Fold 3D Left & Right) */
+.motion-ready .jawi-reveal[data-reveal="event-left"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(-18deg) translateY(45px) scale(0.94);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="event-left"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="event-left"].is-exiting {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(-8deg) translateY(-32px);
+    filter: blur(4px);
+}
+
+.motion-ready .jawi-reveal[data-reveal="event-right"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(18deg) translateY(45px) scale(0.94);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="event-right"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="event-right"].is-exiting {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(8deg) translateY(-32px);
+    filter: blur(4px);
+}
+
+/* Story Gate */
+.motion-ready .jawi-reveal[data-reveal="story-gate"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(14deg) translateY(45px) scale(0.94);
+    filter: blur(8px);
+}
+.motion-ready .jawi-reveal[data-reveal="story-gate"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="story-gate"].is-exiting {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(-7deg) translateY(-35px);
+    filter: blur(4px);
+}
+
+/* Gallery Polaroid Drop & Tilt */
+.motion-ready .jawi-reveal[data-reveal="gallery-card"] {
+    opacity: 0;
+    transform: translate3d(var(--gallery-x, 0px), 50px, 0) rotate(var(--gallery-rot, 0deg)) scale(0.9);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="gallery-card"].is-visible {
+    opacity: 1;
+    transform: rotate(var(--gallery-target-rot, 0deg)) scale(1);
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="gallery-card"].is-exiting {
+    opacity: 0;
+    transform: translateY(-38px) scale(0.94);
+    filter: blur(4px);
+}
+
+/* Gift Vault (3D Card Holographic Entry) */
+.motion-ready .jawi-reveal[data-reveal="gift-vault"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(22deg) translateY(38px) scale(0.92);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="gift-vault"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="gift-vault"].is-exiting {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(-12deg) translateY(-28px);
+    filter: blur(4px);
+}
+
+/* RSVP Glassmorphic Card */
+.motion-ready .jawi-reveal[data-reveal="rsvp-card"] {
+    opacity: 0;
+    transform: translateY(52px) scale(0.95);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="rsvp-card"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="rsvp-card"].is-exiting {
+    opacity: 0;
+    transform: translateY(-38px) scale(0.97);
+    filter: blur(4px);
+}
+
+/* Closing Portal */
+.motion-ready .jawi-reveal[data-reveal="closing-portal"] {
+    opacity: 0;
+    transform: perspective(1000px) rotateX(15deg) translateY(55px) scale(0.92);
+    filter: blur(8px);
+}
+.motion-ready .jawi-reveal[data-reveal="closing-portal"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="closing-portal"].is-exiting {
+    opacity: 0;
+    transform: scale(0.93) translateY(-32px);
+    filter: blur(4px);
+}
+
+/* Standard Reveals (Scale, Left, Right, Ink) */
+.motion-ready .jawi-reveal[data-reveal="scale"] {
+    opacity: 0;
+    transform: scale(0.88) translateY(28px);
+    filter: blur(6px);
+}
+.motion-ready .jawi-reveal[data-reveal="scale"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="scale"].is-exiting {
+    opacity: 0;
+    transform: scale(0.92) translateY(-25px);
+    filter: blur(4px);
+}
+
+.motion-ready .jawi-reveal[data-reveal="left"] {
+    opacity: 0;
+    transform: translate3d(-60px, 25px, 0) rotate(-2deg);
+    filter: blur(5px);
+}
+.motion-ready .jawi-reveal[data-reveal="left"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="left"].is-exiting {
+    opacity: 0;
+    transform: translate3d(-45px, -25px, 0) rotate(-1.5deg);
+    filter: blur(4px);
+}
+
+.motion-ready .jawi-reveal[data-reveal="right"] {
+    opacity: 0;
+    transform: translate3d(60px, 25px, 0) rotate(2deg);
+    filter: blur(5px);
+}
+.motion-ready .jawi-reveal[data-reveal="right"].is-visible {
+    opacity: 1;
+    transform: none;
+    filter: none;
+}
+.motion-ready .jawi-reveal[data-reveal="right"].is-exiting {
+    opacity: 0;
+    transform: translate3d(45px, -25px, 0) rotate(1.5deg);
+    filter: blur(4px);
+}
+
+.motion-ready .jawi-reveal[data-reveal="ink"] {
+    opacity: 0.3;
+    clip-path: inset(0 100% 0 0 round 18px);
+}
+.motion-ready .jawi-reveal[data-reveal="ink"].is-visible {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 0);
+}
+.motion-ready .jawi-reveal[data-reveal="ink"].is-exiting {
+    opacity: 0;
+    clip-path: inset(0 0 0 100% round 18px);
+}
+
+/* Reduced Motion Safety */
+@media(prefers-reduced-motion: reduce) {
+    .jawi-reveal,
+    .type-char,
+    .type-ampersand,
+    .jawi-prologue-countdown>div,
+    .jawi-prologue-calendar,
+    .jawi-prologue-seal {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
+        transition: none !important;
+        animation: none !important;
+    }
+    .type-cursor { display: none !important; }
+}
+

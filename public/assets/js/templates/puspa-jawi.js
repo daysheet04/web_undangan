@@ -1,33 +1,195 @@
-(() => {
+(async () => {
     'use strict';
-    const root = document.querySelector('.puspa-jawi');
+
+    // Wait for React to mount the template root element
+    const root = await new Promise((resolve) => {
+        let count = 0;
+        const check = () => {
+            const el = document.querySelector('.puspa-jawi');
+            if (el || count > 120) return resolve(el);
+            count++;
+            requestAnimationFrame(check);
+        };
+        check();
+    });
     if (!root) return;
 
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const motionReady = !reducedMotion && 'IntersectionObserver' in window;
-    if (motionReady) root.classList.add('motion-ready');
+    root.classList.add('motion-ready');
+
     const revealItems = root.querySelectorAll('.jawi-reveal');
     const musicButton = root.querySelector('[data-music-controller]');
     const uploadedAudio = root.querySelector('[data-wedding-audio]');
-    if (motionReady) {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (!entry.isIntersecting) return;
-                entry.target.classList.add('is-visible');
-                observer.unobserve(entry.target);
+    const invitationContent = root.querySelector('.invitation-content');
+
+    /* ==========================================================================
+       Typewriter Effect for Julia & Dandi (Zero CLS, Butter Smooth)
+       ========================================================================== */
+    const setupTypewriter = (heading) => {
+        if (!heading) return null;
+        const brideSpan = heading.querySelector('[data-live="bride_nickname"]');
+        const ampersand = heading.querySelector('i');
+        const groomSpan = heading.querySelector('[data-live="groom_nickname"]');
+        if (!brideSpan || !groomSpan) return null;
+
+        const brideText = (brideSpan.textContent || 'Julia').trim();
+        const groomText = (groomSpan.textContent || 'Dandi').trim();
+
+        const buildCharSpans = (container, text) => {
+            container.innerHTML = '';
+            container.setAttribute('aria-label', text);
+            return Array.from(text).map((ch) => {
+                const span = document.createElement('span');
+                span.className = 'type-char';
+                span.textContent = ch === ' ' ? '\u00A0' : ch;
+                container.appendChild(span);
+                return span;
             });
-        }, { threshold: .12, rootMargin: '0px 0px -5% 0px' });
-        root.querySelectorAll('.jawi-section').forEach((section) => section.querySelectorAll('.jawi-reveal').forEach((item, index) => {
-            item.style.setProperty('--reveal-delay', `${Math.min(index, 4) * 110}ms`);
-            observer.observe(item);
-        }));
+        };
+
+        const brideChars = buildCharSpans(brideSpan, brideText);
+        const groomChars = buildCharSpans(groomSpan, groomText);
+
+        if (ampersand) ampersand.classList.add('type-ampersand');
+
+        let cursor = heading.querySelector('.type-cursor');
+        if (!cursor) {
+            cursor = document.createElement('span');
+            cursor.className = 'type-cursor';
+            cursor.setAttribute('aria-hidden', 'true');
+            heading.appendChild(cursor);
+        }
+
+        let isTyping = false;
+
+        const play = () => {
+            if (reducedMotion) {
+                brideChars.forEach((c) => c.classList.add('char-inked'));
+                groomChars.forEach((c) => c.classList.add('char-inked'));
+                if (ampersand) ampersand.classList.add('is-visible');
+                cursor.style.display = 'none';
+                return;
+            }
+            if (isTyping) return;
+            isTyping = true;
+
+            // Reset characters first so typing runs fresh and visible
+            brideChars.forEach((c) => c.classList.remove('char-inked'));
+            groomChars.forEach((c) => c.classList.remove('char-inked'));
+            if (ampersand) ampersand.classList.remove('is-visible');
+
+            cursor.style.display = 'inline-block';
+            cursor.classList.remove('is-finished');
+            cursor.classList.add('is-typing');
+            brideSpan.prepend(cursor);
+
+            let bIdx = 0;
+            const typeBride = () => {
+                if (bIdx < brideChars.length) {
+                    brideChars[bIdx].classList.add('char-inked');
+                    brideChars[bIdx].after(cursor);
+                    bIdx++;
+                    setTimeout(typeBride, 85 + Math.random() * 35);
+                } else {
+                    // Reveal ampersand
+                    setTimeout(() => {
+                        if (ampersand) {
+                            ampersand.classList.add('is-visible');
+                            ampersand.after(cursor);
+                        }
+                        // Start typing groom
+                        let gIdx = 0;
+                        const typeGroom = () => {
+                            if (gIdx < groomChars.length) {
+                                groomChars[gIdx].classList.add('char-inked');
+                                groomChars[gIdx].after(cursor);
+                                gIdx++;
+                                setTimeout(typeGroom, 85 + Math.random() * 35);
+                            } else {
+                                // Completed!
+                                setTimeout(() => {
+                                    cursor.classList.remove('is-typing');
+                                    cursor.classList.add('is-finished');
+                                    setTimeout(() => {
+                                        cursor.style.display = 'none';
+                                        isTyping = false;
+                                    }, 750);
+                                }, 350);
+                            }
+                        };
+                        setTimeout(typeGroom, 160);
+                    }, 140);
+                }
+            };
+
+            setTimeout(typeBride, 260);
+        };
+
+        const reset = () => {
+            if (reducedMotion) return;
+            isTyping = false;
+            brideChars.forEach((c) => c.classList.remove('char-inked'));
+            groomChars.forEach((c) => c.classList.remove('char-inked'));
+            if (ampersand) ampersand.classList.remove('is-visible');
+            cursor.style.display = 'none';
+            cursor.classList.remove('is-typing', 'is-finished');
+        };
+
+        return { play, reset };
+    };
+
+    const typewriterHeading = root.querySelector('.jawi-typewriter-title') || root.querySelector('.jawi-prologue-copy h2');
+    const typewriterController = setupTypewriter(typewriterHeading);
+
+    /* ==========================================================================
+       Keluar-Masuk (Exit & Entrance) IntersectionObserver
+       ========================================================================== */
+    if (motionReady) {
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                const item = entry.target;
+
+                // GUARD: If envelope is still closed, do NOT reveal Section 1 yet!
+                if (!root.classList.contains('invitation-open')) {
+                    return;
+                }
+
+                if (entry.isIntersecting) {
+                    item.classList.add('is-visible');
+                    item.classList.remove('is-exiting');
+                    if (item.matches('.jawi-prologue-copy') || item.querySelector('.jawi-typewriter-title')) {
+                        typewriterController?.play();
+                    }
+                } else {
+                    if (item.classList.contains('is-visible')) {
+                        item.classList.remove('is-visible');
+                        item.classList.add('is-exiting');
+                        if (item.matches('.jawi-prologue-copy') || item.querySelector('.jawi-typewriter-title')) {
+                            typewriterController?.reset();
+                        }
+                    }
+                }
+            });
+        }, { threshold: 0.12, rootMargin: '0px 0px -4% 0px' });
+
+        root.querySelectorAll('.jawi-section').forEach((section) => {
+            section.querySelectorAll('.jawi-reveal').forEach((item, index) => {
+                item.style.setProperty('--reveal-delay', `${Math.min(index, 4) * 90}ms`);
+                revealObserver.observe(item);
+            });
+        });
+
+        // Section observer for ambient ornaments
         const sectionObserver = new IntersectionObserver((entries) => {
             entries.forEach((entry) => {
-                entry.target.classList.toggle('is-in-view', entry.isIntersecting);
-                if (!entry.isIntersecting) return;
-                entry.target.querySelectorAll('.jawi-reveal').forEach((item) => item.classList.add('is-visible'));
+                if (!root.classList.contains('invitation-open')) return;
+                const isInter = entry.isIntersecting;
+                entry.target.classList.toggle('is-in-view', isInter);
+                entry.target.classList.toggle('is-out-of-view', !isInter);
             });
-        }, { threshold: 0, rootMargin: '25% 0px 25% 0px' });
+        }, { threshold: 0.05, rootMargin: '10% 0px 10% 0px' });
+
         root.querySelectorAll('.jawi-section').forEach((section) => sectionObserver.observe(section));
     } else {
         revealItems.forEach((item) => item.classList.add('is-visible'));
@@ -40,27 +202,74 @@
         revealItems.forEach((item) => {
             if (item.classList.contains('is-visible') || item.hidden) return;
             const rect = item.getBoundingClientRect();
-            if (rect.top <= viewportHeight * 1.08 && rect.bottom >= -40) {
+            if (rect.top <= viewportHeight * 1.05 && rect.bottom >= -40) {
                 item.classList.add('is-visible');
+                item.classList.remove('is-exiting');
             }
         });
     };
-    if (!motionReady) {
-        window.addEventListener('scroll', revealVisibleFallback, { passive: true });
-        window.addEventListener('resize', revealVisibleFallback, { passive: true });
-    }
 
+    /* ==========================================================================
+       Ceremonial Envelope Opening -> Visible Section 1 Activation
+       ========================================================================== */
     root.querySelector('[data-open-invitation]')?.addEventListener('click', (event) => {
-        event.currentTarget.disabled = true;
-        event.currentTarget.querySelector('span').textContent = 'Sugeng Rawuh';
-        window.setTimeout(revealVisibleFallback, 80);
-        window.setTimeout(revealVisibleFallback, 750);
+        const button = event.currentTarget;
+        const duration = reducedMotion ? 120 : 3800;
+        button.disabled = true;
+        const buttonLabel = button.querySelector('[data-open-label]');
+        if (buttonLabel) buttonLabel.textContent = 'Membuka...';
+
+        root.classList.add('jawi-envelope-opening');
+        document.body.style.overflow = 'hidden';
+        invitationContent?.setAttribute('aria-hidden', 'true');
+
+        window.setTimeout(() => root.classList.add('jawi-envelope-letter-up'), reducedMotion ? 25 : 850);
+        window.setTimeout(() => root.classList.add('jawi-envelope-page-turn'), reducedMotion ? 45 : 1950);
+        window.setTimeout(() => root.classList.add('jawi-envelope-zooming'), reducedMotion ? 70 : 3050);
+
+        window.setTimeout(() => {
+            root.classList.add('invitation-open', 'jawi-envelope-complete', 'jawi-prologue-active');
+            document.body.style.overflow = '';
+            invitationContent?.setAttribute('aria-hidden', 'false');
+
+            // EXACT MOMENT OF REVEAL: Section 1 animates in front of user's eyes!
+            const prologue = root.querySelector('.jawi-prologue');
+            if (prologue) {
+                prologue.classList.add('is-in-view');
+                prologue.classList.remove('is-out-of-view');
+
+                const copyCard = prologue.querySelector('.jawi-prologue-copy');
+                const portraitCard = prologue.querySelector('.jawi-prologue-portrait');
+
+                // Card 3D fold-in starts
+                window.setTimeout(() => {
+                    if (copyCard) {
+                        copyCard.classList.add('is-visible');
+                        copyCard.classList.remove('is-exiting');
+                    }
+                    // Typewriter runs visibly right as card unfolds
+                    typewriterController?.play();
+                }, 80);
+
+                // Portrait card tilts into view
+                window.setTimeout(() => {
+                    if (portraitCard) {
+                        portraitCard.classList.add('is-visible');
+                        portraitCard.classList.remove('is-exiting');
+                    }
+                }, 180);
+            }
+            revealVisibleFallback();
+        }, duration);
+
         if (uploadedAudio) {
             uploadedAudio.play().then(() => musicButton?.setAttribute('aria-pressed', 'true')).catch(() => {});
         }
-    }, { once: true });
-    window.setTimeout(revealVisibleFallback, 1400);
+    }, { once: true, capture: true });
 
+    /* ==========================================================================
+       Custom Select Dropdowns & Bank Picker
+       ========================================================================== */
     const closeChoices = (except = null) => {
         root.querySelectorAll('[data-custom-select]').forEach((choice) => {
             if (choice === except) return;
@@ -134,6 +343,9 @@
         });
     });
 
+    /* ==========================================================================
+       Copy Account to Clipboard
+       ========================================================================== */
     root.querySelectorAll('[data-copy-account]').forEach((button) => button.addEventListener('click', async () => {
         const number = button.closest('[data-gift-account-card]')?.querySelector('[data-account-number]')?.textContent.replace(/\s/g, '') || '';
         try {
@@ -146,22 +358,9 @@
         }
     }));
 
-    const stage = root.querySelector('.stage-parallax');
-    if (!reducedMotion && stage && matchMedia('(min-width: 1101px)').matches) {
-        let ticking = false;
-        const updateParallax = () => {
-            const shift = Math.min(window.scrollY * .035, 34);
-            stage.style.setProperty('--stage-shift', `${shift}px`);
-            ticking = false;
-        };
-        window.addEventListener('scroll', () => {
-            if (!ticking) {
-                requestAnimationFrame(updateParallax);
-                ticking = true;
-            }
-        }, { passive: true });
-    }
-
+    /* ==========================================================================
+       Web Audio Synthesizer & Audio Fallback
+       ========================================================================== */
     let audioContext;
     let musicTimer;
     let note = 0;

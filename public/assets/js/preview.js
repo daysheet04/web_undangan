@@ -9,10 +9,13 @@
 
     const openInvitation = () => {
         root.classList.add('invitation-open');
+        const releaseDelay = root.classList.contains('puspa-jawi')
+            ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 160 : 4200)
+            : (root.classList.contains('javanese-invitation') ? 1100 : 650);
         window.setTimeout(() => {
             document.body.style.overflow = '';
             document.querySelector('.invitation-content')?.setAttribute('aria-hidden', 'false');
-        }, root.classList.contains('javanese-invitation') ? 1100 : 650);
+        }, releaseDelay);
     };
 
     document.querySelector('[data-open-invitation]')?.addEventListener('click', openInvitation);
