@@ -9,10 +9,11 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />  
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" href="/assets/images/templates/lunara-azure/layers/petals.webp" as="image" type="image/webp" fetchpriority="high" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap" media="print" onload="this.media='all'" />
     <style>
       html { background: #fbfaf7; }
       body { margin: 0; }
+      html, body { touch-action: manipulation; }
       #app-boot {
         position: fixed;
         z-index: 2147483647;
@@ -49,7 +50,7 @@
         content: "";
         animation: daymoment-boot 1s ease-in-out infinite alternate;
       }
-      html.app-styles-ready #app-boot { visibility: hidden; opacity: 0; pointer-events: none; }
+      html.app-styles-ready #app-boot { visibility: hidden; opacity: 0; pointer-events: none; display: none; }
       html:not(.app-styles-ready) #root { visibility: hidden; }
       @keyframes daymoment-boot { to { transform: translateX(82%); } }
       @media (prefers-reduced-motion: reduce) { #app-boot, #app-boot i::after { transition: none; animation: none; } }

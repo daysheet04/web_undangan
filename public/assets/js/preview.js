@@ -8,10 +8,9 @@
     document.querySelector('.invitation-content')?.setAttribute('aria-hidden', 'true');
 
     const openInvitation = () => {
+        if (root.classList.contains('puspa-jawi')) return;
         root.classList.add('invitation-open');
-        const releaseDelay = root.classList.contains('puspa-jawi')
-            ? (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 160 : 4200)
-            : (root.classList.contains('javanese-invitation') ? 1100 : 650);
+        const releaseDelay = root.classList.contains('javanese-invitation') ? 1100 : 650;
         window.setTimeout(() => {
             document.body.style.overflow = '';
             document.querySelector('.invitation-content')?.setAttribute('aria-hidden', 'false');
