@@ -20,6 +20,36 @@ function publicOrder(order) {
   };
 }
 
+async function affiliateAttribution(db, referralCode, selectedPackage) {
+  const code = String(referralCode || '').trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+  if (!code) return null;
+  const { data: account, error: accountError } = await db.from('affiliate_accounts')
+    .select('id,full_name,referral_code,status')
+    .ilike('referral_code', code)
+    .maybeSingle();
+  if (accountError) throw accountError;
+  if (!account) return null;
+  if (account.status === 'suspended') return { blocked: true };
+  if (account.status !== 'active') return null;
+  const { data: setting, error: settingError } = await db.from('affiliate_product_settings')
+    .select('commission_percent,is_visible')
+    .eq('affiliate_id', account.id)
+    .eq('package_id', selectedPackage.id)
+    .maybeSingle();
+  if (settingError) throw settingError;
+  if (setting?.is_visible !== true) return null;
+  const maximum = Math.min(50, Number(selectedPackage.affiliate_commission_max_percent ?? 50));
+  const requested = Number(setting.commission_percent ?? 0);
+  const percent = Math.max(0, Math.min(maximum, requested));
+  if (percent < 1) return null;
+  return {
+    affiliate_id: account.id,
+    referral_name: account.full_name,
+    commission_percent: Math.round(percent * 100) / 100,
+    commission_amount: Math.round(Number(selectedPackage.price || 0) * percent / 100),
+  };
+}
+
 async function paymentForOrder(env, orderId) {
   const { data, error } = await database(env).from('payments').select('*').eq('order_id', orderId).maybeSingle();
   if (error) throw error;
@@ -104,8 +134,11 @@ orders.post('/orders', async (c) => {
   const name = cleanText(input.customer_name, 120);
   const phone = cleanText(input.customer_phone, 24);
   const email = cleanText(input.customer_email, 254).toLowerCase();
+  const referralCode = cleanText(input.referral_code, 32).replace(/[^a-zA-Z0-9]/g, '');
   const errors = {};
-  if (!selectedPackage) errors.package_code = 'Pilih salah satu paket undangan.';
+  if (!selectedPackage) errors.package_code = input.package_code
+    ? 'Paket ini sedang maintenance atau sudah tidak tersedia.'
+    : 'Pilih salah satu paket undangan.';
   if (name.length < 3) errors.customer_name = 'Nama lengkap minimal 3 karakter.';
   if (!validPhone(phone)) errors.customer_phone = 'Gunakan nomor Indonesia yang diawali 08 atau +62.';
   if (!validEmail(email)) errors.customer_email = 'Masukkan alamat email yang valid.';
@@ -132,6 +165,7 @@ orders.post('/orders', async (c) => {
       package_code: selectedPackage.code,
       package_name: selectedPackage.name,
       package_price: selectedPackage.price,
+      referral_name: referralCode || null,
       is_active: false,
       active_until: null,
     };
@@ -142,7 +176,16 @@ orders.post('/orders', async (c) => {
   const db = database(c.env);
   const code = orderCode();
   const editorToken = randomHex(32);
-  const { error } = await db.rpc('create_daymoment_order', {
+  const attribution = await affiliateAttribution(db, referralCode, selectedPackage);
+  if (attribution?.blocked) {
+    return c.json({
+      ok: false,
+      code: 'AFFILIATE_SUSPENDED',
+      message: 'Pesanan baru tidak dapat dibuat melalui link ini karena akun affiliate sedang ditangguhkan.',
+    }, 403);
+  }
+  const rpcName = attribution ? 'create_daymoment_affiliate_order' : 'create_daymoment_order';
+  const rpcInput = {
     p_order_code: code,
     p_template_id: template.id,
     p_package_id: selectedPackage.id,
@@ -151,7 +194,14 @@ orders.post('/orders', async (c) => {
     p_customer_email: email,
     p_editor_token: editorToken,
     p_amount: selectedPackage.price,
+  };
+  if (attribution) Object.assign(rpcInput, {
+    p_affiliate_id: attribution.affiliate_id,
+    p_referral_name: attribution.referral_name,
+    p_commission_percent: attribution.commission_percent,
+    p_commission_amount: attribution.commission_amount,
   });
+  const { error } = await db.rpc(rpcName, rpcInput);
   if (error) throw error;
   const createdOrder = await orderByCode(c.env, code);
   const appUrl = String(c.env.APP_URL || new URL(c.req.url).origin).replace(/\/$/, '');

@@ -17,8 +17,12 @@ function PreviewPhone({ template, active }) {
 }
 
 export default function TemplatePreviewPage({ code }) {
-  const { data, loading, error } = useRemote(`/api/templates/${code}`, [code]);
-  const [selected, setSelected] = useState('signature');
+  const pageQuery = new URLSearchParams(window.location.search);
+  const referralCode = pageQuery.get('ref') || '';
+  const requestedPackage = pageQuery.get('package') || '';
+  const referralQuery = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : '';
+  const { data, loading, error } = useRemote(`/api/templates/${code}${referralQuery}`, [code, referralCode]);
+  const [selected, setSelected] = useState(requestedPackage || 'signature');
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches
@@ -60,6 +64,10 @@ export default function TemplatePreviewPage({ code }) {
   if (error) return <Layout className="preview-page"><ErrorState error={error} /></Layout>;
 
   const template = data.template;
+  if (requestedPackage && !template.packages.some((item) => item.code === requestedPackage)) {
+    return <Layout className="preview-page"><ErrorState error={new Error('Paket template ini sedang maintenance dan belum tersedia untuk dipilih.')} /></Layout>;
+  }
+  if (!template.packages.length) return <Layout className="preview-page"><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum tersedia.')} /></Layout>;
   const active = template.packages.find((item) => item.code === selected) || template.packages[0];
 
   const viewPackage = (packageCode) => {
@@ -117,7 +125,7 @@ export default function TemplatePreviewPage({ code }) {
             })}
           </div>
 
-          <a className="button button-primary preview-order-button" href={`/order?template=${template.code}&package=${active.code}`}>
+          <a className="button button-primary preview-order-button" href={`/order?template=${template.code}&package=${active.code}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}>
             Pilih Paket {active.name}
           </a>
         </div>

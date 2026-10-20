@@ -21,9 +21,24 @@ const dateText = (v) => {
   const d = new Date(`${v}T12:00:00`);
   return `${D[d.getDay()]}, ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
 };
+
+function AgIcon({ name }) { return <svg><use href={`#${name}`} /></svg>; }
+function AgSymbols() {
+  return (
+    <svg className="ag-symbols" aria-hidden="true" style={{ display: 'none' }}>
+      <defs>
+        <symbol id="ag-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="ag-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="ag-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="ag-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></symbol>
+      </defs>
+    </svg>
+  );
+}
+
 export default function AureliaGrandeTemplate({
   invitation: i,
-  media,
+  media = [],
   giftAccounts,
   greetings,
   guestName,
@@ -36,21 +51,151 @@ export default function AureliaGrandeTemplate({
     [entered, setEntered] = useState(false),
     [panel, setPanel] = useState(null),
     [near, setNear] = useState(""),
-    photos = media.slice(0, Math.max(1, +i.gallery_limit || 5));
+    customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple')),
+    customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : Date.now()),
+    rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null),
+    customCoupleUrl = rawCustomCoupleUrl ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : null,
+    photos = media.filter(m => !m.file_path?.includes('custom-couple')).slice(0, Math.max(1, +i.gallery_limit || 5)),
+    [lightbox, setLightbox] = useState(null),
+    [wishes, setWishes] = useState(() => (Array.isArray(greetings) ? greetings : [])),
+    [submittingRsvp, setSubmittingRsvp] = useState(false),
+    [rsvpFeedback, setRsvpFeedback] = useState({ text: '', type: '' }),
+    [rsvpName, setRsvpName] = useState(guestName !== 'Bapak/Ibu/Saudara/i' ? guestName : ''),
+    [rsvpAttendance, setRsvpAttendance] = useState('attending'),
+    [rsvpMessage, setRsvpMessage] = useState('');
+  const touchStartX = useRef(0);
+
+  const openPhoto = (photo) => {
+    setLightbox({
+      items: [photo],
+      index: 0
+    });
+  };
+
+  const openGalleryPhoto = (index) => {
+    const galleryItems = (photos.length ? photos : []).map((p, idx) => ({
+      src: mediaUrl(p.file_path),
+      title: `Memory · ${String(idx + 1).padStart(2, '0')}`,
+      caption: `${groom} & ${bride} — Momen Bahagia`
+    }));
+    if (!galleryItems.length) return;
+    setLightbox({
+      items: galleryItems,
+      index: Math.max(0, Math.min(index, galleryItems.length - 1))
+    });
+  };
+
+  const nextPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index + 1) % prev.items.length } : prev);
+  };
+  const prevPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index - 1 + prev.items.length) % prev.items.length } : prev);
+  };
+
+  useEffect(() => {
+    if (!lightbox) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setLightbox(null);
+      } else if (e.key === 'ArrowRight' && lightbox.items.length > 1) {
+        nextPhoto();
+      } else if (e.key === 'ArrowLeft' && lightbox.items.length > 1) {
+        prevPhoto();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [lightbox]);
+
+  const handleRsvpSubmit = async (e) => {
+    e.preventDefault();
+    if (!rsvpName.trim() || !rsvpMessage.trim()) {
+      setRsvpFeedback({ text: 'Mohon lengkapi nama dan ucapan.', type: 'error' });
+      return;
+    }
+    if (preview) {
+      const dummy = {
+        id: 'preview-' + Date.now(),
+        guest_name: rsvpName.trim(),
+        attendance_status: rsvpAttendance,
+        message: rsvpMessage.trim(),
+        created_at: new Date().toISOString()
+      };
+      setWishes(prev => [dummy, ...prev]);
+      setRsvpMessage('');
+      setRsvpFeedback({ text: 'Ucapan berhasil ditambahkan (Mode Preview).', type: 'success' });
+      return;
+    }
+
+    setSubmittingRsvp(true);
+    setRsvpFeedback({ text: '', type: '' });
+
+    try {
+      const response = await fetch('/api/greetings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          slug: i.slug,
+          guest_name: rsvpName.trim(),
+          attendance_status: rsvpAttendance,
+          message: rsvpMessage.trim()
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Ucapan gagal dikirim.');
+      }
+      const newGreeting = result.greeting || {
+        id: 'g-' + Date.now(),
+        guest_name: rsvpName.trim(),
+        attendance_status: rsvpAttendance,
+        message: rsvpMessage.trim()
+      };
+      setWishes(prev => [newGreeting, ...prev]);
+      setRsvpMessage('');
+      setRsvpFeedback({ text: 'Terima kasih, ucapan Anda sudah terkirim.', type: 'success' });
+      window.dispatchEvent(new CustomEvent('daymoment:greeting-sent', { detail: { greeting: newGreeting } }));
+    } catch (err) {
+      setRsvpFeedback({ text: err.message || 'Terjadi kesalahan saat mengirim.', type: 'error' });
+    } finally {
+      setSubmittingRsvp(false);
+    }
+  };
   useEffect(() => {
     const closePanel = (event) => {
-      if (event.key === "Escape") setPanel(null);
+      if (event.key === "Escape") {
+        if (lightbox) return;
+        setPanel(null);
+      }
     };
     window.addEventListener("keydown", closePanel);
     return () => window.removeEventListener("keydown", closePanel);
-  }, []);
+  }, [lightbox]);
   useEffect(() => {
     if (panel && document.pointerLockElement) document.exitPointerLock?.();
   }, [panel]);
   const panels = {
     couple: (
       <Panel title={`${bride} & ${groom}`} eyebrow="Meet the couple">
-        <img className="ag-panel-hero" src={cover} />
+        <div
+          className="ag-panel-hero-wrap ag-clickable-photo"
+          onClick={() => openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — Meet the couple' })}
+          role="button"
+          tabIndex={0}
+          aria-label="Lihat foto sampul ukuran penuh"
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — Meet the couple' }); } }}
+        >
+          <img className="ag-panel-hero" src={cover} alt={`${groom} & ${bride}`} />
+          <span className="ag-photo-zoom-hint" aria-hidden="true"><AgIcon name="ag-zoom" /></span>
+        </div>
         <p>Kisah terbaik kami dimulai dari sini.</p>
       </Panel>
     ),
@@ -61,15 +206,25 @@ export default function AureliaGrandeTemplate({
             photo={mediaUrl(
               i.bride_photo || media[0]?.file_path || i.cover_image,
             )}
-            name={i.bride_full_name}
-            parents={`${i.bride_father} & ${i.bride_mother}`}
+            name={i.bride_full_name || bride}
+            parents={`${i.bride_father || 'Bapak'} & ${i.bride_mother || 'Ibu'}`}
+            onPhotoClick={() => openPhoto({
+              src: mediaUrl(i.bride_photo || media[0]?.file_path || i.cover_image),
+              title: `Mempelai Wanita · ${i.bride_full_name || bride}`,
+              caption: `Putri dari ${i.bride_father || 'Bapak'} & ${i.bride_mother || 'Ibu'}`
+            })}
           />
           <Person
             photo={mediaUrl(
               i.groom_photo || media[1]?.file_path || i.cover_image,
             )}
-            name={i.groom_full_name}
-            parents={`${i.groom_father} & ${i.groom_mother}`}
+            name={i.groom_full_name || groom}
+            parents={`${i.groom_father || 'Bapak'} & ${i.groom_mother || 'Ibu'}`}
+            onPhotoClick={() => openPhoto({
+              src: mediaUrl(i.groom_photo || media[1]?.file_path || i.cover_image),
+              title: `Mempelai Pria · ${i.groom_full_name || groom}`,
+              caption: `Putra dari ${i.groom_father || 'Bapak'} & ${i.groom_mother || 'Ibu'}`
+            })}
           />
         </div>
       </Panel>
@@ -103,7 +258,23 @@ export default function AureliaGrandeTemplate({
       <Panel title="Galeri Kami" eyebrow="Captured moments">
         <div className="ag-panel-gallery">
           {photos.map((p, n) => (
-            <img key={p.id || n} src={mediaUrl(p.file_path)} />
+            <div
+              key={p.id || n}
+              className="ag-gallery-photo-wrap ag-clickable-photo"
+              onClick={() => openGalleryPhoto(n)}
+              role="button"
+              tabIndex={0}
+              aria-label={`Lihat foto galeri ${n + 1} ukuran penuh`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openGalleryPhoto(n);
+                }
+              }}
+            >
+              <img src={mediaUrl(p.file_path)} alt={`Momen ${n + 1}`} />
+              <span className="ag-photo-zoom-hint" aria-hidden="true"><AgIcon name="ag-zoom" /></span>
+            </div>
           ))}
         </div>
       </Panel>
@@ -122,27 +293,85 @@ export default function AureliaGrandeTemplate({
     ),
     rsvp: (
       <Panel title="Konfirmasi Kehadiran" eyebrow="R.S.V.P.">
-        <form
-          data-greeting-form
-          data-invitation-id={i.id || ""}
-          data-preview={preview ? "true" : "false"}
-        >
-          <input name="guest_name" defaultValue={guestName} />
-          <select name="attendance" defaultValue="attending">
+        <form onSubmit={handleRsvpSubmit}>
+          <input
+            name="guest_name"
+            value={rsvpName}
+            onChange={(e) => setRsvpName(e.target.value)}
+            placeholder="Nama Anda"
+            required
+            maxLength={120}
+          />
+          <select
+            name="attendance_status"
+            value={rsvpAttendance}
+            onChange={(e) => setRsvpAttendance(e.target.value)}
+            required
+          >
             <option value="attending">Hadir</option>
             <option value="not_attending">Tidak hadir</option>
             <option value="unsure">Masih ragu</option>
           </select>
-          <textarea name="message" placeholder="Doa dan ucapan" />
-          <button className="ag-ui-button">Kirim</button>
-          <p data-form-message />
+          <textarea
+            name="message"
+            value={rsvpMessage}
+            onChange={(e) => setRsvpMessage(e.target.value)}
+            placeholder="Doa dan ucapan hangat..."
+            required
+            maxLength={500}
+          />
+          <button className="ag-ui-button" type="submit" disabled={submittingRsvp}>
+            {submittingRsvp ? "Mengirim..." : "Kirim"}
+          </button>
+          {rsvpFeedback.text && (
+            <p style={{
+              margin: '6px 0 0',
+              fontSize: '0.82rem',
+              color: rsvpFeedback.type === 'error' ? '#c00' : '#227242',
+              fontWeight: 600
+            }}>
+              {rsvpFeedback.text}
+            </p>
+          )}
         </form>
         <div className="ag-mini-wishes">
-          {greetings.slice(0, 3).map((g) => (
-            <p key={g.id}>
-              <b>{g.guest_name}</b> — {g.message}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '14px 0 10px' }}>
+            <strong style={{ color: '#8e602d', fontSize: '0.95rem' }}>Doa &amp; Ucapan Tamu</strong>
+            <span style={{ fontSize: '0.78rem', color: '#8e602d', fontWeight: 600 }}>{wishes.length} Ucapan</span>
+          </div>
+          {wishes.length > 0 ? (
+            <div style={{ display: 'grid', gap: '9px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+              {wishes.map((g) => (
+                <div key={g.id || g.created_at} style={{
+                  padding: '10px 13px',
+                  borderRadius: '8px',
+                  background: '#f7ede0',
+                  border: '1px solid #e7d1b8'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <strong style={{ color: '#2b1b11', fontSize: '0.88rem' }}>{g.guest_name}</strong>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '2px 7px',
+                      borderRadius: '999px',
+                      background: g.attendance_status === 'attending' ? '#e2f4e8' : g.attendance_status === 'not_attending' ? '#fde8e8' : '#fff3dc',
+                      color: g.attendance_status === 'attending' ? '#166534' : g.attendance_status === 'not_attending' ? '#991b1b' : '#9a6e38',
+                      fontWeight: 600
+                    }}>
+                      {g.attendance_status === 'attending' ? 'Hadir' : g.attendance_status === 'not_attending' ? 'Tidak Hadir' : 'Masih Ragu'}
+                    </span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#4a3528', lineHeight: '1.45' }}>
+                    {g.message}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: '#8a715f', fontSize: '0.85rem', fontStyle: 'italic', margin: '8px 0' }}>
+              Belum ada ucapan. Jadilah yang pertama mengirimkan doa restu!
             </p>
-          ))}
+          )}
         </div>
       </Panel>
     ),
@@ -152,6 +381,7 @@ export default function AureliaGrandeTemplate({
       className={`invitation-page aurelia-grande ${entered ? "ag-entered" : ""}`}
       data-template-root
     >
+      <AgSymbols />
       {entered && <BallroomWorld
         active={entered && !panel}
         onInteract={setPanel}
@@ -165,6 +395,7 @@ export default function AureliaGrandeTemplate({
         coverPhoto={cover}
         coupleNames={`${bride} & ${groom}`}
         galleryPhotos={photos.map((photo) => mediaUrl(photo.file_path))}
+        customCoupleUrl={customCoupleUrl}
       />}
       {!entered && (
         <section className="ag-game-cover">
@@ -195,6 +426,15 @@ export default function AureliaGrandeTemplate({
               <small>{guestSalutation}</small>
               <strong>{guestName}</strong>
             </div>
+            <button
+              type="button"
+              className="ag-cover-photo-btn ag-clickable-photo"
+              onClick={() => openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — The Wedding Celebration' })}
+              aria-label="Lihat foto sampul ukuran penuh"
+            >
+              <AgIcon name="ag-zoom" />
+              <span>Lihat Foto Sampul</span>
+            </button>
             <button onClick={() => { setEntered(true); setPanel("help"); }}>
               Masuk ke Ballroom <b>→</b>
             </button>
@@ -262,6 +502,82 @@ export default function AureliaGrandeTemplate({
           ♫
         </button>
       )}
+
+      {lightbox && lightbox.items[lightbox.index] && (
+        <div
+          className="ag-lightbox is-open"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Lihat foto penuh"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="ag-lightbox-backdrop" aria-hidden="true" />
+          <button
+            className="ag-lightbox-close"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+            aria-label="Tutup tampilan foto"
+          >
+            <AgIcon name="ag-close" />
+          </button>
+          {lightbox.items.length > 1 && (
+            <>
+              <button
+                className="ag-lightbox-nav prev"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevPhoto();
+                }}
+                aria-label="Foto sebelumnya"
+              >
+                <AgIcon name="ag-chevron-left" />
+              </button>
+              <button
+                className="ag-lightbox-nav next"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextPhoto();
+                }}
+                aria-label="Foto berikutnya"
+              >
+                <AgIcon name="ag-chevron-right" />
+              </button>
+            </>
+          )}
+          <div
+            className="ag-lightbox-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+            onTouchEnd={(e) => {
+              if (lightbox.items.length <= 1) return;
+              const diff = e.changedTouches[0].clientX - touchStartX.current;
+              if (Math.abs(diff) > 42) {
+                if (diff < 0) nextPhoto();
+                else prevPhoto();
+              }
+            }}
+          >
+            <div className="ag-lightbox-frame">
+              <img
+                className="ag-lightbox-img"
+                src={lightbox.items[lightbox.index].src}
+                alt={lightbox.items[lightbox.index].title || 'Foto ukuran penuh'}
+              />
+            </div>
+            <div className="ag-lightbox-caption">
+              <strong>{lightbox.items[lightbox.index].title}</strong>
+              {lightbox.items[lightbox.index].caption && <p>{lightbox.items[lightbox.index].caption}</p>}
+              {lightbox.items.length > 1 && (
+                <span className="ag-lightbox-counter">
+                  {lightbox.index + 1} / {lightbox.items.length}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -274,6 +590,7 @@ function BallroomWorld({
   coverPhoto,
   coupleNames,
   galleryPhotos,
+  customCoupleUrl,
 }) {
   const mount = useRef(null),
     ar = useRef(active),
@@ -892,7 +1209,17 @@ function BallroomWorld({
     [-1,1].forEach(side=>{cyl([7 + side*2.45,1.15,15.2],.08,1.9,gold);sphere([7 + side*2.45,2.13,15.2],.14,glow)});
     // AI-rendered couple presented as a living stage character. The transparent
     // cutout belongs to the 3D world through lighting, grounding and motion.
-    const coupleTexture = new THREE.TextureLoader().load(`${A}wedding-couple-3d.webp`);
+    const coupleTextureUrl = customCoupleUrl || `${A}wedding-couple-3d.webp`;
+    const coupleTexture = new THREE.TextureLoader().load(coupleTextureUrl, (tex) => {
+      if (tex.image && tex.image.width && tex.image.height) {
+        const aspect = tex.image.width / tex.image.height;
+        const targetH = 6.5;
+        const targetW = targetH * aspect;
+        character.geometry.dispose();
+        character.geometry = new THREE.PlaneGeometry(targetW, targetH);
+        character.position.y = targetH / 2;
+      }
+    });
     coupleTexture.colorSpace = THREE.SRGBColorSpace;
     const couple = new THREE.Group();
     const character = new THREE.Mesh(
@@ -1355,10 +1682,20 @@ function Panel({ eyebrow, title, children }) {
     </article>
   );
 }
-function Person({ photo, name, parents }) {
+function Person({ photo, name, parents, onPhotoClick }) {
   return (
-    <div>
-      <img src={photo} />
+    <div className="ag-profile-card">
+      <div
+        className="ag-profile-photo-wrap ag-clickable-photo"
+        onClick={onPhotoClick}
+        role="button"
+        tabIndex={0}
+        aria-label={`Lihat foto ${name} ukuran penuh`}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPhotoClick?.(); } }}
+      >
+        <img src={photo} alt={name} />
+        <span className="ag-photo-zoom-hint" aria-hidden="true"><AgIcon name="ag-zoom" /></span>
+      </div>
       <h3>{name}</h3>
       <p>
         Putra/putri dari

@@ -3034,3 +3034,332 @@
   opacity: .055 !important;
   transform: translate(-50%,-42%) rotate(45deg) !important;
 }
+
+/* ==========================================================================
+   VERDANT VOW - CLICKABLE PHOTOS & LIGHTBOX MODAL
+   ========================================================================== */
+
+.vv-clickable-photo {
+  position: relative;
+  cursor: zoom-in !important;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.vv-photo-zoom-hint {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #f7edd4;
+  background: rgba(16, 48, 38, 0.78);
+  border: 1px solid rgba(201, 168, 106, 0.55);
+  box-shadow: 0 6px 18px rgba(7, 26, 20, 0.38), 0 0 0 1px rgba(255, 250, 235, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.16, 0.82, 0.22, 1), background-color 0.24s ease, border-color 0.24s ease, color 0.24s ease, box-shadow 0.28s ease;
+}
+
+.vv-photo-zoom-hint svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.vv-clickable-photo:hover .vv-photo-zoom-hint,
+.vv-clickable-photo:focus-visible .vv-photo-zoom-hint {
+  transform: scale(1.14);
+  color: #fff9e6;
+  background: rgba(23, 73, 54, 0.92);
+  border-color: rgba(224, 194, 134, 0.85);
+  box-shadow: 0 10px 24px rgba(7, 26, 20, 0.5), 0 0 12px rgba(201, 168, 106, 0.45);
+}
+
+.vv-clickable-photo:focus-visible {
+  outline: 2px solid rgba(201, 168, 106, 0.8);
+  outline-offset: 3px;
+}
+
+/* Person card photo */
+.vv-redesign .vv-person-card figure.vv-person-photo-wrap {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.vv-redesign .vv-person-card figure.vv-person-photo-wrap .vv-photo-zoom-hint {
+  right: 14px;
+  bottom: 14px;
+}
+
+/* Gallery photo */
+.vv-gallery-photo.vv-clickable-photo .vv-photo-zoom-hint {
+  right: 10px;
+  bottom: 10px;
+  width: 32px;
+  height: 32px;
+}
+
+.vv-gallery-photo.vv-clickable-photo .vv-photo-zoom-hint svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Story photo window */
+.vv-story-photo-window.vv-clickable-photo .vv-photo-zoom-hint {
+  right: 21%;
+  bottom: 21%;
+}
+
+/* Closing couple image */
+.vv-closing-couple.vv-clickable-photo {
+  cursor: zoom-in;
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.vv-closing-couple.vv-clickable-photo:hover {
+  filter: drop-shadow(0 32px 42px rgba(0, 0, 0, 0.45)) brightness(1.03);
+}
+
+/* Lightbox Modal */
+.vv-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  box-sizing: border-box;
+  animation: vv-lightbox-fade-in 0.28s ease-out;
+}
+
+.vv-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(12, 38, 30, 0.88), rgba(6, 20, 16, 0.94) 80%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.vv-lightbox-dialog {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: min(92vw, 760px);
+  max-height: 90vh;
+  box-sizing: border-box;
+  animation: vv-lightbox-scale-in 0.32s cubic-bezier(0.16, 0.82, 0.22, 1);
+}
+
+.vv-lightbox-frame {
+  position: relative;
+  max-width: 100%;
+  max-height: 72vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px 42px 18px 42px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 168, 106, 0.45);
+  box-shadow: 0 28px 75px rgba(4, 18, 14, 0.72), 0 0 0 1px rgba(255, 250, 235, 0.12), 0 0 40px rgba(201, 168, 106, 0.18);
+  background: #0d2820;
+}
+
+.vv-lightbox-img {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+}
+
+.vv-lightbox-caption {
+  margin-top: 14px;
+  text-align: center;
+  color: #f7edd4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 90%;
+}
+
+.vv-lightbox-caption strong {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(20px, 2.8vw, 28px);
+  font-weight: 600;
+  color: #f7edd4;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.vv-lightbox-caption p {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cbd8ce;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.vv-lightbox-counter {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 14px;
+  border-radius: 999px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #edd5a3;
+  background: rgba(16, 50, 40, 0.75);
+  border: 1px solid rgba(201, 168, 106, 0.38);
+}
+
+.vv-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 168, 106, 0.45);
+  background: rgba(14, 46, 37, 0.82);
+  color: #f7edd4;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.22s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.vv-lightbox-close:hover {
+  transform: scale(1.1) rotate(90deg);
+  background: rgba(23, 73, 54, 0.95);
+  border-color: rgba(224, 194, 134, 0.85);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.vv-lightbox-close svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.vv-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(201, 168, 106, 0.45);
+  background: rgba(14, 46, 37, 0.82);
+  color: #f7edd4;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  transition: all 0.22s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.vv-lightbox-nav svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.vv-lightbox-nav.prev {
+  left: 20px;
+}
+
+.vv-lightbox-nav.next {
+  right: 20px;
+}
+
+.vv-lightbox-nav:hover {
+  transform: translateY(-50%) scale(1.12);
+  background: rgba(23, 73, 54, 0.95);
+  border-color: rgba(224, 194, 134, 0.85);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes vv-lightbox-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vv-lightbox-scale-in {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .vv-lightbox {
+    padding: 12px;
+  }
+  .vv-lightbox-frame {
+    max-height: 65vh;
+    border-radius: 14px 28px 14px 28px;
+  }
+  .vv-lightbox-img {
+    max-height: 65vh;
+  }
+  .vv-lightbox-close {
+    top: 14px;
+    right: 14px;
+    width: 38px;
+    height: 38px;
+  }
+  .vv-lightbox-close svg {
+    width: 17px;
+    height: 17px;
+  }
+  .vv-lightbox-nav {
+    width: 40px;
+    height: 40px;
+  }
+  .vv-lightbox-nav svg {
+    width: 19px;
+    height: 19px;
+  }
+  .vv-lightbox-nav.prev {
+    left: 10px;
+  }
+  .vv-lightbox-nav.next {
+    right: 10px;
+  }
+  .vv-photo-zoom-hint {
+    width: 32px;
+    height: 32px;
+    right: 10px;
+    bottom: 10px;
+  }
+  .vv-photo-zoom-hint svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+

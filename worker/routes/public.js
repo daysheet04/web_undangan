@@ -9,8 +9,9 @@ publicRoutes.get('/invitations/:slug', async (c) => {
   const slug = c.req.param('slug');
   const edgeCache = globalThis.caches?.default;
   const cacheRequest = new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(slug)}`);
+  const bypassCache = c.req.query('fresh') === '1' || c.req.header('Cache-Control')?.includes('no-cache');
   let core;
-  const cached = edgeCache ? await edgeCache.match(cacheRequest) : null;
+  const cached = (!bypassCache && edgeCache) ? await edgeCache.match(cacheRequest) : null;
   if (cached) {
     core = await cached.json();
   } else {
@@ -25,7 +26,7 @@ publicRoutes.get('/invitations/:slug', async (c) => {
     }
   }
   const guestName = cleanText(c.req.query('to'), 150) || 'Bapak/Ibu/Saudara/i';
-  c.header('Cache-Control', 'private, max-age=30, stale-while-revalidate=120');
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   return c.json({ ok: true, ...core, guestName, guestSalutation: 'Kepada Yth.', isPreview: false });
 });
 

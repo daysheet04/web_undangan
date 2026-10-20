@@ -271,7 +271,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           </div>
         </section>
 
-        <footer className="template-footer lunara-footer"><div className="template-brand-lockup"><img src="/assets/images/brand/daymoment-mark.svg" alt="" /><strong>Daymoment</strong></div><small>by Daysheet Group</small></footer>
+        <footer className="template-footer lunara-footer"><div className="template-brand-lockup"><img src="/assets/images/brand/daymoment-mark.svg" alt="" /><strong>Daymoment</strong></div></footer>
       </main>
 
       {i.has_music && i.music_file && <audio data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)} />}

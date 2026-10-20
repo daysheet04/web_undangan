@@ -39,6 +39,19 @@ function demoInvitationByToken(token) {
   };
 }
 
+async function purgeInvitationCache(slug) {
+  if (!slug) return;
+  try {
+    const edgeCache = globalThis.caches?.default;
+    if (edgeCache) {
+      const cacheRequest = new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(slug)}`);
+      await edgeCache.delete(cacheRequest);
+    }
+  } catch (err) {
+    console.warn('Failed to purge edge cache for slug', slug, err);
+  }
+}
+
 async function ensurePublishedActiveUntil(env, invitation) {
   if (invitation.order_status !== 'published' || !invitation.published_at || invitation.active_until) return invitation;
   const activeUntil = invitationActiveUntil(new Date(invitation.published_at));
@@ -118,11 +131,13 @@ editor.post('/invitation/autosave', async (c) => {
     if (error) throw error;
     }
   }
+  await purgeInvitationCache(invitation.slug);
   return c.json({ ok: true, message: 'Tersimpan', saved: clean, slug: slug?.slug || '', slug_available: slug?.available || false, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
 });
 
 function uploadRules(kind) {
   if (kind === 'music') return { max: 12 * 1024 * 1024, types: ['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav'] };
+  if (kind === 'custom_couple') return { max: 15 * 1024 * 1024, types: ['image/jpeg', 'image/png', 'image/webp'] };
   return { max: 2 * 1024 * 1024, types: ['image/jpeg', 'image/png', 'image/webp'] };
 }
 
@@ -136,7 +151,7 @@ editor.post('/invitation/upload', async (c) => {
   const invitation = await invitationByToken(c.env, cleanText(form.get('editor_token'), 128));
   const kind = cleanText(form.get('kind'), 20);
   const file = form.get('file') || form.get('photo');
-  if (!['cover', 'gallery', 'groom', 'bride', 'music'].includes(kind) || !(file instanceof File)) return c.json({ ok: false, message: 'Jenis berkas tidak valid.' }, 422);
+  if (!['cover', 'gallery', 'groom', 'bride', 'music', 'custom_couple'].includes(kind) || !(file instanceof File)) return c.json({ ok: false, message: 'Jenis berkas tidak valid.' }, 422);
   if (kind === 'music' && !invitation.has_music) return c.json({ ok: false, message: `Fitur musik tidak tersedia pada paket ${invitation.package_name}.` }, 403);
   const rules = uploadRules(kind);
   if (!rules.types.includes(file.type)) return c.json({ ok: false, message: kind === 'music' ? 'Format musik harus MP3, M4A, OGG, atau WAV.' : 'Format foto harus JPG, PNG, atau WEBP.' }, 422);
@@ -147,13 +162,27 @@ editor.post('/invitation/upload', async (c) => {
     if (error) throw error;
     if (count >= invitation.gallery_limit) return c.json({ ok: false, message: `Paket ${invitation.package_name} maksimal ${invitation.gallery_limit} foto galeri.` }, 422);
   }
-  const key = `invitations/${invitation.id}/${kind}-${crypto.randomUUID()}.${extension(file)}`;
+  const key = `invitations/${invitation.id}/${kind === 'custom_couple' ? 'custom-couple' : kind}-${crypto.randomUUID()}.${extension(file)}`;
   await c.env.MEDIA.put(key, file.stream(), { httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' }, customMetadata: { originalName: file.name.slice(0, 150) } });
   const path = key;
+  if (kind === 'custom_couple') {
+    const { data: existingRows } = await many(db.from('invitation_media').select('*').eq('invitation_id', invitation.id).like('file_path', '%custom-couple%'));
+    const { data: media, error } = await db.from('invitation_media').insert({ invitation_id: invitation.id, file_path: path, sort_order: 999 }).select('*').single();
+    if (error) throw error;
+    if (existingRows?.length) {
+      for (const oldRow of existingRows) {
+        await db.from('invitation_media').delete().eq('id', oldRow.id);
+        await c.env.MEDIA.delete(oldRow.file_path);
+      }
+    }
+    await purgeInvitationCache(invitation.slug);
+    return c.json({ ok: true, message: 'Wajah pasangan 3D berhasil disimpan.', path: `/media/${path}`, media: { ...media, url: `/media/${path}` } });
+  }
   if (kind === 'gallery') {
     const { data: mediaRows } = await many(db.from('invitation_media').select('sort_order').eq('invitation_id', invitation.id).order('sort_order', { ascending: false }).limit(1));
     const { data: media, error } = await db.from('invitation_media').insert({ invitation_id: invitation.id, file_path: path, sort_order: (mediaRows[0]?.sort_order ?? -1) + 1 }).select('*').single();
     if (error) throw error;
+    await purgeInvitationCache(invitation.slug);
     return c.json({ ok: true, message: 'Foto galeri ditambahkan.', media: { ...media, url: `/media/${path}` } });
   }
   const field = { cover: 'cover_image', groom: 'groom_photo', bride: 'bride_photo', music: 'music_file' }[kind];
@@ -163,7 +192,23 @@ editor.post('/invitation/upload', async (c) => {
   const { error } = await db.from('invitations').update(update).eq('id', invitation.id);
   if (error) throw error;
   if (oldPath) await c.env.MEDIA.delete(oldPath);
+  await purgeInvitationCache(invitation.slug);
   return c.json({ ok: true, message: kind === 'music' ? 'Musik undangan tersimpan.' : 'Foto tersimpan.', path: `/media/${path}`, title: update.music_title });
+});
+
+editor.post('/invitation/reset-custom-couple', async (c) => {
+  const input = await c.req.json();
+  const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
+  const db = database(c.env);
+  const { data: existingRows } = await many(db.from('invitation_media').select('*').eq('invitation_id', invitation.id).like('file_path', '%custom-couple%'));
+  if (existingRows?.length) {
+    for (const row of existingRows) {
+      await db.from('invitation_media').delete().eq('id', row.id);
+      await c.env.MEDIA.delete(row.file_path);
+    }
+  }
+  await purgeInvitationCache(invitation.slug);
+  return c.json({ ok: true, message: 'Karakter 3D dikembalikan ke setelan awal.' });
 });
 
 editor.post('/invitation/delete-photo', async (c) => {
@@ -176,6 +221,7 @@ editor.post('/invitation/delete-photo', async (c) => {
   const { error: deleteError } = await db.from('invitation_media').delete().eq('id', media.id);
   if (deleteError) throw deleteError;
   await c.env.MEDIA.delete(media.file_path);
+  await purgeInvitationCache(invitation.slug);
   return c.json({ ok: true, message: 'Foto dihapus.' });
 });
 
@@ -198,13 +244,53 @@ editor.post('/invitation/gift-accounts', async (c) => {
   return c.json({ ok: true, message: 'Daftar rekening hadiah tersimpan.', accounts });
 });
 
+const normalizePhone = (input) => {
+  if (!input) return '';
+  let d = String(input).replace(/\D/g, '');
+  if (!d) return '';
+  if (d.startsWith('6208')) d = '628' + d.slice(4);
+  else if (d.startsWith('08')) d = '628' + d.slice(2);
+  else if (d.startsWith('8')) d = '628' + d.slice(1);
+  else if (d.startsWith('0')) d = '62' + d.slice(1);
+  return d;
+};
+
 editor.post('/invitation/invitees', async (c) => {
   const input = await c.req.json();
   const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
   const guestName = cleanText(input.guest_name, 150);
   const salutation = cleanText(input.salutation, 80) || 'Bapak/Ibu/Saudara/i';
+  const rawPhone = cleanText(input.phone || input.phone_number, 35);
+  const cleanPhone = normalizePhone(rawPhone);
   if (!guestName) return c.json({ ok: false, message: 'Nama tamu wajib diisi.' }, 422);
-  const { data: guest, error } = await database(c.env).from('invitation_guests').insert({ invitation_id: invitation.id, guest_name: guestName, salutation, guest_token: randomHex(20) }).select('*').single();
+
+  const db = database(c.env);
+  const { data: existingRows } = await db
+    .from('invitation_guests')
+    .select('id, guest_name, guest_token')
+    .eq('invitation_id', invitation.id);
+
+  const nameKey = guestName.toLowerCase().trim();
+  const nameExists = (existingRows || []).some(r => (r.guest_name || '').toLowerCase().trim() === nameKey);
+  const phoneExists = cleanPhone && (existingRows || []).some(r => {
+    if (r.guest_token?.startsWith('wa:')) {
+      const p = r.guest_token.split(':')[1];
+      return p === cleanPhone;
+    }
+    return false;
+  });
+
+  if (nameExists || phoneExists) {
+    return c.json({
+      ok: false,
+      message: phoneExists
+        ? 'Tamu dengan nomor WhatsApp ini sudah ada di daftar.'
+        : `Tamu dengan nama "${guestName}" sudah ada di daftar.`
+    }, 409);
+  }
+
+  const guestToken = cleanPhone ? `wa:${cleanPhone}:${randomHex(8)}` : randomHex(20);
+  const { data: guest, error } = await db.from('invitation_guests').insert({ invitation_id: invitation.id, guest_name: guestName, salutation, guest_token: guestToken }).select('*').single();
   if (error) throw error;
   const linkAvailable = Boolean(
     invitation.order_status === 'published'
@@ -219,19 +305,163 @@ editor.post('/invitation/invitees', async (c) => {
     message: linkAvailable ? 'Tamu ditambahkan. Link personal siap dibagikan.' : 'Tamu ditambahkan. Link personal tersedia setelah undangan dipublish dan aktif.',
     guest: {
       ...guest,
+      phone_number: cleanPhone,
       link_available: linkAvailable,
       url: linkAvailable ? absoluteUrl(c.env, `${invitation.slug}?to=${encodeURIComponent(guestName)}`) : null,
     },
   }, 201);
 });
 
+editor.post('/invitation/invitees/batch', async (c) => {
+  const input = await c.req.json();
+  const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
+  const rawGuests = Array.isArray(input.guests) ? input.guests : [];
+  if (!rawGuests.length) return c.json({ ok: false, message: 'Tidak ada data tamu yang dikirim.' }, 422);
+
+  const linkAvailable = Boolean(
+    invitation.order_status === 'published'
+    && invitation.published_at
+    && invitation.is_active
+    && invitation.active_until
+    && new Date(invitation.active_until) >= new Date()
+    && invitation.slug
+  );
+
+  const defaultSalutation = cleanText(input.salutation, 80) || 'Bapak/Ibu/Saudara/i';
+  const db = database(c.env);
+
+  // Fetch all existing guests for this invitation to deduplicate
+  const { data: existingRows } = await db
+    .from('invitation_guests')
+    .select('id, guest_name, guest_token')
+    .eq('invitation_id', invitation.id);
+
+  const existingNames = new Set((existingRows || []).map(r => (r.guest_name || '').toLowerCase().trim()));
+  const existingPhones = new Set();
+  (existingRows || []).forEach(r => {
+    if (r.guest_token?.startsWith('wa:')) {
+      const p = r.guest_token.split(':')[1];
+      if (p) existingPhones.add(p);
+    }
+  });
+
+  const batchSeenNames = new Set();
+  const batchSeenPhones = new Set();
+  const toInsert = [];
+  let duplicateCount = 0;
+
+  for (const g of rawGuests) {
+    const name = cleanText(g.guest_name || g.name, 150);
+    if (!name) continue;
+    const nameKey = name.toLowerCase().trim();
+    const rawP = cleanText(g.phone || g.phone_number, 35);
+    const cleanP = normalizePhone(rawP);
+
+    // If phone exists and already registered, skip duplicate
+    if (cleanP && (existingPhones.has(cleanP) || batchSeenPhones.has(cleanP))) {
+      duplicateCount++;
+      continue;
+    }
+
+    // If name matches existing or already seen in batch, skip duplicate
+    if (existingNames.has(nameKey) || batchSeenNames.has(nameKey)) {
+      duplicateCount++;
+      continue;
+    }
+
+    batchSeenNames.add(nameKey);
+    if (cleanP) batchSeenPhones.add(cleanP);
+
+    const salutation = cleanText(g.salutation, 80) || defaultSalutation;
+    const token = cleanP ? `wa:${cleanP}:${randomHex(8)}` : randomHex(20);
+
+    toInsert.push({
+      invitation_id: invitation.id,
+      guest_name: name,
+      salutation,
+      guest_token: token,
+    });
+  }
+
+  if (!toInsert.length) {
+    if (duplicateCount > 0) {
+      return c.json({
+        ok: true,
+        message: `Semua tamu (${duplicateCount} orang) sudah ada di dalam daftar undangan. Tidak ada tamu baru yang ditambahkan.`,
+        guests: [],
+        skipped: duplicateCount,
+      });
+    }
+    return c.json({ ok: false, message: 'Tidak ada nama tamu yang valid untuk disimpan.' }, 422);
+  }
+
+  const insertedGuests = [];
+  const chunkSize = 50;
+
+  for (let i = 0; i < toInsert.length; i += chunkSize) {
+    const chunk = toInsert.slice(i, i + chunkSize);
+    const { data, error } = await db.from('invitation_guests').insert(chunk).select('*');
+    if (error) throw error;
+    if (data) insertedGuests.push(...data);
+  }
+
+  const resultGuests = insertedGuests.map(guest => {
+    const rawP = guest.phone_number || (guest.guest_token?.startsWith('wa:') ? guest.guest_token.split(':')[1] : '');
+    const phone = normalizePhone(rawP);
+    return {
+      ...guest,
+      phone_number: phone,
+      link_available: linkAvailable,
+      url: linkAvailable ? absoluteUrl(c.env, `${invitation.slug}?to=${encodeURIComponent(guest.guest_name)}`) : null,
+    };
+  });
+
+  const message = duplicateCount > 0
+    ? `Berhasil menambahkan ${resultGuests.length} tamu baru (${duplicateCount} tamu dilewati karena sudah ada).`
+    : `Berhasil menambahkan ${resultGuests.length} tamu.`;
+
+  return c.json({
+    ok: true,
+    message,
+    guests: resultGuests,
+    skipped: duplicateCount,
+  }, 201);
+});
+
 editor.post('/invitation/invitees/delete', async (c) => {
   const input = await c.req.json();
   const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
-  const { data, error } = await database(c.env).from('invitation_guests').delete().eq('id', Number(input.guest_id)).eq('invitation_id', invitation.id).select('id');
+
+  let ids = [];
+  if (Array.isArray(input.guest_ids)) {
+    ids = input.guest_ids.map(Number).filter(n => Number.isFinite(n) && n > 0);
+  } else if (input.guest_id) {
+    const singleId = Number(input.guest_id);
+    if (Number.isFinite(singleId) && singleId > 0) ids.push(singleId);
+  }
+
+  if (!ids.length) {
+    return c.json({ ok: false, message: 'Tidak ada tamu yang dipilih untuk dihapus.' }, 422);
+  }
+
+  const { data, error } = await database(c.env)
+    .from('invitation_guests')
+    .delete()
+    .in('id', ids)
+    .eq('invitation_id', invitation.id)
+    .select('id');
+
   if (error) throw error;
-  if (!data.length) return c.json({ ok: false, message: 'Tamu tidak ditemukan.' }, 404);
-  return c.json({ ok: true, message: 'Tamu dihapus dari daftar.' });
+  if (!data || !data.length) {
+    return c.json({ ok: false, message: 'Tamu tidak ditemukan atau sudah dihapus.' }, 404);
+  }
+
+  const count = data.length;
+  const message = count === 1
+    ? 'Tamu dihapus dari daftar.'
+    : `Berhasil menghapus ${count} tamu dari daftar.`;
+
+  return c.json({ ok: true, message, deleted_ids: data.map(d => d.id) });
 });
 
 editor.post('/invitation/publish', async (c) => {

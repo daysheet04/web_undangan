@@ -13,6 +13,7 @@ export async function api(path, options = {}) {
     response = await fetch(apiUrl(path), {
       ...options,
       credentials: 'include',
+      ...(String(path).startsWith('/api/affiliate-catalog/') ? { cache: 'no-store' } : {}),
       headers: {
         Accept: 'application/json',
         ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),

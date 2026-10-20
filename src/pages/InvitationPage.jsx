@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
@@ -9,10 +9,10 @@ const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.
 
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
-  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261016-52',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
+  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261019-01',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261016-01',script:'/assets/js/templates/lunara-azure.js?v=20261012-11'}
-  ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20260928-1',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
-  ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261007-2',script:null}
+  ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261019-01',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
+  ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261019-01',script:null}
 };
 TEMPLATE_RUNTIME.lunara_azure.css += '&motion=20261016-01';
 TEMPLATE_RUNTIME.lunara_azure.script += '&motion=20261014-9';
@@ -97,6 +97,58 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
   const groom=i.groom_nickname||'Andi',bride=i.bride_nickname||'Nisa',limit=Math.max(1,Number(i.gallery_limit)||5),photos=media.slice(0,limit);
   const cover=mediaUrl(i.cover_image),bridePhoto=mediaUrl(i.bride_photo||media[0]?.file_path||i.cover_image),groomPhoto=mediaUrl(i.groom_photo||media[1]?.file_path||i.cover_image);
   const eventDate=i.reception_date||sampleDate(),eventTime=String(i.reception_start_time||'11:00').slice(0,5), calendar=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Pernikahan ${groom} & ${bride}`)}&dates=${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00/${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00&location=${encodeURIComponent(i.venue_name||'')}`;
+
+  const [lightbox, setLightbox] = useState(null);
+  const touchStartX = useRef(0);
+
+  const openPhoto = (photo) => {
+    setLightbox({
+      items: [photo],
+      index: 0
+    });
+  };
+
+  const openGalleryPhoto = (index) => {
+    const galleryItems = (photos.length ? photos : ['Pertemuan', 'Perjalanan', 'Lamaran', 'Hari Bahagia', 'Selamanya'].slice(0, limit)).map((p, idx) => ({
+      src: p?.file_path ? mediaUrl(p.file_path) : cover,
+      title: `Kenangan · ${String(idx + 1).padStart(2, '0')}`,
+      caption: `${bride} & ${groom} — Potret Bahagia`
+    }));
+    setLightbox({
+      items: galleryItems,
+      index: Math.max(0, Math.min(index, galleryItems.length - 1))
+    });
+  };
+
+  const nextPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index + 1) % prev.items.length } : prev);
+  };
+  const prevPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index - 1 + prev.items.length) % prev.items.length } : prev);
+  };
+
+  useEffect(() => {
+    if (!lightbox) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setLightbox(null);
+      } else if (e.key === 'ArrowRight' && lightbox.items.length > 1) {
+        nextPhoto();
+      } else if (e.key === 'ArrowLeft' && lightbox.items.length > 1) {
+        prevPhoto();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [lightbox]);
+
   return <><Symbols/><div className="invitation-page puspa-jawi motion-ready" data-template-root data-slug={i.slug||''}>
     <section className="opening-cover jawi-opening-cover jawi-cover-v3" aria-label="Cover undangan">
       <div className="jawi-cover-backdrop" aria-hidden="true"/>
@@ -155,8 +207,16 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
             <a className="jawi-button jawi-prologue-calendar" href={calendar} target="_blank" rel="noreferrer">Simpan Tanggal <Icon name="jawi-arrow"/></a>
           </div>
           <div className="jawi-prologue-portrait jawi-reveal" data-reveal="portrait-3d">
-            <div className="jawi-prologue-arch">
+            <div
+              className="jawi-prologue-arch jawi-clickable-photo"
+              onClick={() => openPhoto({ src: cover, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Sampul' })}
+              role="button"
+              tabIndex={0}
+              aria-label="Lihat foto sampul ukuran penuh"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Sampul' }); } }}
+            >
               <img src={cover} alt={`Foto ${bride} dan ${groom}`} decoding="async" fetchPriority="low"/>
+              <span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span>
               <span>Our Beautiful Moment</span>
             </div>
             <img className="jawi-prologue-flower portrait-flower" src={`${A}puspa-floral-nusantara-v3.webp`} alt="" decoding="async"/>
@@ -183,9 +243,33 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
         <div className="jawi-couple-contours" aria-hidden="true"><i/><i/><i/></div>
         <Heading small="Dua Jiwa, Satu Janji" title="Mempelai"/>
         <div className="jawi-couple-grid">
-          <Person type="bride" photo={bridePhoto} title="Mempelai Wanita" full={i.bride_full_name||'Nisa Maharani'} father={i.bride_father||'Bapak Firmansyah'} mother={i.bride_mother||'Ibu Lestari'}/>
+          <Person
+            type="bride"
+            photo={bridePhoto}
+            title="Mempelai Wanita"
+            full={i.bride_full_name||'Nisa Maharani'}
+            father={i.bride_father||'Bapak Firmansyah'}
+            mother={i.bride_mother||'Ibu Lestari'}
+            onPhotoClick={() => openPhoto({
+              src: bridePhoto,
+              title: i.bride_full_name || `${bride} — Mempelai Wanita`,
+              caption: `Putri dari ${i.bride_father || 'Bapak Firmansyah'} & ${i.bride_mother || 'Ibu Lestari'}`
+            })}
+          />
           <div className="couple-connector jawi-reveal" data-reveal="scale"><span/><i>&amp;</i><span/></div>
-          <Person type="groom" photo={groomPhoto} title="Mempelai Pria" full={i.groom_full_name||'Andi Pratama'} father={i.groom_father||'Bapak Suryanto'} mother={i.groom_mother||'Ibu Rahayu'}/>
+          <Person
+            type="groom"
+            photo={groomPhoto}
+            title="Mempelai Pria"
+            full={i.groom_full_name||'Andi Pratama'}
+            father={i.groom_father||'Bapak Suryanto'}
+            mother={i.groom_mother||'Ibu Rahayu'}
+            onPhotoClick={() => openPhoto({
+              src: groomPhoto,
+              title: i.groom_full_name || `${groom} — Mempelai Pria`,
+              caption: `Putra dari ${i.groom_father || 'Bapak Suryanto'} & ${i.groom_mother || 'Ibu Rahayu'}`
+            })}
+          />
         </div>
       </section>
       <section className="jawi-section jawi-countdown-section jawi-countdown-v2">
@@ -200,7 +284,7 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
       </section>
       <section className="jawi-section jawi-events-section jawi-events-v2"><div className="jawi-events-scenery" aria-hidden="true"/><div className="jawi-events-routes" aria-hidden="true"><i/><i/><i/></div><Heading small="Rangkaian Acara" title="Lokasi & Waktu"/><div className="event-date-lockup jawi-reveal" data-reveal="seal-stamp"><span>{new Date(`${eventDate}T12:00:00`).toLocaleDateString('id-ID',{month:'long'})}</span><strong>{new Date(`${eventDate}T12:00:00`).getDate()}</strong><span>{new Date(`${eventDate}T12:00:00`).getFullYear()}</span></div><div className="jawi-events-grid"><EventCard type="akad" invitation={i}/><EventCard type="reception" invitation={i}/></div></section>
       <section className="jawi-section jawi-story-section jawi-story-v2"><div className="jawi-story-scenery" aria-hidden="true"/><div className="jawi-story-stitches" aria-hidden="true"><i/><i/><i/></div><div className="story-gate story-manuscript jawi-reveal" data-reveal="story-gate"><span className="story-chapter" aria-hidden="true">Catatan <b>01</b></span><Heading small="Kisah Kami" title={<>Berawal,<br/>Bertumbuh,<br/>Berlabuh</>}/><div className="story-copy"><span aria-hidden="true">Satu kisah · satu tujuan</span><p data-live="love_story">{i.love_story||'Berawal dari pertemuan sederhana, tumbuh menjadi persahabatan, lalu keyakinan untuk berjalan bersama.'}</p></div><img className="story-thread-ornament" src={`${A}puspa-story-thread-v1.webp`} alt="" loading="lazy" decoding="async"/></div></section>
-      <section className="jawi-section jawi-gallery-section jawi-gallery-v2"><div className="jawi-gallery-scenery" aria-hidden="true"/><div className="jawi-gallery-registers" aria-hidden="true"><i/><i/><i/></div><img className="gallery-studio-ornament gallery-studio-left" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><img className="gallery-studio-ornament gallery-studio-right" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><Heading small="Potret Bahagia" title="Galeri Kisah Kami"/><div className={`jawi-gallery-track gallery-count-${Math.min(photos.length||limit,5)}`}>{photos.length?photos.map((photo,index)=><figure className="jawi-reveal" data-reveal="gallery-card" key={photo.id} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}}><img className="gallery-image" loading="lazy" decoding="async" src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index+1}`}/><figcaption><span>{String(index+1).padStart(2,'0')}</span> Kenangan</figcaption></figure>):['Pertemuan','Perjalanan','Lamaran','Hari Bahagia','Selamanya'].slice(0,limit).map((caption,index)=><figure className="gallery-empty jawi-reveal" data-reveal="gallery-card" key={caption} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}}><span>{String(index+1).padStart(2,'0')}</span><figcaption>{caption}</figcaption></figure>)}</div></section>
+      <section className="jawi-section jawi-gallery-section jawi-gallery-v2"><div className="jawi-gallery-scenery" aria-hidden="true"/><div className="jawi-gallery-registers" aria-hidden="true"><i/><i/><i/></div><img className="gallery-studio-ornament gallery-studio-left" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><img className="gallery-studio-ornament gallery-studio-right" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><Heading small="Potret Bahagia" title="Galeri Kisah Kami"/><div className={`jawi-gallery-track gallery-count-${Math.min(photos.length||limit,5)}`}>{photos.length?photos.map((photo,index)=><figure className="jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={photo.id} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto galeri ${index+1} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><img className="gallery-image" loading="lazy" decoding="async" src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index+1}`}/><span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span><figcaption><span>{String(index+1).padStart(2,'0')}</span> Kenangan</figcaption></figure>):['Pertemuan','Perjalanan','Lamaran','Hari Bahagia','Selamanya'].slice(0,limit).map((caption,index)=><figure className="gallery-empty jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={caption} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto ${caption} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><span>{String(index+1).padStart(2,'0')}</span><span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span><figcaption>{caption}</figcaption></figure>)}</div></section>
       {i.has_gift&&<GiftSection accounts={giftAccounts}/>} {i.has_wishes&&<RsvpSection invitation={i} guestName={guestName} greetings={greetings} preview={preview}/>}
       <section className="jawi-section jawi-closing-section jawi-closing-v2">
         <div className="jawi-closing-scenery" aria-hidden="true"/>
@@ -221,19 +305,94 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
         <div className="footer-batik-ribbon" aria-hidden="true"><i/><i/><i/></div>
         <div className="template-brand-lockup"><img src="/assets/images/brand/daymoment-mark.svg" alt=""/><strong>Daymoment</strong></div>
         <p>Merangkai momen, menjaga cerita.</p>
-        <small>© {new Date().getFullYear()} Daymoment <span>·</span> by Daysheet Group</small>
+        <small>© {new Date().getFullYear()} Daymoment</small>
       </footer>
     </div>
     </main>{i.has_music&&i.music_file&&<audio data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)}/>} {i.has_music&&<button className="jawi-music" type="button" data-music-controller aria-label="Kontrol musik" aria-pressed="false" title={i.music_title||'Musik undangan'}><Icon name="jawi-music"/></button>}
+    {lightbox && lightbox.items[lightbox.index] && (
+      <div
+        className="jawi-lightbox is-open"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Lihat foto penuh"
+        onClick={() => setLightbox(null)}
+      >
+        <div className="jawi-lightbox-backdrop" aria-hidden="true" />
+        <button
+          className="jawi-lightbox-close"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+          aria-label="Tutup tampilan foto"
+        >
+          <Icon name="jawi-close" />
+        </button>
+        {lightbox.items.length > 1 && (
+          <>
+            <button
+              className="jawi-lightbox-nav prev"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                prevPhoto();
+              }}
+              aria-label="Foto sebelumnya"
+            >
+              <Icon name="jawi-chevron-left" />
+            </button>
+            <button
+              className="jawi-lightbox-nav next"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextPhoto();
+              }}
+              aria-label="Foto berikutnya"
+            >
+              <Icon name="jawi-chevron-right" />
+            </button>
+          </>
+        )}
+        <div
+          className="jawi-lightbox-dialog"
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (lightbox.items.length <= 1) return;
+            const diff = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(diff) > 42) {
+              if (diff < 0) nextPhoto();
+              else prevPhoto();
+            }
+          }}
+        >
+          <div className="jawi-lightbox-frame">
+            <img
+              className="jawi-lightbox-img"
+              src={lightbox.items[lightbox.index].src}
+              alt={lightbox.items[lightbox.index].title || 'Foto ukuran penuh'}
+            />
+          </div>
+          <div className="jawi-lightbox-caption">
+            <strong>{lightbox.items[lightbox.index].title}</strong>
+            {lightbox.items[lightbox.index].caption && <p>{lightbox.items[lightbox.index].caption}</p>}
+            {lightbox.items.length > 1 && (
+              <span className="jawi-lightbox-counter">
+                {lightbox.index + 1} / {lightbox.items.length}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
   </div></>;
 }
 
-function Symbols(){return <svg className="jawi-symbols"><defs><symbol id="jawi-arrow" viewBox="0 0 24 24"><path d="M5 12h13m-5-5 5 5-5 5"/></symbol><symbol id="jawi-map" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-12A6 6 0 0 0 6 9c0 6.6 6 12 6 12Z"/><circle cx="12" cy="9" r="2"/></symbol><symbol id="jawi-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol><symbol id="jawi-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 10l10-2"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol></defs></svg>}
+function Symbols(){return <svg className="jawi-symbols"><defs><symbol id="jawi-arrow" viewBox="0 0 24 24"><path d="M5 12h13m-5-5 5 5-5 5"/></symbol><symbol id="jawi-map" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-12A6 6 0 0 0 6 9c0 6.6 6 12 6 12Z"/><circle cx="12" cy="9" r="2"/></symbol><symbol id="jawi-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol><symbol id="jawi-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 10l10-2"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol><symbol id="jawi-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></symbol><symbol id="jawi-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="jawi-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol><symbol id="jawi-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol></defs></svg>}
 function Icon({name}){return <svg><use href={`#${name}`}/></svg>}
 function Botanical({className,eager=false}){return <div className={className} aria-hidden="true"><img className="decor-janur" src={`${A}janur-arch-v2.webp`} srcSet={`${A}janur-arch-v2-mobile.webp 900w, ${A}janur-arch-v2.webp 1536w`} sizes="100vw" alt="" loading={eager?'eager':'lazy'} fetchPriority={eager?'high':'low'} decoding="async"/><img className="decor-floral" src={`${A}floral-frame-v2.webp`} srcSet={`${A}floral-frame-v2-mobile.webp 900w, ${A}floral-frame-v2.webp 1536w`} sizes="100vw" alt="" loading={eager?'eager':'lazy'} fetchPriority={eager?'high':'low'} decoding="async"/></div>}
 function Cloud({className}){return <img className={className} src={`${A}cloud-line.svg`} alt=""/>}
 function Heading({small,title}){return <div className="jawi-heading jawi-reveal" data-reveal="scale"><small>{small}</small><h2>{title}</h2></div>}
-function Person({type,photo,title,full,father,mother}){return <article className="jawi-person jawi-reveal" data-reveal={type==='bride'?'bride-entrance':'groom-entrance'}><div className={`portrait-frame ${type}-frame`}><img className="couple-photo" src={photo} alt={`Foto ${title}`} loading="lazy" decoding="async"/><span className="couple-portrait-ornament" aria-hidden="true"><img src={`${A}puspa-couple-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/></span></div><small>{title}</small><h2 data-live={`${type}_full_name`}>{full}</h2><p>{type==='bride'?'Putri':'Putra'} dari</p><strong><span data-live={`${type}_father`}>{father}</span><br/>&amp; <span data-live={`${type}_mother`}>{mother}</span></strong></article>}
+function Person({type,photo,title,full,father,mother,onPhotoClick}){return <article className="jawi-person jawi-reveal" data-reveal={type==='bride'?'bride-entrance':'groom-entrance'}><div className={`portrait-frame ${type}-frame jawi-clickable-photo`} onClick={onPhotoClick} role="button" tabIndex={0} aria-label={`Lihat foto ${title} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onPhotoClick?.();}}}><img className="couple-photo" src={photo} alt={`Foto ${title}`} loading="lazy" decoding="async"/><span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span><span className="couple-portrait-ornament" aria-hidden="true"><img src={`${A}puspa-couple-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/></span></div><small>{title}</small><h2 data-live={`${type}_full_name`}>{full}</h2><p>{type==='bride'?'Putri':'Putra'} dari</p><strong><span data-live={`${type}_father`}>{father}</span><br/>&amp; <span data-live={`${type}_mother`}>{mother}</span></strong></article>}
 function EventCard({type,invitation:i}){const akad=type==='akad',date=i[`${type}_date`]||i.reception_date;return <article className={`jawi-event ${akad?'':'reception-event'} jawi-reveal`} data-reveal={akad?'event-left':'event-right'}><img className="event-route-ornament" src={`${A}puspa-events-route-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><div className="event-icon"><span/></div><small>{akad?'Sakral & khidmat':'Dengan sukacita'}</small><h3>{akad?'Akad Nikah':'Resepsi'}</h3><time data-date-field={`${type}_date`}>{idDate(date)}</time><strong data-time-range={type}>{timeRange(i[`${type}_start_time`],i[`${type}_end_time`])}</strong><p data-live="venue_name">{i.venue_name||'Lokasi Acara'}</p><address data-live="venue_address">{i.venue_address||'Alamat lengkap akan diumumkan.'}</address><a className="jawi-button" data-live-href="maps_url" href={i.maps_url||'#'} target="_blank"><Icon name="jawi-map"/> Lihat Peta</a></article>}
 function GiftSection({accounts}){return <section className="jawi-section jawi-gift-section jawi-gift-v2">
   <div className="jawi-gift-scenery" aria-hidden="true"/>

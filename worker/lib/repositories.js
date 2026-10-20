@@ -7,7 +7,7 @@ const FALLBACK_TEMPLATES = [
     name: 'Puspa Jawi',
     category: 'Javanese Botanical',
     description: 'Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.',
-    thumbnail: 'puspa-jawi',
+    thumbnail: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
     is_active: true,
     template_packages: [
       { id: 1, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 99000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
@@ -21,7 +21,7 @@ const FALLBACK_TEMPLATES = [
     name: 'Lunara Azure',
     category: 'Porcelain Moon Garden',
     description: 'Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, frame editorial, dan motion berlapis tiga dimensi.',
-    thumbnail: 'lunara-azure',
+    thumbnail: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
     is_active: true,
     template_packages: [
       { id: 4, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 99000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
@@ -31,7 +31,7 @@ const FALLBACK_TEMPLATES = [
   },
   {
     id: 3, code: 'aurelia_grande', name: 'Aurelia Grande', category: 'Interactive 3D Ballroom',
-    description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.', thumbnail: 'aurelia-grande', is_active: true,
+    description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.', thumbnail: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp', is_active: true,
     template_packages: [
       { id: 7, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
       { id: 8, code: 'signature', name: 'Signature', tagline: 'Ballroom hidup dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
@@ -40,7 +40,7 @@ const FALLBACK_TEMPLATES = [
   },
   {
     id: 4, code: 'verdant_vow', name: 'Verdant Vow', category: 'Sage Garden 4D',
-    description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.', thumbnail: 'verdant-vow', is_active: true,
+    description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.', thumbnail: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp', is_active: true,
     template_packages: [
       { id: 10, code: 'essential', name: 'Essential', tagline: 'Undangan garden 4D yang cantik dan ringan.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
       { id: 11, code: 'signature', name: 'Signature', tagline: 'Garden story dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
@@ -49,9 +49,11 @@ const FALLBACK_TEMPLATES = [
   },
 ];
 
-function normalizeTemplates(templates) {
+function normalizeTemplates(templates, { includeInactivePackages = false } = {}) {
   return templates.map((template) => {
-    const packages = (template.template_packages || []).filter((item) => item.is_active).sort((a, b) => a.sort_order - b.sort_order);
+    const packages = (template.template_packages || [])
+      .filter((item) => includeInactivePackages || item.is_active)
+      .sort((a, b) => a.sort_order - b.sort_order);
     return {
       ...template,
       packages,
@@ -59,6 +61,15 @@ function normalizeTemplates(templates) {
       starting_price: packages.length ? Math.min(...packages.map((item) => Number(item.price))) : null,
     };
   });
+}
+
+export async function allTemplates(env) {
+  if (!hasRealSupabaseConfig(env)) {
+    return normalizeTemplates(demoTemplates(), { includeInactivePackages: true });
+  }
+  const db = database(env);
+  const { data } = await many(db.from('templates').select('*, template_packages(*)').order('id'));
+  return normalizeTemplates(data || [], { includeInactivePackages: true });
 }
 
 export function hasRealSupabaseConfig(env) {
@@ -86,14 +97,20 @@ export async function activeTemplates(env) {
 
 export async function templateByCode(env, code) {
   const templates = await activeTemplates(env);
-  const template = templates.find((item) => item.code === code)
-    || normalizeTemplates(FALLBACK_TEMPLATES).find((item) => item.code === code);
-  if (!template) {
-    const error = new Error('Template tidak ditemukan.');
-    error.status = 404;
-    throw error;
+  const template = templates.find((item) => item.code === code);
+  if (template) return template;
+
+  let exists = false;
+  if (!hasRealSupabaseConfig(env)) {
+    exists = demoTemplates().some((item) => item.code === code);
+  } else {
+    const { data, error: readError } = await database(env).from('templates').select('id').eq('code', code).maybeSingle();
+    if (readError) throw readError;
+    exists = Boolean(data);
   }
-  return template;
+  const error = new Error(exists ? 'Template ini sedang maintenance dan belum dapat dipesan.' : 'Template tidak ditemukan.');
+  error.status = exists ? 503 : 404;
+  throw error;
 }
 
 function demoState() {
@@ -208,5 +225,23 @@ export async function invitationExtras(env, invitationId, { guestPage, guestLimi
   let guestQuery = db.from('invitation_guests').select('*', { count: 'exact' }).eq('invitation_id', invitationId).order('created_at', { ascending: false }).order('id', { ascending: false });
   if (guestPage && guestLimit) guestQuery = guestQuery.range((guestPage - 1) * guestLimit, guestPage * guestLimit - 1);
   const [media, giftAccounts, greetings, invitees] = await Promise.all([many(mediaQuery), many(giftQuery), many(greetingQuery), many(guestQuery)]);
-  return { media: media.data, giftAccounts: giftAccounts.data, greetings: greetings.data, invitees: invitees.data, inviteeCount: invitees.count };
+  function normalizeIndonesianPhone(input) {
+    if (!input) return '';
+    let d = String(input).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.startsWith('6208')) d = '628' + d.slice(4);
+    else if (d.startsWith('08')) d = '628' + d.slice(2);
+    else if (d.startsWith('8')) d = '628' + d.slice(1);
+    else if (d.startsWith('0')) d = '62' + d.slice(1);
+    return d;
+  }
+
+  const formattedGuests = (invitees.data || []).map((guest) => {
+    const raw = guest.phone_number || (guest.guest_token?.startsWith('wa:') ? guest.guest_token.split(':')[1] : '');
+    return {
+      ...guest,
+      phone_number: normalizeIndonesianPhone(raw),
+    };
+  });
+  return { media: media.data, giftAccounts: giftAccounts.data, greetings: greetings.data, invitees: formattedGuests, inviteeCount: invitees.count };
 }

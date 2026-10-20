@@ -38,15 +38,106 @@ function EventCard({ title, day, start, end, venue, address, maps }) {
   if (!day) return null;
   return <article className='vv-event-card'><small>{title}</small><h3>{date(day)}</h3><time>{time(start,end)}</time><strong>{venue}</strong><p>{address}</p>{maps && <a href={maps} target='_blank' rel='noreferrer'>Lihat lokasi ↗</a>}</article>;
 }
-function Person({ role, name, nickname, photo, father, mother }) {
-  return <article className='vv-person-card'>{photo && <img src={mediaUrl(photo)} alt={name} loading='lazy' decoding='async'/>}<div><small>{role}</small><h3>{name}</h3><p>{role === 'Mempelai pria' ? 'Putra' : 'Putri'} dari<br/>{father || 'Bapak'} &amp; {mother || 'Ibu'}</p><span>{nickname}</span></div></article>;
+function VvIcon({ name }) { return <svg><use href={`#${name}`} /></svg>; }
+function VvSymbols() {
+  return (
+    <svg className="vv-symbols" aria-hidden="true" style={{ display: 'none' }}>
+      <defs>
+        <symbol id="vv-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="vv-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="vv-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/></symbol>
+        <symbol id="vv-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></symbol>
+      </defs>
+    </svg>
+  );
+}
+function Person({ role, name, nickname, photo, father, mother, onPhotoClick }) {
+  return (
+    <article className='vv-person-card'>
+      {photo && (
+        <figure
+          className='vv-person-photo-wrap vv-clickable-photo'
+          onClick={onPhotoClick}
+          role="button"
+          tabIndex={0}
+          aria-label={`Lihat foto ${name} ukuran penuh`}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPhotoClick?.(); } }}
+        >
+          <img src={mediaUrl(photo)} alt={name} loading='lazy' decoding='async'/>
+          <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
+        </figure>
+      )}
+      <div>
+        <small>{role}</small>
+        <h3>{name}</h3>
+        <p>{role === 'Mempelai pria' ? 'Putra' : 'Putri'} dari<br/>{father || 'Bapak'} &amp; {mother || 'Ibu'}</p>
+        <span>{nickname}</span>
+      </div>
+    </article>
+  );
 }
 
 export default function VerdantVowExperience({ invitation:i, media=[], giftAccounts=[], greetings=[], guestName='Bapak/Ibu/Saudara/i', preview=false }) {
   const groom = i.groom_nickname || 'Raka', bride = i.bride_nickname || 'Alya';
   const groomFull = i.groom_full_name || groom, brideFull = i.bride_full_name || bride;
   const eventDate = i.reception_date || i.akad_date;
-  const photos = media.slice(0, Math.max(1,Number(i.gallery_limit || 5)));
+  const customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple'));
+  const customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : Date.now());
+  const rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null);
+  const customCoupleUrl = rawCustomCoupleUrl ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : null;
+  const photos = media.filter(m => !m.file_path?.includes('custom-couple')).slice(0, Math.max(1,Number(i.gallery_limit || 5)));
+  const [lightbox, setLightbox] = useState(null);
+  const touchStartX = useRef(0);
+
+  const openPhoto = (photo) => {
+    setLightbox({
+      items: [photo],
+      index: 0
+    });
+  };
+
+  const openGalleryPhoto = (index) => {
+    const galleryItems = (photos.length ? photos : []).map((p, idx) => ({
+      src: mediaUrl(p.file_path),
+      title: `Memory · ${String(idx + 1).padStart(2, '0')}`,
+      caption: `${groom} & ${bride} — Momen Bahagia`
+    }));
+    if (!galleryItems.length) return;
+    setLightbox({
+      items: galleryItems,
+      index: Math.max(0, Math.min(index, galleryItems.length - 1))
+    });
+  };
+
+  const nextPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index + 1) % prev.items.length } : prev);
+  };
+  const prevPhoto = () => {
+    setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index - 1 + prev.items.length) % prev.items.length } : prev);
+  };
+
+  useEffect(() => {
+    if (!lightbox) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setLightbox(null);
+      } else if (e.key === 'ArrowRight' && lightbox.items.length > 1) {
+        nextPhoto();
+      } else if (e.key === 'ArrowLeft' && lightbox.items.length > 1) {
+        prevPhoto();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [lightbox]);
+
   const [performanceTier,setPerformanceTier] = useState(detectPerformanceTier);
   const [opened,setOpened] = useState(false), [cinematicDone,setCinematicDone] = useState(false), [replayId,setReplayId] = useState(0), [menuOpen,setMenuOpen] = useState(false), [autoReplayOpening,setAutoReplayOpening] = useState(false);
   const [openingPhase,setOpeningPhase] = useState('idle');
@@ -485,10 +576,11 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     }
   };
   return <main className={'verdant-vow vv-redesign vv-perf-'+performanceTier+' ' + (opened ? 'is-open ' : '') + (cinematicDone ? 'is-cinematic-done' : 'is-cinematic-playing')} data-performance-tier={performanceTier}>
+    <VvSymbols />
     {!opened && <VerdantOpeningScene bride={bride} groom={groom} guestName={guestName} date={date(eventDate)} sceneReady={journeyReady} autoEnter={autoReplayOpening} onPrepare={prepareJourney} onStart={startJourney} onEnter={finishOpening}/>}
     <div className='vv-scroll' ref={scrollRef} inert={!opened ? '' : undefined} aria-hidden={!opened}>
       <section className={'vv-journey '+(cinematicDone && !journeyMounted ? 'is-retired' : '')} id='vv-journey'>
-        {journeyMounted && <VerdantCinematicJourney invitation={i} bride={bride} groom={groom} brideFull={brideFull} groomFull={groomFull} dateLabel={date(eventDate,{day:'numeric',month:'long',year:'numeric'})} runId={replayId} active={journeyStarted} onReady={markJourneyReady} onComplete={finishCinematic}/>}
+        {journeyMounted && <VerdantCinematicJourney invitation={i} customCoupleUrl={customCoupleUrl} bride={bride} groom={groom} brideFull={brideFull} groomFull={groomFull} dateLabel={date(eventDate,{day:'numeric',month:'long',year:'numeric'})} runId={replayId} active={journeyStarted} onReady={markJourneyReady} onComplete={finishCinematic}/>}
       </section>
       {cinematicDone && <>
       <section className={'vv-after vv-full-opening '+(openingPhase === 'visible' ? 'is-revealed' : openingPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-opening' ref={normalRef}>
@@ -514,9 +606,33 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         <div className='vv-couple-sparkles' aria-hidden='true'><i/><i/><i/><i/><i/><i/><i/><i/></div>
         <div className='vv-after-heading'><small>Dua hati yang dipertemukan</small><h2>Mempelai</h2></div>
         <div className='vv-person-grid'>
-          <Person role='Mempelai pria' name={groomFull} nickname={groom} photo={i.groom_photo || media[1]?.file_path || i.cover_image} father={i.groom_father} mother={i.groom_mother}/>
+          <Person
+            role='Mempelai pria'
+            name={groomFull}
+            nickname={groom}
+            photo={i.groom_photo || media[1]?.file_path || i.cover_image}
+            father={i.groom_father}
+            mother={i.groom_mother}
+            onPhotoClick={() => openPhoto({
+              src: mediaUrl(i.groom_photo || media[1]?.file_path || i.cover_image),
+              title: `Mempelai Pria · ${groomFull}`,
+              caption: `Putra dari ${i.groom_father || 'Bapak'} & ${i.groom_mother || 'Ibu'}`
+            })}
+          />
           <span className='vv-person-amp'>&amp;</span>
-          <Person role='Mempelai wanita' name={brideFull} nickname={bride} photo={i.bride_photo || media[0]?.file_path || i.cover_image} father={i.bride_father} mother={i.bride_mother}/>
+          <Person
+            role='Mempelai wanita'
+            name={brideFull}
+            nickname={bride}
+            photo={i.bride_photo || media[0]?.file_path || i.cover_image}
+            father={i.bride_father}
+            mother={i.bride_mother}
+            onPhotoClick={() => openPhoto({
+              src: mediaUrl(i.bride_photo || media[0]?.file_path || i.cover_image),
+              title: `Mempelai Wanita · ${brideFull}`,
+              caption: `Putri dari ${i.bride_father || 'Bapak'} & ${i.bride_mother || 'Ibu'}`
+            })}
+          />
         </div>
       </section>
 
@@ -549,9 +665,30 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
           <div className='vv-story-signature' aria-label={groom+' dan '+bride}><span>{groom}</span><i>&amp;</i><span>{bride}</span></div>
         </div>
         {(i.cover_image || media[0]?.file_path) && <figure className='vv-story-photo'>
-          <div className='vv-story-photo-window'>
+          <div
+            className='vv-story-photo-window vv-clickable-photo'
+            onClick={() => openPhoto({
+              src: mediaUrl(i.cover_image || media[0]?.file_path),
+              title: `${groom} & ${bride}`,
+              caption: 'Kisah Kami — Tumbuh, memilih, dan pulang bersama.'
+            })}
+            role="button"
+            tabIndex={0}
+            aria-label="Lihat foto kisah kami ukuran penuh"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openPhoto({
+                  src: mediaUrl(i.cover_image || media[0]?.file_path),
+                  title: `${groom} & ${bride}`,
+                  caption: 'Kisah Kami — Tumbuh, memilih, dan pulang bersama.'
+                });
+              }
+            }}
+          >
             <img className='vv-story-photo-img' src={mediaUrl(i.cover_image || media[0]?.file_path)} alt={groom+' dan '+bride} loading='lazy' decoding='async'/>
             <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-v1.webp'} alt='' aria-hidden='true' loading='lazy' decoding='async'/>
+            <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
           </div>
           <figcaption><small>Catatan perjalanan</small><span>Tumbuh, memilih, dan pulang bersama.</span></figcaption>
         </figure>}
@@ -565,7 +702,33 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
           <i/><i/><i/><i/>
         </div>
         <div className='vv-after-heading'><small>Potongan waktu yang kami simpan</small><h2>Galeri</h2><span aria-hidden='true'>Album Kenangan</span></div>
-        {photos.length?<div className={'vv-gallery-grid vv-gallery-count-'+Math.min(photos.length,6)}>{photos.map((photo,index)=><figure key={photo.id || index}><div className='vv-gallery-photo'><img src={mediaUrl(photo.file_path)} alt={'Momen '+(index+1)} loading='lazy' decoding='async'/></div><figcaption><span>Memory</span><b>{String(index+1).padStart(2,'0')}</b></figcaption></figure>)}</div>:<p className='vv-empty'>Momen bahagia akan segera hadir.</p>}
+        {photos.length ? (
+          <div className={'vv-gallery-grid vv-gallery-count-'+Math.min(photos.length,6)}>
+            {photos.map((photo,index) => (
+              <figure key={photo.id || index}>
+                <div
+                  className='vv-gallery-photo vv-clickable-photo'
+                  onClick={() => openGalleryPhoto(index)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openGalleryPhoto(index);
+                    }
+                  }}
+                >
+                  <img src={mediaUrl(photo.file_path)} alt={'Momen '+(index+1)} loading='lazy' decoding='async'/>
+                  <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
+                </div>
+                <figcaption><span>Memory</span><b>{String(index+1).padStart(2,'0')}</b></figcaption>
+              </figure>
+            ))}
+          </div>
+        ) : (
+          <p className='vv-empty'>Momen bahagia akan segera hadir.</p>
+        )}
       </section>
        {i.has_gift && <section className={'vv-after vv-gift vv-gift-redesign '+(giftPhase === 'visible' ? 'is-revealed' : giftPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-gift' ref={giftRef}>
         <div className='vv-gift-ornaments' aria-hidden='true'>
@@ -657,9 +820,33 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
           <span className='vv-closing-floor-sigil'/>
           <i/><i/><i/><i/><i/><i/>
         </div>
-        <img className='vv-closing-couple' src={LAYER+'/couple-cinematic-v2.webp'} alt='' loading='lazy' decoding='async'/>
+        <img
+          className='vv-closing-couple vv-clickable-photo'
+          src={customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp')}
+          alt={`${groom} & ${bride}`}
+          loading='lazy'
+          decoding='async'
+          onClick={() => openPhoto({
+            src: customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp'),
+            title: `${groom} & ${bride}`,
+            caption: 'The Wedding — Bersama Menuju Bahagia'
+          })}
+          role="button"
+          tabIndex={0}
+          aria-label="Lihat foto pasangan ukuran penuh"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              openPhoto({
+                src: customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp'),
+                title: `${groom} & ${bride}`,
+                caption: 'The Wedding — Bersama Menuju Bahagia'
+              });
+            }
+          }}
+        />
         <div className='vv-closing-copy'><small>Terima kasih</small><div className='vv-closing-divider' aria-hidden='true'><i/><b>✦</b><i/></div><p>Merupakan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu.</p><h2><b>{groom}</b><span>&amp;</span><b>{bride}</b></h2><time>{date(eventDate,{day:'numeric',month:'long',year:'numeric'})}</time>
-          <strong>DAYMOMENT · BY DAYSHEET GROUP</strong>
+          <strong>DAYMOMENT</strong>
         </div>
       </section>
       </>}
@@ -671,5 +858,81 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       </div>
     </nav>}
     {opened && i.has_music && i.music_file && <><audio ref={audioRef} data-wedding-audio loop src={mediaUrl(i.music_file)}/><button type='button' className={'vv-music-toggle '+(musicPlaying?'is-playing':'')} onClick={toggleMusic} aria-label={musicPlaying?'Matikan musik':'Putar musik'}>♫</button></>}
+
+    {lightbox && lightbox.items[lightbox.index] && (
+      <div
+        className="vv-lightbox is-open"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Lihat foto penuh"
+        onClick={() => setLightbox(null)}
+      >
+        <div className="vv-lightbox-backdrop" aria-hidden="true" />
+        <button
+          className="vv-lightbox-close"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+          aria-label="Tutup tampilan foto"
+        >
+          <VvIcon name="vv-close" />
+        </button>
+        {lightbox.items.length > 1 && (
+          <>
+            <button
+              className="vv-lightbox-nav prev"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                prevPhoto();
+              }}
+              aria-label="Foto sebelumnya"
+            >
+              <VvIcon name="vv-chevron-left" />
+            </button>
+            <button
+              className="vv-lightbox-nav next"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextPhoto();
+              }}
+              aria-label="Foto berikutnya"
+            >
+              <VvIcon name="vv-chevron-right" />
+            </button>
+          </>
+        )}
+        <div
+          className="vv-lightbox-dialog"
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (lightbox.items.length <= 1) return;
+            const diff = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(diff) > 42) {
+              if (diff < 0) nextPhoto();
+              else prevPhoto();
+            }
+          }}
+        >
+          <div className="vv-lightbox-frame">
+            <img
+              className="vv-lightbox-img"
+              src={lightbox.items[lightbox.index].src}
+              alt={lightbox.items[lightbox.index].title || 'Foto ukuran penuh'}
+            />
+          </div>
+          <div className="vv-lightbox-caption">
+            <strong>{lightbox.items[lightbox.index].title}</strong>
+            {lightbox.items[lightbox.index].caption && <p>{lightbox.items[lightbox.index].caption}</p>}
+            {lightbox.items.length > 1 && (
+              <span className="vv-lightbox-counter">
+                {lightbox.index + 1} / {lightbox.items.length}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
   </main>;
 }

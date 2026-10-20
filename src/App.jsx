@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'));
+const AffiliateLandingPage = lazy(() => import('./pages/AffiliateLandingPage.jsx'));
+const AffiliateStorePage = lazy(() => import('./pages/AffiliateStorePage.jsx'));
 const TemplatePreviewPage = lazy(() => import('./pages/TemplatePreviewPage.jsx'));
 const InvitationPage = lazy(() => import('./pages/InvitationPage.jsx'));
 const OrderPage = lazy(() => import('./pages/OrderPage.jsx'));
@@ -18,6 +20,8 @@ export default function App() {
   let match;
   let page;
   if (path === '/') page = <HomePage />;
+  else if (path === '/affiliate') page = <AffiliateLandingPage />;
+  else if ((match = path.match(/^\/ref\/([A-Za-z0-9]+)$/))) page = <AffiliateStorePage referralCode={match[1]} />;
   else if (path === '/admin') page = <NotFoundPage />;
   else if (path === '/order') page = <OrderPage />;
   else if ((match = path.match(/^\/template\/([a-z0-9_]+)$/))) {

@@ -1,5 +1,5 @@
 insert into public.templates (code,name,category,description,thumbnail,is_active)
-values ('puspa_jawi','Puspa Jawi','Javanese Botanical','Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.','puspa-jawi',true)
+values ('puspa_jawi','Puspa Jawi','Javanese Botanical','Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.','/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',true)
 on conflict (code) do update set name=excluded.name,category=excluded.category,description=excluded.description,thumbnail=excluded.thumbnail,is_active=excluded.is_active;
 
 insert into public.template_packages (template_id,code,name,tagline,price,gallery_limit,has_music,has_gift,has_wishes,sort_order,is_active)
@@ -15,7 +15,7 @@ on conflict (template_id,code) do update set name=excluded.name,tagline=excluded
  sort_order=excluded.sort_order,is_active=excluded.is_active;
 
 insert into public.templates (code,name,category,description,thumbnail,is_active)
-values ('verdant_vow','Verdant Vow','Sage Garden 4D','Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.','verdant-vow',true)
+values ('verdant_vow','Verdant Vow','Sage Garden 4D','Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.','/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',true)
 on conflict (code) do update set name=excluded.name,category=excluded.category,description=excluded.description,thumbnail=excluded.thumbnail,is_active=excluded.is_active;
 
 insert into public.template_packages (template_id,code,name,tagline,price,gallery_limit,has_music,has_gift,has_wishes,sort_order,is_active)
@@ -31,7 +31,7 @@ on conflict (template_id,code) do update set name=excluded.name,tagline=excluded
  sort_order=excluded.sort_order,is_active=excluded.is_active;
 
 insert into public.templates (code,name,category,description,thumbnail,is_active)
-values ('lunara_azure','Lunara Azure','Porcelain Moon Garden','Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, frame editorial, dan motion berlapis tiga dimensi.','lunara-azure',true)
+values ('lunara_azure','Lunara Azure','Porcelain Moon Garden','Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, frame editorial, dan motion berlapis tiga dimensi.','/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',true)
 on conflict (code) do update set name=excluded.name,category=excluded.category,description=excluded.description,thumbnail=excluded.thumbnail,is_active=excluded.is_active;
 
 insert into public.template_packages (template_id,code,name,tagline,price,gallery_limit,has_music,has_gift,has_wishes,sort_order,is_active)
@@ -47,7 +47,7 @@ on conflict (template_id,code) do update set name=excluded.name,tagline=excluded
  sort_order=excluded.sort_order,is_active=excluded.is_active;
 
 insert into public.templates (code,name,category,description,thumbnail,is_active)
-values ('aurelia_grande','Aurelia Grande','Interactive 3D Ballroom','Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.','aurelia-grande',true)
+values ('aurelia_grande','Aurelia Grande','Interactive 3D Ballroom','Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.','/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',true)
 on conflict (code) do update set name=excluded.name,category=excluded.category,description=excluded.description,thumbnail=excluded.thumbnail,is_active=excluded.is_active;
 
 insert into public.template_packages (template_id,code,name,tagline,price,gallery_limit,has_music,has_gift,has_wishes,sort_order,is_active)

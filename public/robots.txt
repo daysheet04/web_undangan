@@ -1,0 +1,11 @@
+# Daymoment robots.txt
+User-agent: *
+Allow: /
+Allow: /affiliate
+Allow: /template/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /order
+
+Sitemap: https://daymoment.biz.id/sitemap.xml

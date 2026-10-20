@@ -101,6 +101,15 @@ npm run dev:admin
 
 Dashboard admin berjalan di `http://localhost:8081`, sedangkan API admin berjalan di port `8790`. Isi `ADMIN_PASSWORD` dan `PUBLIC_APP_URL=http://localhost:8080` di `.dev.vars`.
 
+Portal affiliate dan Worker API-nya dijalankan pada dua terminal tambahan:
+
+```bash
+npm run dev:affiliate-worker
+npm run dev:affiliate
+```
+
+Portal affiliate berjalan di `http://localhost:8082`, sedangkan API affiliate berjalan di port `8791`. Untuk menguji upgrade Pro berbayar, isi `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, dan `MIDTRANS_IS_PRODUCTION=false` di `.dev.vars`.
+
 ## Deploy Cloudflare
 
 ```bash
@@ -114,13 +123,29 @@ Admin dibangun ke `dist-admin` dan memakai Worker entry tersendiri. Sebelum depl
 ```bash
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.admin.toml
 npx wrangler secret put ADMIN_PASSWORD --config wrangler.admin.toml
+npx wrangler secret put SMTP_USER --config wrangler.admin.toml
+npx wrangler secret put SMTP_APP_PASSWORD --config wrangler.admin.toml
 npm run deploy:admin
 ```
+
+Portal affiliate memakai Worker terpisah. Jalankan migrasi `database/migrations/2026_10_19_affiliate_pro_upgrade.sql` lalu `database/migrations/2026_10_20_affiliate_social_platforms.sql` di Supabase SQL Editor, kemudian pasang secret pada Worker affiliate (bukan hanya Worker publik):
+
+```bash
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.affiliate.toml
+npx wrangler secret put MIDTRANS_SERVER_KEY --config wrangler.affiliate.toml
+npx wrangler secret put MIDTRANS_CLIENT_KEY --config wrangler.affiliate.toml
+npx wrangler secret put SMTP_USER --config wrangler.affiliate.toml
+npx wrangler secret put SMTP_APP_PASSWORD --config wrangler.affiliate.toml
+npm run deploy:affiliate
+```
+
+`MIDTRANS_IS_PRODUCTION=false` sudah ditetapkan di `wrangler.affiliate.toml` untuk sandbox. Ubah menjadi `true` hanya setelah akun dan kredensial Midtrans production sudah aktif.
 
 Sesuaikan `PUBLIC_APP_URL` di `wrangler.admin.toml` jika domain website publik berubah. Untuk integrasi Git Cloudflare gunakan repository yang sama dengan dua konfigurasi deployment:
 
 - Publik: build command `npm run build`, deploy command `npx wrangler deploy`.
 - Admin: build command `npm run build:admin`, deploy command `npx wrangler deploy --config wrangler.admin.toml`.
+- Affiliate: build command `npm run build:affiliate`, deploy command `npx wrangler deploy --config wrangler.affiliate.toml`.
 
 Aset admin tidak dimuat oleh pengunjung website publik, dan endpoint admin tidak tersedia melalui Worker publik.
 
@@ -134,7 +159,9 @@ database/schema.sql  Struktur PostgreSQL Supabase
 database/seed.sql    Template dan paket awal
 wrangler.toml        Konfigurasi Worker, assets, dan R2
 wrangler.admin.toml  Konfigurasi Worker dan static assets admin
+wrangler.affiliate.toml Konfigurasi Worker dan static assets affiliate
 vite.admin.config.js Build frontend admin ke dist-admin
+vite.affiliate.config.js Build frontend affiliate ke dist-affiliate
 ```
 
 ## Catatan migrasi data lama

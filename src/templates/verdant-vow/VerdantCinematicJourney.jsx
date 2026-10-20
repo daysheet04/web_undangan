@@ -375,12 +375,12 @@ function addFloralPhoto(parent, texture, { x, y, z, width, height, rotationY = 0
   return plane;
 }
 
-async function buildWorld(scene, renderer, onAssetProgress) {
+async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
   const loader = new THREE.TextureLoader();
   const sources = [
     `${CINEMATIC}/distant-indonesian-highland-panorama-garden-v4.webp`,
     `${CINEMATIC}/short-grass-texture-v1.webp`,
-    `${LAYER}/couple-cinematic-v2.webp`,
+    customCoupleUrl || `${LAYER}/couple-cinematic-v2.webp`,
     `${CINEMATIC}/guests-seated-left-inward-v2.webp`,
     `${CINEMATIC}/guests-standing-right-inward-v2.webp`,
     `${CINEMATIC}/seated-guest-sage-chair-v1.webp`,
@@ -610,7 +610,7 @@ function disposeWorld(scene, renderer) {
   renderer.forceContextLoss?.();
 }
 
-export default function VerdantCinematicJourney({ invitation: i, bride, groom, brideFull, groomFull, dateLabel, runId = 0, active = true, onReady, onComplete }) {
+export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl, bride, groom, brideFull, groomFull, dateLabel, runId = 0, active = true, onReady, onComplete }) {
   const mountRef = useRef(null);
   const overlayRef = useRef(null);
   const controllerRef = useRef(null);
@@ -690,7 +690,7 @@ export default function VerdantCinematicJourney({ invitation: i, bride, groom, b
         mount.replaceChildren(renderer.domElement);
 
         const camera = new THREE.PerspectiveCamera(mobile ? 56 : 44, mount.clientWidth / Math.max(1, mount.clientHeight), .1, 100);
-        const world = await buildWorld(scene, renderer, (loaded, total) => setLoadingLabel(`Menyiapkan taman ${loaded}/${total}`));
+        const world = await buildWorld(scene, renderer, (loaded, total) => setLoadingLabel(`Menyiapkan taman ${loaded}/${total}`), customCoupleUrl);
         if (disposed) return;
 
         const resize = () => {
@@ -785,7 +785,7 @@ export default function VerdantCinematicJourney({ invitation: i, bride, groom, b
       if (scene && renderer) disposeWorld(scene, renderer);
       mount.replaceChildren();
     };
-  }, [runId]);
+  }, [runId, customCoupleUrl]);
 
   return (
     <div className={`vv3-flight ${ready ? "is-ready" : "is-loading"} ${paused ? "is-paused" : ""} ${failed ? "is-fallback" : ""}`}>

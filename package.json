@@ -8,22 +8,29 @@
     "dev:worker": "wrangler dev --local --port 8789",
     "dev:admin": "vite --config vite.admin.config.js",
     "dev:admin-worker": "wrangler dev --config wrangler.admin.toml --local --port 8790",
-    "build": "vite build",
+    "dev:affiliate": "vite --config vite.affiliate.config.js",
+    "dev:affiliate-worker": "wrangler dev --config wrangler.affiliate.toml --local --port 8791",
+    "build": "vite build && node scripts/minify-public-assets.mjs",
     "build:admin": "vite build --config vite.admin.config.js",
-    "build:all": "npm run build && npm run build:admin",
+    "build:affiliate": "vite build --config vite.affiliate.config.js",
+    "build:all": "npm run build && npm run build:admin && npm run build:affiliate",
     "deploy": "npm run build && wrangler deploy",
     "deploy:admin": "npm run build:admin && wrangler deploy --config wrangler.admin.toml",
-    "deploy:all": "npm run deploy && npm run deploy:admin",
+    "deploy:affiliate": "npm run build:affiliate && wrangler deploy --config wrangler.affiliate.toml",
+    "deploy:all": "npm run deploy && npm run deploy:admin && npm run deploy:affiliate",
+    "minify:public": "node scripts/minify-public-assets.mjs",
     "cf-typegen": "wrangler types",
     "optimize:template-assets": "node scripts/optimize-template-assets.mjs"
   },
   "dependencies": {
+    "@gradio/client": "^2.7.1",
     "@supabase/supabase-js": "^2.57.4",
     "hono": "^4.9.7",
     "jspdf": "^4.2.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.2",
