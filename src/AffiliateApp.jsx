@@ -887,7 +887,7 @@ function visiblePages(currentPage, totalPages, maximum = 5) {
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
-function OrderFilterDropdown({ label, value, options, onChange, disabled = false }) {
+function OrderFilterDropdown({ label, value, options, onChange, disabled = false, className = '' }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const listId = useId();
@@ -907,18 +907,45 @@ function OrderFilterDropdown({ label, value, options, onChange, disabled = false
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [open]);
-  return <div className={`affiliate-filter-dropdown ${open ? 'is-open' : ''}`} ref={rootRef}>
-    <span>{label}</span>
-    <button type="button" className="affiliate-filter-dropdown-trigger" aria-expanded={open} aria-controls={listId} disabled={disabled} onClick={() => setOpen((current) => !current)}>
-      <span><b>{selected?.label}</b>{selected?.meta && <small>{selected.meta}</small>}</span>
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"/></svg>
+  return <div className={`affiliate-filter-dropdown ${className} ${open ? 'is-open' : ''}`.trim()} ref={rootRef}>
+    {label && <span>{label}</span>}
+    <button
+      type="button"
+      className="affiliate-filter-dropdown-trigger"
+      aria-expanded={open}
+      aria-haspopup="listbox"
+      aria-controls={listId}
+      disabled={disabled}
+      onClick={() => setOpen((current) => !current)}
+    >
+      <span className="affiliate-dropdown-trigger-body">
+        {selected?.icon && <span className="affiliate-dropdown-icon">{selected.icon}</span>}
+        <span className="affiliate-dropdown-info">
+          <b>{selected?.label}</b>
+          {selected?.meta && <small>{selected.meta}</small>}
+        </span>
+      </span>
+      <svg className="affiliate-dropdown-arrow" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 7.5 4.5 4.5 4.5-4.5"/></svg>
     </button>
-    {open && <div className="affiliate-filter-dropdown-menu" id={listId} role="listbox" aria-label={label}>
+    {open && <div className="affiliate-filter-dropdown-menu" id={listId} role="listbox" aria-label={label || 'Pilihan'}>
       {options.map((option) => {
         const active = String(option.value) === String(value);
-        return <button type="button" role="option" aria-selected={active} className={active ? 'is-selected' : ''} onClick={() => { onChange(String(option.value)); setOpen(false); }} key={String(option.value)}>
-          <span><b>{option.label}</b>{option.meta && <small>{option.meta}</small>}</span>
-          {active && <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 10 3.4 3.4 7.6-7.6"/></svg>}
+        return <button
+          type="button"
+          role="option"
+          aria-selected={active}
+          className={`affiliate-dropdown-option ${active ? 'is-selected' : ''}`}
+          onClick={() => { onChange(String(option.value)); setOpen(false); }}
+          key={String(option.value)}
+        >
+          <span className="affiliate-dropdown-option-body">
+            {option.icon && <span className="affiliate-dropdown-icon">{option.icon}</span>}
+            <span className="affiliate-dropdown-info">
+              <b>{option.label}</b>
+              {option.meta && <small>{option.meta}</small>}
+            </span>
+          </span>
+          {active && <svg className="affiliate-dropdown-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m4.5 10 3.4 3.4 7.6-7.6"/></svg>}
         </button>;
       })}
     </div>}
@@ -1616,13 +1643,53 @@ function WithdrawalsPage({ data, error, reload, affiliateId }) {
     .reduce((total, withdrawal) => total + Number(withdrawal.amount || 0), 0);
   const filteredPaid = filteredWithdrawals.filter((withdrawal) => withdrawal.status === 'paid')
     .reduce((total, withdrawal) => total + Number(withdrawal.amount || 0), 0);
+  const payoutMethodOptions = [
+    {
+      value: 'bank',
+      label: 'Transfer bank',
+      meta: 'BCA, Mandiri, BRI, BNI, BSI, dll',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2 2 7h20L12 2z"/>
+        </svg>
+      ),
+    },
+    {
+      value: 'e_wallet',
+      label: 'E-wallet',
+      meta: 'DANA, GoPay, OVO, ShopeePay',
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="2" y="6" width="20" height="14" rx="3"/>
+          <path d="M16 13a1 1 0 1 0 2 0 1 1 0 0 0-2 0z"/>
+          <path d="M6 6V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/>
+        </svg>
+      ),
+    },
+  ];
+
+  const handlePayoutMethodChange = (method) => {
+    setForm((current) => {
+      const isOldBank = current.payoutMethod === 'bank';
+      const oldPresets = isOldBank
+        ? ['BCA', 'Mandiri', 'BRI', 'BNI', 'BSI', 'SeaBank']
+        : ['DANA', 'GoPay', 'OVO', 'ShopeePay', 'LinkAja'];
+      const shouldReset = oldPresets.some((p) => p.toLowerCase() === current.provider.trim().toLowerCase());
+      return {
+        ...current,
+        payoutMethod: method,
+        provider: shouldReset ? '' : current.provider,
+      };
+    });
+  };
+
   const statusOptions = [
-    { value: '', label: 'Semua status' },
-    { value: 'pending', label: 'Menunggu', meta: 'Belum diproses admin' },
-    { value: 'processing', label: 'Diproses', meta: 'Transfer sedang diproses' },
-    { value: 'paid', label: 'Selesai', meta: 'Komisi sudah dicairkan' },
-    { value: 'rejected', label: 'Ditolak' },
-    { value: 'cancelled', label: 'Dibatalkan' },
+    { value: '', label: 'Semua status', meta: 'Tampilkan semua permintaan' },
+    { value: 'pending', label: 'Menunggu', meta: 'Belum diproses admin', icon: <span className="affiliate-status-dot status-pending" aria-hidden="true"/> },
+    { value: 'processing', label: 'Diproses', meta: 'Transfer sedang diproses', icon: <span className="affiliate-status-dot status-processing" aria-hidden="true"/> },
+    { value: 'paid', label: 'Selesai', meta: 'Komisi sudah dicairkan', icon: <span className="affiliate-status-dot status-paid" aria-hidden="true"/> },
+    { value: 'rejected', label: 'Ditolak', meta: 'Permintaan ditolak', icon: <span className="affiliate-status-dot status-rejected" aria-hidden="true"/> },
+    { value: 'cancelled', label: 'Dibatalkan', meta: 'Permintaan dibatalkan', icon: <span className="affiliate-status-dot status-cancelled" aria-hidden="true"/> },
   ];
   const updateFilter = (key, value) => {
     const nextFilters = { ...filters, [key]: value };
@@ -1682,7 +1749,44 @@ function WithdrawalsPage({ data, error, reload, affiliateId }) {
         {notice.message && <div className={`affiliate-form-alert ${notice.type}`}>{notice.message}</div>}
         <form onSubmit={submit}>
           <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="number" min={data.minimum_withdrawal} max={data.summary.available} step="1000" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder="50000" required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
-          <div className="affiliate-withdrawal-fields"><label><span>Metode</span><select value={form.payoutMethod} onChange={(event) => setForm({ ...form, payoutMethod: event.target.value })}><option value="bank">Transfer bank</option><option value="e_wallet">E-wallet</option></select></label><label><span>Bank / E-wallet</span><input value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value })} placeholder={form.payoutMethod === 'bank' ? 'Contoh: BCA' : 'Contoh: DANA'} maxLength="50" required/></label></div>
+          <div className="affiliate-withdrawal-fields">
+            <OrderFilterDropdown
+              className="affiliate-withdrawal-method-dropdown"
+              label="Metode"
+              value={form.payoutMethod}
+              options={payoutMethodOptions}
+              onChange={handlePayoutMethodChange}
+            />
+            <label className="affiliate-provider-label">
+              <span>Bank / E-wallet</span>
+              <input
+                value={form.provider}
+                onChange={(event) => setForm({ ...form, provider: event.target.value })}
+                placeholder={form.payoutMethod === 'bank' ? 'Contoh: BCA, Mandiri, BRI' : 'Contoh: DANA, GoPay, OVO'}
+                maxLength="50"
+                required
+              />
+              <div className="affiliate-provider-suggestions">
+                <span className="affiliate-suggestions-label">Cepat:</span>
+                {(form.payoutMethod === 'bank'
+                  ? ['BCA', 'Mandiri', 'BRI', 'BNI', 'BSI', 'SeaBank']
+                  : ['DANA', 'GoPay', 'OVO', 'ShopeePay', 'LinkAja']
+                ).map((name) => {
+                  const isActive = form.provider.trim().toLowerCase() === name.toLowerCase();
+                  return (
+                    <button
+                      type="button"
+                      key={name}
+                      className={`affiliate-suggestion-chip ${isActive ? 'is-active' : ''}`}
+                      onClick={() => setForm((current) => ({ ...current, provider: name }))}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </label>
+          </div>
           <label><span>Nama pemilik</span><input value={form.accountName} onChange={(event) => setForm({ ...form, accountName: event.target.value })} placeholder="Sesuai rekening" maxLength="120" required/></label>
           <label><span>Nomor rekening / e-wallet</span><input inputMode="numeric" value={form.accountNumber} onChange={(event) => setForm({ ...form, accountNumber: event.target.value })} placeholder="Masukkan nomor tujuan" maxLength="80" required/></label>
           <div className="affiliate-withdrawal-estimate"><span>Nominal diajukan <b>{rupiah(requestedAmount)}</b></span><span>Fee {Number(settings.fee_percent || 0).toLocaleString('id-ID')}% <b>- {rupiah(estimatedFee)}</b></span><strong>Perkiraan diterima <b>{rupiah(estimatedNet)}</b></strong></div>

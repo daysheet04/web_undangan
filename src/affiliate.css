@@ -309,19 +309,35 @@ a { color: inherit; }
 .affiliate-order-filter-grid input { width: 100%; min-width: 0; min-height: 45px; padding: 0 13px; color: #27473f; border: 1px solid #d9dfda; border-radius: 12px; outline: none; background: #fbfcfa; font: inherit; font-size: .66rem; transition: border-color .18s, box-shadow .18s, background .18s; }
 .affiliate-order-filter-grid input:focus { border-color: #5e8b7c; background: #fff; box-shadow: 0 0 0 3px rgba(52,114,94,.1); }
 .affiliate-filter-dropdown { position: relative; display: grid; min-width: 0; gap: 6px; }
-.affiliate-filter-dropdown-trigger { display: flex; width: 100%; min-height: 45px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 11px 7px 13px; color: #27473f; border: 1px solid #d9dfda; border-radius: 12px; outline: none; background: #fbfcfa; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s, box-shadow .18s, background .18s; }
-.affiliate-filter-dropdown-trigger > span, .affiliate-filter-dropdown-menu button > span { display: grid; min-width: 0; gap: 2px; }
-.affiliate-filter-dropdown-trigger b, .affiliate-filter-dropdown-menu b { overflow: hidden; font-size: .66rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.affiliate-filter-dropdown-trigger small, .affiliate-filter-dropdown-menu small { overflow: hidden; color: #89958f; font-size: .52rem; text-overflow: ellipsis; white-space: nowrap; }
-.affiliate-filter-dropdown-trigger > svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: #547168; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; transition: transform .2s; }
-.affiliate-filter-dropdown.is-open .affiliate-filter-dropdown-trigger { border-color: #3f7b69; background: #fff; box-shadow: 0 0 0 3px rgba(52,114,94,.1); }
-.affiliate-filter-dropdown.is-open .affiliate-filter-dropdown-trigger > svg { transform: rotate(180deg); }
-.affiliate-filter-dropdown-menu { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; overflow: hidden; display: grid; width: max(100%, 230px); padding: 6px; border: 1px solid #dde4df; border-radius: 14px; background: rgba(255,255,255,.98); box-shadow: 0 18px 45px rgba(29,57,49,.17), 0 3px 10px rgba(29,57,49,.08); backdrop-filter: blur(12px); }
-.affiliate-filter-dropdown-menu button { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 10px; color: #36554c; border: 0; border-radius: 9px; background: transparent; font: inherit; text-align: left; cursor: pointer; transition: color .15s, background .15s; }
-.affiliate-filter-dropdown-menu button:hover, .affiliate-filter-dropdown-menu button:focus-visible { color: #17493d; outline: none; background: #edf5f1; }
-.affiliate-filter-dropdown-menu button.is-selected { color: #fff; background: linear-gradient(135deg, #1e5a49, #173f45); }
-.affiliate-filter-dropdown-menu button.is-selected small { color: #c8ddd5; }
-.affiliate-filter-dropdown-menu button > svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.affiliate-filter-dropdown-trigger { display: flex; width: 100%; min-height: 45px; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 11px 7px 13px; color: #27473f; border: 1px solid #d9dfda; border-radius: 12px; outline: none; background: #fbfcfa; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s, box-shadow .18s, background .18s, transform .12s; }
+.affiliate-filter-dropdown-trigger:hover:not(:disabled) { border-color: #5e8b7c; background: #fff; }
+.affiliate-filter-dropdown-trigger > span, .affiliate-filter-dropdown-menu button > span { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.affiliate-dropdown-trigger-body, .affiliate-dropdown-option-body { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.affiliate-dropdown-info { display: grid; min-width: 0; gap: 2px; }
+.affiliate-filter-dropdown-trigger b, .affiliate-filter-dropdown-menu b { overflow: hidden; font-size: .68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; color: #243e37; }
+.affiliate-filter-dropdown-trigger small, .affiliate-filter-dropdown-menu small { overflow: hidden; color: #7f8e87; font-size: .54rem; text-overflow: ellipsis; white-space: nowrap; }
+.affiliate-dropdown-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: rgba(30,90,73,.08); color: #1e5a49; flex: 0 0 28px; transition: background .18s, color .18s; }
+.affiliate-dropdown-icon svg { width: 16px; height: 16px; }
+.affiliate-filter-dropdown-trigger > svg, .affiliate-dropdown-arrow { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: #547168; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; transition: transform .22s cubic-bezier(0.16,1,0.3,1), stroke .18s; }
+.affiliate-filter-dropdown.is-open .affiliate-filter-dropdown-trigger { border-color: #3f7b69; background: #fff; box-shadow: 0 0 0 3px rgba(52,114,94,.12); }
+.affiliate-filter-dropdown.is-open .affiliate-filter-dropdown-trigger > svg, .affiliate-filter-dropdown.is-open .affiliate-dropdown-arrow { transform: rotate(180deg); stroke: #1e5a49; }
+.affiliate-filter-dropdown-menu { position: absolute; z-index: 70; top: calc(100% + 7px); left: 0; overflow: hidden; display: grid; width: max(100%, 250px); padding: 6px; border: 1px solid #dce4de; border-radius: 14px; background: rgba(255,255,255,.98); box-shadow: 0 18px 42px -4px rgba(23,73,61,.16), 0 4px 12px rgba(23,73,61,.06); backdrop-filter: blur(14px); animation: affiliateDropdownPop 0.18s cubic-bezier(0.16,1,0.3,1) forwards; transform-origin: top center; }
+@keyframes affiliateDropdownPop { from { opacity: 0; transform: translateY(-5px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.affiliate-filter-dropdown-menu button, .affiliate-dropdown-option { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; color: #36554c; border: 0; border-radius: 9px; background: transparent; font: inherit; text-align: left; cursor: pointer; transition: color .15s, background .15s; }
+.affiliate-filter-dropdown-menu button:hover, .affiliate-filter-dropdown-menu button:focus-visible, .affiliate-dropdown-option:hover, .affiliate-dropdown-option:focus-visible { color: #17493d; outline: none; background: #edf5f1; }
+.affiliate-filter-dropdown-menu button:hover .affiliate-dropdown-icon, .affiliate-dropdown-option:hover .affiliate-dropdown-icon { background: rgba(30,90,73,.15); color: #17493d; }
+.affiliate-filter-dropdown-menu button.is-selected, .affiliate-dropdown-option.is-selected { color: #fff; background: linear-gradient(135deg, #1e5a49, #173f45); box-shadow: 0 2px 8px rgba(30,90,73,.22); }
+.affiliate-filter-dropdown-menu button.is-selected b, .affiliate-dropdown-option.is-selected b { color: #fff; }
+.affiliate-filter-dropdown-menu button.is-selected small, .affiliate-dropdown-option.is-selected small { color: #c8ddd5; }
+.affiliate-filter-dropdown-menu button.is-selected .affiliate-dropdown-icon, .affiliate-dropdown-option.is-selected .affiliate-dropdown-icon { background: rgba(255,255,255,.22); color: #fff; }
+.affiliate-filter-dropdown-menu button > svg, .affiliate-dropdown-check { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
+.affiliate-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+.affiliate-status-dot.status-all { background: #8e9e98; }
+.affiliate-status-dot.status-pending { background: #e2a03f; box-shadow: 0 0 0 2px rgba(226,160,63,.2); }
+.affiliate-status-dot.status-processing { background: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
+.affiliate-status-dot.status-paid { background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.2); }
+.affiliate-status-dot.status-rejected { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.2); }
+.affiliate-status-dot.status-cancelled { background: #6b7280; box-shadow: 0 0 0 2px rgba(107,114,128,.2); }
 .affiliate-order-filter-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 2px; }
 .affiliate-order-filter-actions > small { color: #85918c; font-size: .58rem; }
 .affiliate-order-filter-actions button { min-height: 39px; padding: 0 15px; color: #fff; border: 1px solid #17493d; border-radius: 9px; background: #17493d; font-size: .61rem; font-weight: 800; cursor: pointer; }
@@ -369,7 +385,15 @@ a { color: inherit; }
 .affiliate-withdrawal-form-card input, .affiliate-withdrawal-form-card select { width: 100%; min-height: 45px; padding: 0 13px; color: #27473f; border: 1px solid #d9dfda; border-radius: 10px; outline: none; background: #fbfcfa; font: inherit; font-size: .72rem; }
 .affiliate-withdrawal-form-card input:focus, .affiliate-withdrawal-form-card select:focus { border-color: #5e8b7c; box-shadow: 0 0 0 3px rgba(52,114,94,.1); }
 .affiliate-withdrawal-form-card label > small { color: #929c98; font-size: .54rem; }
-.affiliate-withdrawal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.affiliate-withdrawal-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.affiliate-withdrawal-method-dropdown .affiliate-filter-dropdown-trigger { min-height: 45px; border-radius: 10px; padding: 0 12px; }
+.affiliate-withdrawal-method-dropdown .affiliate-filter-dropdown-menu { width: 100%; min-width: 260px; z-index: 80; }
+.affiliate-provider-label { display: grid; gap: 6px; }
+.affiliate-provider-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 3px; }
+.affiliate-suggestions-label { font-size: .52rem; font-weight: 800; color: #7b8c85; text-transform: uppercase; letter-spacing: .05em; margin-right: 2px; }
+.affiliate-suggestion-chip { display: inline-flex; align-items: center; padding: 3px 8px; border: 1px solid #d5ded9; border-radius: 6px; background: #f7faf8; color: #27473f; font-size: .58rem; font-weight: 600; cursor: pointer; outline: none; transition: all .15s ease; line-height: 1.25; }
+.affiliate-suggestion-chip:hover { border-color: #3f7b69; background: #ebf4ef; color: #17493d; transform: translateY(-1px); }
+.affiliate-suggestion-chip.is-active { border-color: #1e5a49; background: #1e5a49; color: #fff; font-weight: 700; box-shadow: 0 2px 6px rgba(30,90,73,.22); }
 .affiliate-withdrawal-estimate { display: grid; gap: 8px; padding: 15px 16px; border: 1px solid #dbe5df; border-radius: 12px; background: #f4f8f5; }
 .affiliate-withdrawal-estimate span, .affiliate-withdrawal-estimate strong { display: flex; align-items: center; justify-content: space-between; gap: 18px; color: #6b7b75; font-size: .64rem; font-weight: 600; }
 .affiliate-withdrawal-estimate span b { color: #36554d; }
