@@ -225,6 +225,50 @@ export async function sendPaymentConfirmedEmail(env, order, payment, editorUrl) 
   });
 }
 
+export async function sendComplimentaryOrderEmail(env, order, editorUrl) {
+  const recipient = String(order.customer_email || '').trim();
+  if (!recipient) return { skipped: true };
+
+  const customerName = escapeHtml(order.customer_name);
+  const orderCode = escapeHtml(order.order_code);
+  const templateName = escapeHtml(order.template_name || 'Undangan Daymoment');
+  const packageName = escapeHtml(order.package_name || 'Paket undangan');
+  const safeEditorUrl = escapeHtml(editorUrl);
+
+  return sendSmtpEmail(env, {
+    to: recipient,
+    subject: `Undangan Daymoment gratis - editor ${order.order_code} sudah siap`,
+    text: `Halo ${order.customer_name}, Daymoment telah menyiapkan undangan digital gratis untukmu. Kode order: ${order.order_code}. Template: ${order.template_name}. Paket: ${order.package_name}. Buka editor melalui ${editorUrl}. Tautan editor bersifat pribadi, jangan bagikan kepada orang lain.`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f6f2ec;font-family:Arial,sans-serif;color:#17352f">
+          <div style="padding:32px 16px">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5ddd2;border-radius:20px;overflow:hidden">
+              <div style="padding:31px 32px;background:#17493d;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#e6c98f">DAYMOMENT</div>
+                <h1 style="margin:11px 0 0;font-family:Georgia,serif;font-size:30px;font-weight:normal">Undanganmu sudah siap</h1>
+              </div>
+              <div style="padding:32px">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7">Halo <strong>${customerName}</strong>,</p>
+                <p style="margin:0 0 24px;color:#60716a;font-size:15px;line-height:1.75">Daymoment telah menyiapkan undangan digital untukmu secara gratis. Tidak ada pembayaran yang perlu dilakukan. Kamu bisa langsung membuka editor dan melengkapi isi undangan.</p>
+                <div style="padding:18px 20px;background:#f7f4ed;border-radius:14px;font-size:14px;line-height:1.9">
+                  <div><span style="color:#718078">Kode order:</span> <strong>${orderCode}</strong></div>
+                  <div><span style="color:#718078">Template:</span> <strong>${templateName}</strong></div>
+                  <div><span style="color:#718078">Paket:</span> <strong>${packageName}</strong></div>
+                  <div><span style="color:#718078">Biaya:</span> <strong>Gratis</strong></div>
+                </div>
+                <div style="padding:28px 0 14px;text-align:center">
+                  <a href="${safeEditorUrl}" style="display:inline-block;padding:15px 27px;background:#17493d;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold">Buka Editor Undangan</a>
+                </div>
+                <p style="margin:16px 0 0;color:#7f8c86;font-size:12px;line-height:1.65;text-align:center">Tautan editor ini bersifat pribadi. Jangan membagikannya kepada orang lain.<br><br>Jika tombol tidak dapat dibuka, salin tautan berikut:<br><a href="${safeEditorUrl}" style="color:#326858;word-break:break-all">${safeEditorUrl}</a></p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}
+
 export async function sendAffiliateVerificationEmail(env, affiliate, verificationUrl) {
   const recipient = String(affiliate.email || '').trim();
   if (!recipient) return { skipped: true };
@@ -466,6 +510,234 @@ export async function sendAffiliateProUpgradeReviewEmail(env, affiliate, decisio
                 <p style="margin:0;color:#60716a;font-size:15px;line-height:1.8">${copy}</p>
                 ${note ? `<div style="margin-top:22px;padding:16px 18px;color:#5e5142;background:#faf4e8;border-left:4px solid #d2aa63;border-radius:0 12px 12px 0;font-size:13px;line-height:1.7"><strong>Catatan admin</strong><br>${safeNote}</div>` : ''}
                 <div style="padding:28px 0 8px;text-align:center"><a href="${safeWithdrawalUrl}" style="display:inline-block;padding:15px 27px;background:#17493d;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold">Buka Halaman Penarikan</a></div>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}
+
+export async function sendAffiliateWithdrawalRequestedEmail(env, affiliate, withdrawal) {
+  const recipient = String(affiliate.email || '').trim();
+  if (!recipient) return { skipped: true };
+
+  const fullName = escapeHtml(affiliate.full_name || 'Partner Daymoment');
+  const provider = escapeHtml(withdrawal.provider || '-');
+  const accountName = escapeHtml(withdrawal.account_name || '-');
+  const accountNumber = escapeHtml(withdrawal.account_number || '-');
+  const requestId = escapeHtml(withdrawal.id || '-');
+  const requestedAt = withdrawal.requested_at
+    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(withdrawal.requested_at))
+    : '-';
+  const amount = rupiah(withdrawal.amount);
+  const fee = rupiah(withdrawal.fee_amount);
+  const netAmount = rupiah(withdrawal.net_amount);
+  const feePercent = Number(withdrawal.fee_percent || 0).toLocaleString('id-ID');
+  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '')}/withdrawals`;
+  const safeAppUrl = escapeHtml(appUrl);
+
+  return sendSmtpEmail(env, {
+    to: recipient,
+    fromName: env.AFFILIATE_SMTP_FROM_NAME || 'Daymoment Partner',
+    subject: `Pengajuan penarikan ${amount} berhasil diterima`,
+    text: `Halo ${affiliate.full_name}, pengajuan penarikan ${amount} berhasil diterima dan sedang menunggu diproses. Fee ${feePercent}%: ${fee}. Dana bersih: ${netAmount}. Tujuan: ${withdrawal.provider} ${withdrawal.account_number} atas nama ${withdrawal.account_name}. ID pengajuan: ${withdrawal.id}.`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f4f1e9;font-family:Arial,sans-serif;color:#17352f">
+          <div style="padding:36px 16px">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e1ded4;border-radius:22px;overflow:hidden">
+              <div style="padding:32px;background:#173f35;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#dfbf87">DAYMOMENT PARTNER</div>
+                <h1 style="margin:12px 0 0;font-family:Georgia,serif;font-size:29px;font-weight:normal">Penarikan berhasil diajukan</h1>
+              </div>
+              <div style="padding:34px 32px">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7">Halo <strong>${fullName}</strong>,</p>
+                <p style="margin:0 0 22px;color:#60716a;font-size:15px;line-height:1.8">Pengajuan penarikanmu sudah masuk dan sedang menunggu diproses secara manual oleh admin Daymoment.</p>
+                <div style="padding:18px 20px;background:#f8f5ed;border-radius:14px;font-size:14px;line-height:1.95">
+                  <div><span style="color:#718078">Nominal diajukan:</span> <strong>${escapeHtml(amount)}</strong></div>
+                  <div><span style="color:#718078">Fee (${escapeHtml(feePercent)}%):</span> <strong>${escapeHtml(fee)}</strong></div>
+                  <div><span style="color:#718078">Dana bersih:</span> <strong>${escapeHtml(netAmount)}</strong></div>
+                  <div><span style="color:#718078">Tujuan:</span> <strong>${provider} · ${accountNumber}</strong></div>
+                  <div><span style="color:#718078">Atas nama:</span> <strong>${accountName}</strong></div>
+                  <div><span style="color:#718078">Diajukan:</span> <strong>${escapeHtml(requestedAt)}</strong></div>
+                  <div><span style="color:#718078">ID pengajuan:</span> <strong>${requestId}</strong></div>
+                </div>
+                <div style="padding:28px 0 8px;text-align:center"><a href="${safeAppUrl}" style="display:inline-block;padding:15px 27px;background:#17493d;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold">Lihat Status Penarikan</a></div>
+                <p style="margin:15px 0 0;color:#87928e;font-size:12px;line-height:1.7;text-align:center">Simpan email ini sebagai bukti bahwa pengajuan telah diterima.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}
+
+export async function sendAdminWithdrawalRequestedEmail(env, affiliate, withdrawal) {
+  const recipient = String(env.WITHDRAWAL_NOTIFICATION_EMAIL || env.ADMIN_NOTIFICATION_EMAIL || env.SMTP_USER || '').trim();
+  if (!recipient) return { skipped: true };
+
+  const fullName = escapeHtml(affiliate.full_name || 'Affiliate');
+  const affiliateEmail = escapeHtml(affiliate.email || '-');
+  const referralCode = escapeHtml(affiliate.referral_code || '-');
+  const provider = escapeHtml(withdrawal.provider || '-');
+  const accountName = escapeHtml(withdrawal.account_name || '-');
+  const accountNumber = escapeHtml(withdrawal.account_number || '-');
+  const requestId = escapeHtml(withdrawal.id || '-');
+  const requestedAt = withdrawal.requested_at
+    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(withdrawal.requested_at))
+    : '-';
+  const amount = rupiah(withdrawal.amount);
+  const fee = rupiah(withdrawal.fee_amount);
+  const netAmount = rupiah(withdrawal.net_amount);
+  const feePercent = Number(withdrawal.fee_percent || 0).toLocaleString('id-ID');
+
+  return sendSmtpEmail(env, {
+    to: recipient,
+    fromName: env.AFFILIATE_SMTP_FROM_NAME || 'Daymoment Partner',
+    subject: `Pengajuan penarikan baru - ${affiliate.full_name} - ${amount}`,
+    text: `Pengajuan penarikan baru dari ${affiliate.full_name} (${affiliate.email}, kode ${affiliate.referral_code || '-'}). Nominal ${amount}, fee ${feePercent}% ${fee}, transfer bersih ${netAmount}. Tujuan ${withdrawal.provider} ${withdrawal.account_number} atas nama ${withdrawal.account_name}. ID ${withdrawal.id}.`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f4f1e9;font-family:Arial,sans-serif;color:#17352f">
+          <div style="padding:36px 16px">
+            <div style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e1ded4;border-radius:22px;overflow:hidden">
+              <div style="padding:32px;background:#102d50;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#dfbf87">DAYMOMENT ADMIN</div>
+                <h1 style="margin:12px 0 0;font-family:Georgia,serif;font-size:29px;font-weight:normal">Pengajuan penarikan baru</h1>
+              </div>
+              <div style="padding:34px 32px">
+                <p style="margin:0 0 22px;color:#60716a;font-size:15px;line-height:1.8">Ada pengajuan penarikan baru yang perlu diperiksa dan diproses secara manual di panel admin.</p>
+                <div style="margin-bottom:14px;padding:18px 20px;background:#eef5f1;border-radius:14px;font-size:14px;line-height:1.95">
+                  <div><span style="color:#718078">Affiliate:</span> <strong>${fullName}</strong></div>
+                  <div><span style="color:#718078">Email:</span> <strong>${affiliateEmail}</strong></div>
+                  <div><span style="color:#718078">Kode referral:</span> <strong>${referralCode}</strong></div>
+                </div>
+                <div style="padding:18px 20px;background:#f8f5ed;border-radius:14px;font-size:14px;line-height:1.95">
+                  <div><span style="color:#718078">Nominal diajukan:</span> <strong>${escapeHtml(amount)}</strong></div>
+                  <div><span style="color:#718078">Fee (${escapeHtml(feePercent)}%):</span> <strong>${escapeHtml(fee)}</strong></div>
+                  <div><span style="color:#718078">Transfer bersih:</span> <strong>${escapeHtml(netAmount)}</strong></div>
+                  <div><span style="color:#718078">Tujuan:</span> <strong>${provider} · ${accountNumber}</strong></div>
+                  <div><span style="color:#718078">Atas nama:</span> <strong>${accountName}</strong></div>
+                  <div><span style="color:#718078">Diajukan:</span> <strong>${escapeHtml(requestedAt)}</strong></div>
+                  <div><span style="color:#718078">ID pengajuan:</span> <strong>${requestId}</strong></div>
+                </div>
+                <p style="margin:20px 0 0;color:#7d8984;font-size:12px;line-height:1.7;text-align:center">Buka menu Penarikan affiliate pada panel admin untuk memproses pengajuan ini.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}
+
+export async function sendAffiliateWithdrawalStatusEmail(env, affiliate, withdrawal) {
+  const recipient = String(affiliate.email || '').trim();
+  if (!recipient) return { skipped: true };
+
+  const statusContent = {
+    pending: {
+      label: 'Menunggu diproses',
+      title: 'Penarikan kembali menunggu',
+      copy: 'Pengajuan penarikanmu saat ini berada dalam antrean dan menunggu diproses oleh admin Daymoment.',
+      color: '#8b641f',
+      background: '#fff7e7',
+    },
+    processing: {
+      label: 'Sedang diproses',
+      title: 'Penarikan sedang diproses',
+      copy: 'Admin Daymoment sedang memeriksa dan memproses transfer untuk pengajuan penarikanmu.',
+      color: '#205f74',
+      background: '#eaf6f9',
+    },
+    paid: {
+      label: 'Selesai',
+      title: 'Penarikan telah selesai',
+      copy: 'Dana penarikan telah ditransfer oleh admin Daymoment. Silakan periksa rekening atau e-wallet tujuanmu.',
+      color: '#17634f',
+      background: '#e9f7f1',
+    },
+    rejected: {
+      label: 'Ditolak',
+      title: 'Penarikan belum dapat diproses',
+      copy: 'Pengajuan penarikanmu ditolak. Periksa catatan admin berikut untuk mengetahui alasannya.',
+      color: '#8a4038',
+      background: '#fff0ed',
+    },
+    cancelled: {
+      label: 'Dibatalkan',
+      title: 'Penarikan dibatalkan',
+      copy: 'Pengajuan penarikanmu telah dibatalkan. Saldo yang sebelumnya dicadangkan akan mengikuti perhitungan saldo tersedia.',
+      color: '#6c586d',
+      background: '#f5eff6',
+    },
+  }[withdrawal.status] || {
+    label: String(withdrawal.status || 'Diperbarui'),
+    title: 'Status penarikan diperbarui',
+    copy: 'Status pengajuan penarikanmu baru saja diperbarui oleh admin Daymoment.',
+    color: '#365e52',
+    background: '#eef5f1',
+  };
+
+  const fullName = escapeHtml(affiliate.full_name || 'Partner Daymoment');
+  const provider = escapeHtml(withdrawal.provider || '-');
+  const accountNumber = escapeHtml(withdrawal.account_number || '-');
+  const accountName = escapeHtml(withdrawal.account_name || '-');
+  const requestId = escapeHtml(withdrawal.id || '-');
+  const note = String(withdrawal.admin_note || '').trim();
+  const safeNote = escapeHtml(note);
+  const amount = rupiah(withdrawal.amount);
+  const netAmountValue = withdrawal.net_amount != null
+    ? Number(withdrawal.net_amount)
+    : (withdrawal.amount ? Number(withdrawal.amount) - Number(withdrawal.fee_amount || 0) : 0);
+  const netAmount = rupiah(netAmountValue);
+  const feePercent = Number(withdrawal.fee_percent || 0).toLocaleString('id-ID');
+  const fee = rupiah(withdrawal.fee_amount || (Number(withdrawal.amount || 0) - netAmountValue));
+  const hasFee = Number(withdrawal.fee_amount || 0) > 0 || Number(withdrawal.fee_percent || 0) > 0;
+  const sender = [withdrawal.sender_bank_name, withdrawal.sender_account_number, withdrawal.sender_account_name].filter(Boolean).join(' · ');
+  const safeSender = escapeHtml(sender);
+  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '')}/withdrawals`;
+  const safeAppUrl = escapeHtml(appUrl);
+  const updatedAtDate = withdrawal.processed_at || withdrawal.updated_at ? new Date(withdrawal.processed_at || withdrawal.updated_at) : new Date();
+  const updatedAtFormatted = !Number.isNaN(updatedAtDate.getTime())
+    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(updatedAtDate)
+    : '-';
+
+  const isRejectedOrCancelled = ['rejected', 'cancelled'].includes(withdrawal.status);
+
+  return sendSmtpEmail(env, {
+    to: recipient,
+    fromName: env.AFFILIATE_SMTP_FROM_NAME || 'Daymoment Partner',
+    subject: `${statusContent.title} - ${amount}`,
+    text: `Halo ${affiliate.full_name || 'Partner Daymoment'},\n\nStatus pengajuan penarikanmu sebesar ${amount} telah diperbarui menjadi: ${statusContent.label}.\n\nDetail Penarikan:\n- Nominal diajukan: ${amount}${hasFee ? `\n- Fee penarikan (${feePercent}%): ${fee}` : ''}\n- Dana bersih: ${netAmount}\n- Rekening tujuan: ${withdrawal.provider || '-'} ${withdrawal.account_number || '-'} a.n ${withdrawal.account_name || '-'}\n- ID pengajuan: ${withdrawal.id}\n- Waktu pembaruan: ${updatedAtFormatted} WIB${sender ? `\n- Rekening pengirim: ${sender}` : ''}${note ? `\n- Catatan admin: ${note}` : ''}\n\nSilakan periksa riwayat penarikan kamu di: ${appUrl}\n\nSalam hangat,\nTim Daymoment Partner`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f4f1e9;font-family:Arial,sans-serif;color:#17352f">
+          <div style="padding:36px 16px">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e1ded4;border-radius:22px;overflow:hidden">
+              <div style="padding:32px;background:#173f35;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#dfbf87">DAYMOMENT PARTNER</div>
+                <h1 style="margin:12px 0 0;font-family:Georgia,serif;font-size:28px;font-weight:normal">${escapeHtml(statusContent.title)}</h1>
+              </div>
+              <div style="padding:34px 32px">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7">Halo <strong>${fullName}</strong>,</p>
+                <p style="margin:0 0 20px;color:#60716a;font-size:15px;line-height:1.8">${escapeHtml(statusContent.copy)}</p>
+                <div style="margin-bottom:18px;padding:14px 18px;color:${statusContent.color};background:${statusContent.background};border-radius:12px;font-size:14px;font-weight:bold;text-align:center">Status: ${escapeHtml(statusContent.label)}</div>
+                <div style="padding:18px 20px;background:#f8f5ed;border-radius:14px;font-size:14px;line-height:1.95">
+                  <div><span style="color:#718078">Nominal diajukan:</span> <strong>${escapeHtml(amount)}</strong></div>
+                  ${hasFee ? `<div><span style="color:#718078">Fee (${escapeHtml(feePercent)}%):</span> <strong>${escapeHtml(fee)}</strong></div>` : ''}
+                  <div><span style="color:#718078">Dana bersih:</span> <strong>${escapeHtml(netAmount)}</strong></div>
+                  <div><span style="color:#718078">Tujuan:</span> <strong>${provider} · ${accountNumber}</strong></div>
+                  <div><span style="color:#718078">Atas nama:</span> <strong>${accountName}</strong></div>
+                  <div><span style="color:#718078">ID pengajuan:</span> <strong>${requestId}</strong></div>
+                  <div><span style="color:#718078">Waktu pembaruan:</span> <strong>${escapeHtml(updatedAtFormatted)} WIB</strong></div>
+                  ${withdrawal.status === 'paid' && safeSender ? `<div><span style="color:#718078">Rekening pengirim:</span> <strong>${safeSender}</strong></div>` : ''}
+                </div>
+                ${note ? `<div style="margin-top:18px;padding:16px 18px;color:${isRejectedOrCancelled ? '#8a2822' : '#5e5142'};background:${isRejectedOrCancelled ? '#fdf2f0' : '#faf4e8'};border-left:4px solid ${isRejectedOrCancelled ? '#d9483b' : '#d2aa63'};border-radius:0 12px 12px 0;font-size:13px;line-height:1.7"><strong style="display:block;margin-bottom:4px;color:${isRejectedOrCancelled ? '#8a2822' : '#6b5220'}">${isRejectedOrCancelled ? 'Alasan penolakan / catatan admin:' : 'Catatan admin:'}</strong>${safeNote}</div>` : ''}
+                <div style="padding:28px 0 8px;text-align:center"><a href="${safeAppUrl}" style="display:inline-block;padding:15px 28px;background:#17493d;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold;font-size:14px">Lihat Riwayat Penarikan</a></div>
+                ${withdrawal.status === 'paid' ? '<p style="margin:14px 0 0;color:#87928e;font-size:12px;line-height:1.7;text-align:center">Bukti transfer disimpan sebagai arsip internal Daymoment. Dana telah berhasil dikirimkan ke rekening tujuan.</p>' : ''}
+                ${withdrawal.status === 'rejected' ? '<p style="margin:14px 0 0;color:#87928e;font-size:12px;line-height:1.7;text-align:center">Saldo komisi telah dikembalikan ke saldo aktif kamu. Kamu dapat mengajukan kembali setelah memperbaiki data yang diperlukan.</p>' : ''}
+                ${withdrawal.status === 'processing' ? '<p style="margin:14px 0 0;color:#87928e;font-size:12px;line-height:1.7;text-align:center">Proses transfer biasanya diproses sesegera mungkin pada hari kerja.</p>' : ''}
               </div>
             </div>
           </div>

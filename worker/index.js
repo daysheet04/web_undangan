@@ -11,7 +11,7 @@ const app = new Hono();
 app.use('*', secureHeaders());
 app.use('/api/*', cors({
   origin: (origin) => origin || 'http://localhost:8080',
-  allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
   credentials: true,
 }));

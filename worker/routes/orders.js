@@ -32,16 +32,14 @@ async function affiliateAttribution(db, referralCode, selectedPackage) {
   if (account.status === 'suspended') return { blocked: true };
   if (account.status !== 'active') return null;
   const { data: setting, error: settingError } = await db.from('affiliate_product_settings')
-    .select('commission_percent,is_visible')
+    .select('is_visible')
     .eq('affiliate_id', account.id)
     .eq('package_id', selectedPackage.id)
     .maybeSingle();
   if (settingError) throw settingError;
   if (setting?.is_visible !== true) return null;
-  const maximum = Math.min(50, Number(selectedPackage.affiliate_commission_max_percent ?? 50));
-  const requested = Number(setting.commission_percent ?? 0);
-  const percent = Math.max(0, Math.min(maximum, requested));
-  if (percent < 1) return null;
+  const configuredPercent = Number(selectedPackage.affiliate_commission_default_percent ?? 0);
+  const percent = Math.max(0, Math.min(100, Number.isFinite(configuredPercent) ? configuredPercent : 0));
   return {
     affiliate_id: account.id,
     referral_name: account.full_name,

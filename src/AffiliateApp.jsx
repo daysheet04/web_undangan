@@ -5,6 +5,7 @@ import { MAIN_APP_URL } from './lib/urls.js';
 const cleanPath = () => window.location.pathname.replace(/\/+$/, '') || '/';
 
 const DashboardNavigationContext = createContext(null);
+const AffiliateToolsContext = createContext(null);
 
 function DashboardLink({ to, onClick, children, ...props }) {
   const navigate = useContext(DashboardNavigationContext);
@@ -56,9 +57,20 @@ function AuthShell({ children, asideTitle, asideCopy }) {
 }
 
 function RegisterPage() {
-  const [form, setForm] = useState({ fullName: '', nik: '', ktp: null, phone: '', email: '', password: '', confirmation: '', accepted: false });
+  const [form, setForm] = useState({ fullName: '', nik: '', ktp: null, socialPlatform: '', socialHandle: '', socialFollowerCount: '', socialProof: null, phone: '', email: '', password: '', confirmation: '', accepted: false });
+  const [socialPlatforms, setSocialPlatforms] = useState([]);
   const [state, setState] = useState({ loading: false, error: '', success: '' });
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  useEffect(() => {
+    let active = true;
+    affiliateApi('/registration-options').then((result) => {
+      if (!active) return;
+      const platforms = result.social_platforms || [];
+      setSocialPlatforms(platforms);
+      setForm((current) => ({ ...current, socialPlatform: current.socialPlatform || platforms[0]?.name || '' }));
+    }).catch((error) => { if (active) setState((current) => ({ ...current, error: friendlyAffiliateError(error) })); });
+    return () => { active = false; };
+  }, []);
   const submit = async (event) => {
     event.preventDefault();
     if (state.success || state.loading) return;
@@ -66,6 +78,12 @@ function RegisterPage() {
     if (!form.ktp) return setState({ loading: false, error: 'Foto KTP wajib diunggah.', success: '' });
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.ktp.type)) return setState({ loading: false, error: 'Format foto KTP harus JPG, PNG, atau WEBP.', success: '' });
     if (form.ktp.size > 4 * 1024 * 1024) return setState({ loading: false, error: 'Ukuran foto KTP maksimal 4 MB.', success: '' });
+    if (!form.socialPlatform) return setState({ loading: false, error: 'Pilih media sosial yang digunakan.', success: '' });
+    if (form.socialHandle.trim().length < 2) return setState({ loading: false, error: 'Username atau nama akun media sosial wajib diisi.', success: '' });
+    if (!/^\d+$/.test(form.socialFollowerCount)) return setState({ loading: false, error: 'Jumlah followers wajib diisi dengan angka.', success: '' });
+    if (!form.socialProof) return setState({ loading: false, error: 'Screenshot akun media sosial wajib diunggah.', success: '' });
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.socialProof.type)) return setState({ loading: false, error: 'Format screenshot media sosial harus JPG, PNG, atau WEBP.', success: '' });
+    if (form.socialProof.size > 4 * 1024 * 1024) return setState({ loading: false, error: 'Ukuran screenshot media sosial maksimal 4 MB.', success: '' });
     if (form.password.length < 8) return setState({ loading: false, error: 'Password minimal 8 karakter.', success: '' });
     if (form.password !== form.confirmation) return setState({ loading: false, error: 'Konfirmasi password belum sama.', success: '' });
     if (!form.accepted) return setState({ loading: false, error: 'Setujui syarat program affiliate untuk melanjutkan.', success: '' });
@@ -75,6 +93,10 @@ function RegisterPage() {
       payload.append('fullName', form.fullName);
       payload.append('nik', form.nik);
       payload.append('ktp', form.ktp);
+      payload.append('socialPlatform', form.socialPlatform);
+      payload.append('socialHandle', form.socialHandle);
+      payload.append('socialFollowerCount', form.socialFollowerCount);
+      payload.append('socialProof', form.socialProof);
       payload.append('phone', form.phone);
       payload.append('email', form.email);
       payload.append('password', form.password);
@@ -83,7 +105,7 @@ function RegisterPage() {
         body: payload,
       });
       setState({ loading: false, error: '', success: result.message });
-      setForm((current) => ({ ...current, password: '', confirmation: '', ktp: null }));
+      setForm((current) => ({ ...current, password: '', confirmation: '', ktp: null, socialProof: null }));
     } catch (error) {
       setState({ loading: false, error: friendlyAffiliateError(error), success: '' });
     }
@@ -101,6 +123,19 @@ function RegisterPage() {
         <span className={`affiliate-ktp-upload ${form.ktp ? 'has-file' : ''}`}><b>{form.ktp ? form.ktp.name : 'Pilih foto KTP'}</b><small>JPG, PNG, atau WEBP · maksimal 4 MB</small></span>
       </label>
       <p className="affiliate-identity-note"><b>Pastikan data sesuai.</b> NIK, foto KTP, dan nama lengkap wajib sama agar pendaftaran dapat disetujui.</p>
+      <div className="affiliate-social-registration">
+        <div className="affiliate-social-heading"><span>DATA MEDIA SOSIAL</span><p>Informasi ini ikut diperiksa admin saat proses review pendaftaran.</p></div>
+        <div className="affiliate-field-row">
+          <OrderFilterDropdown label="Media sosial *" value={form.socialPlatform} disabled={!socialPlatforms.length} options={[{ value: '', label: 'Pilih media sosial', meta: socialPlatforms.length ? 'Pilih platform utama akunmu' : 'Belum ada platform aktif' }, ...socialPlatforms.map((platform) => ({ value: platform.name, label: platform.name, meta: 'Platform tersedia untuk pendaftaran' }))]} onChange={(value) => update('socialPlatform', value)}/>
+          <Field label="Username / nama akun" type="text" required maxLength="120" value={form.socialHandle} onChange={(event) => update('socialHandle', event.target.value)} placeholder="Contoh: @namakamu"/>
+        </div>
+        <Field label="Jumlah followers" type="number" inputMode="numeric" required min="0" step="1" value={form.socialFollowerCount} onChange={(event) => update('socialFollowerCount', event.target.value.replace(/\D/g, ''))} placeholder="Masukkan jumlah followers"/>
+        <label className="affiliate-field affiliate-ktp-field">
+          <span>Screenshot akun media sosial<b className="affiliate-required" aria-hidden="true"> *</b></span>
+          <input className="affiliate-ktp-input" type="file" accept="image/jpeg,image/png,image/webp" required onChange={(event) => update('socialProof', event.target.files?.[0] || null)}/>
+          <span className={`affiliate-ktp-upload ${form.socialProof ? 'has-file' : ''}`}><b>{form.socialProof ? form.socialProof.name : 'Pilih screenshot akun'}</b><small>Pastikan username dan jumlah followers terlihat · maksimal 4 MB</small></span>
+        </label>
+      </div>
       <Field label="Nomor WhatsApp" type="tel" autoComplete="tel" required maxLength="24" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="08xxxxxxxxxx"/>
       <Field label="Email" type="email" autoComplete="email" required maxLength="254" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="nama@email.com"/>
       <div className="affiliate-field-row"><PasswordField label="Password" autoComplete="new-password" required minLength="8" maxLength="64" value={form.password} onChange={(e) => update('password', e.target.value)} placeholder="Minimal 8 karakter"/><PasswordField label="Ulangi password" autoComplete="new-password" required minLength="8" maxLength="64" value={form.confirmation} onChange={(e) => update('confirmation', e.target.value)} placeholder="Ketik ulang password"/></div>
@@ -113,7 +148,8 @@ function RegisterPage() {
 
 function ReviewCorrectionPage() {
   const token = new URLSearchParams(window.location.search).get('token') || '';
-  const [form, setForm] = useState({ fullName: '', email: '', phone: '', nik: '', ktp: null, reviewNote: '' });
+  const [form, setForm] = useState({ fullName: '', email: '', phone: '', nik: '', ktp: null, socialPlatform: '', socialHandle: '', socialFollowerCount: '', socialProof: null, hasSocialProof: false, reviewNote: '' });
+  const [socialPlatforms, setSocialPlatforms] = useState([]);
   const [state, setState] = useState({ loading: true, submitting: false, error: token ? '' : 'Tautan perbaikan tidak valid.', success: '' });
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -123,11 +159,13 @@ function ReviewCorrectionPage() {
       setState({ loading: false, submitting: false, error: 'Tautan perbaikan tidak valid.', success: '' });
       return () => { active = false; };
     }
-    affiliateApi(`/review-correction?token=${encodeURIComponent(token)}`)
-      .then((result) => {
+    Promise.all([affiliateApi(`/review-correction?token=${encodeURIComponent(token)}`), affiliateApi('/registration-options')])
+      .then(([result, options]) => {
         if (!active) return;
         const registration = result.registration || {};
-        setForm({ fullName: registration.full_name || '', email: registration.email || '', phone: registration.phone || '', nik: registration.nik || '', ktp: null, reviewNote: registration.review_note || '' });
+        const platforms = options.social_platforms || [];
+        setSocialPlatforms(platforms);
+        setForm({ fullName: registration.full_name || '', email: registration.email || '', phone: registration.phone || '', nik: registration.nik || '', ktp: null, socialPlatform: registration.social_platform || platforms[0]?.name || '', socialHandle: registration.social_handle || '', socialFollowerCount: String(registration.social_follower_count ?? ''), socialProof: null, hasSocialProof: Boolean(registration.has_social_proof), reviewNote: registration.review_note || '' });
         setState({ loading: false, submitting: false, error: '', success: '' });
       })
       .catch((error) => { if (active) setState({ loading: false, submitting: false, error: friendlyAffiliateError(error), success: '' }); });
@@ -140,6 +178,10 @@ function ReviewCorrectionPage() {
     if (!/^\d{16}$/.test(form.nik)) return setState((current) => ({ ...current, error: 'NIK wajib terdiri dari 16 digit angka.' }));
     if (form.ktp && !['image/jpeg', 'image/png', 'image/webp'].includes(form.ktp.type)) return setState((current) => ({ ...current, error: 'Format foto KTP harus JPG, PNG, atau WEBP.' }));
     if (form.ktp && form.ktp.size > 4 * 1024 * 1024) return setState((current) => ({ ...current, error: 'Ukuran foto KTP maksimal 4 MB.' }));
+    if (!form.socialPlatform || form.socialHandle.trim().length < 2 || !/^\d+$/.test(form.socialFollowerCount)) return setState((current) => ({ ...current, error: 'Lengkapi data media sosial dengan benar.' }));
+    if (!form.hasSocialProof && !form.socialProof) return setState((current) => ({ ...current, error: 'Screenshot akun media sosial wajib diunggah.' }));
+    if (form.socialProof && !['image/jpeg', 'image/png', 'image/webp'].includes(form.socialProof.type)) return setState((current) => ({ ...current, error: 'Format screenshot media sosial harus JPG, PNG, atau WEBP.' }));
+    if (form.socialProof && form.socialProof.size > 4 * 1024 * 1024) return setState((current) => ({ ...current, error: 'Ukuran screenshot media sosial maksimal 4 MB.' }));
     setState((current) => ({ ...current, submitting: true, error: '' }));
     try {
       const payload = new FormData();
@@ -148,6 +190,10 @@ function ReviewCorrectionPage() {
       payload.append('phone', form.phone);
       payload.append('nik', form.nik);
       if (form.ktp) payload.append('ktp', form.ktp);
+      payload.append('socialPlatform', form.socialPlatform);
+      payload.append('socialHandle', form.socialHandle);
+      payload.append('socialFollowerCount', form.socialFollowerCount);
+      if (form.socialProof) payload.append('socialProof', form.socialProof);
       const result = await affiliateApi('/review-correction', { method: 'POST', body: payload });
       setState({ loading: false, submitting: false, error: '', success: result.message });
     } catch (error) {
@@ -171,6 +217,12 @@ function ReviewCorrectionPage() {
           <span className={`affiliate-ktp-upload ${form.ktp ? 'has-file' : ''}`}><b>{form.ktp ? form.ktp.name : 'Gunakan KTP lama atau pilih foto baru'}</b><small>JPG, PNG, atau WEBP · maksimal 4 MB</small></span>
         </label>
         <p className="affiliate-identity-note"><b>Pastikan data sesuai.</b> Nama lengkap, NIK, dan identitas pada foto KTP harus sama.</p>
+        <div className="affiliate-social-registration">
+          <div className="affiliate-social-heading"><span>DATA MEDIA SOSIAL</span><p>Perbarui bagian ini apabila disebutkan dalam catatan admin.</p></div>
+          <div className="affiliate-field-row"><OrderFilterDropdown label="Media sosial *" value={form.socialPlatform} disabled={!socialPlatforms.length} options={[{ value: '', label: 'Pilih media sosial', meta: socialPlatforms.length ? 'Pilih platform pengganti' : 'Belum ada platform aktif' }, ...socialPlatforms.map((platform) => ({ value: platform.name, label: platform.name, meta: 'Platform tersedia untuk pendaftaran' }))]} onChange={(value) => update('socialPlatform', value)}/><Field label="Username / nama akun" type="text" required maxLength="120" value={form.socialHandle} onChange={(event) => update('socialHandle', event.target.value)}/></div>
+          <Field label="Jumlah followers" type="number" required min="0" step="1" value={form.socialFollowerCount} onChange={(event) => update('socialFollowerCount', event.target.value.replace(/\D/g, ''))}/>
+          <label className="affiliate-field affiliate-ktp-field"><span>Ganti screenshot media sosial <small>({form.hasSocialProof ? 'opsional' : 'wajib'})</small></span><input className="affiliate-ktp-input" type="file" accept="image/jpeg,image/png,image/webp" required={!form.hasSocialProof} onChange={(event) => update('socialProof', event.target.files?.[0] || null)}/><span className={`affiliate-ktp-upload ${form.socialProof ? 'has-file' : ''}`}><b>{form.socialProof ? form.socialProof.name : form.hasSocialProof ? 'Gunakan screenshot lama atau pilih file baru' : 'Pilih screenshot akun'}</b><small>JPG, PNG, atau WEBP · maksimal 4 MB</small></span></label>
+        </div>
         <Field label="Nomor WhatsApp" type="tel" autoComplete="tel" required maxLength="24" value={form.phone} onChange={(event) => update('phone', event.target.value)}/>
         <button className="affiliate-submit" type="submit" disabled={state.submitting}>{state.submitting ? 'Mengirim perbaikan…' : 'Kirim ulang untuk direview'}<span>→</span></button>
       </form>
@@ -296,9 +348,173 @@ function VerifyEmailPage() {
   </AuthShell>;
 }
 
+
+function AffiliateHeadingTools({
+  category,
+  title,
+  reloadFn,
+}) {
+  const tools = useContext(AffiliateToolsContext);
+  if (!tools) return null;
+
+  const {
+    notificationsData,
+    readMarkers,
+    openHeadingNotif,
+    onToggleNotif,
+    headingRefreshing,
+    onRefresh,
+  } = tools;
+
+  const items = category === 'all'
+    ? (notificationsData.notifications.all || [])
+    : (notificationsData.notifications[category] || []);
+
+  const marker = readMarkers[category];
+  const markerTime = marker ? new Date(marker).getTime() : 0;
+  const unreadCount = items.filter((item) => new Date(item.created_at || 0).getTime() > markerTime).length;
+  const isOpen = openHeadingNotif === category;
+  const isSpinning = headingRefreshing === category;
+
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 1) return 'Baru saja';
+    if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} hari lalu`;
+    return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(date);
+  };
+
+  return (
+    <div className="affiliate-heading-tools">
+      <div className="affiliate-notif-box">
+        <button
+          type="button"
+          className={`affiliate-tool-btn affiliate-notif-btn ${unreadCount > 0 ? 'has-unread' : ''} ${isOpen ? 'is-open' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleNotif(category);
+          }}
+          title={unreadCount > 0 ? `${unreadCount} notifikasi baru (klik untuk tandai dibaca)` : `Notifikasi ${title}`}
+          aria-label={`Notifikasi ${title}`}
+        >
+          <svg viewBox="0 0 24 24" fill={unreadCount > 0 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {unreadCount > 0 && <span className="affiliate-notif-badge">{unreadCount}</span>}
+        </button>
+
+        {isOpen && (
+          <div
+            className="affiliate-notif-dropdown"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label={`Notifikasi ${title}`}
+          >
+            <div className="dropdown-head">
+              <h4 className="dropdown-title">{title}</h4>
+              <span className="dropdown-status-pill">{items.length} Notifikasi</span>
+            </div>
+
+            <div className="dropdown-body">
+              {items.length === 0 ? (
+                <div className="notif-empty-state">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="28" height="28" style={{ margin: '0 auto 8px', display: 'block', opacity: 0.6 }}>
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <p style={{ margin: 0 }}>Belum ada notifikasi pada kategori ini.</p>
+                </div>
+              ) : (
+                items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="notif-item"
+                    onClick={() => {
+                      onToggleNotif(null);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={`notif-item-avatar ${item.type}`}>
+                      {item.type === 'order' ? '🛒' : item.type === 'withdrawal' ? '💸' : '⭐'}
+                    </div>
+                    <div className="notif-item-content">
+                      <div className="notif-item-top">
+                        <span className="notif-item-name">{item.title}</span>
+                        {item.status_label && (
+                          <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
+                            {item.status_label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="notif-item-desc">{item.snippet}</p>
+                      <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="dropdown-foot">
+              <span style={{ fontSize: '11px', color: '#687771', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Sudah ditandai dibaca
+              </span>
+              <button
+                type="button"
+                className="dropdown-close-btn"
+                onClick={() => onToggleNotif(null)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '4px 10px',
+                  backgroundColor: '#173f36',
+                  border: '1px solid #173f36',
+                  borderRadius: '6px',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                }}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className={`affiliate-tool-btn affiliate-refresh-btn ${isSpinning ? 'is-spinning' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRefresh(category, reloadFn);
+        }}
+        title="Muat ulang data & notifikasi"
+        aria-label="Muat ulang"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+          <path d="M20 11a8.1 8.1 0 0 0-14.8-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8.1 8.1 0 0 0 14.8 4L21 14"/><path d="M21 20v-6h-6"/>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 const dashboardMenus = [
   { path: '/dashboard', label: 'Ringkasan', icon: '01' },
-  { path: '/products', label: 'Produk & Komisi', icon: '02' },
+  { path: '/products', label: 'Produk', icon: '02' },
   { path: '/links', label: 'Link Referral', icon: '03' },
   { path: '/orders', label: 'Pesanan', icon: '04' },
   { path: '/earnings', label: 'Penghasilan', icon: '05' },
@@ -322,23 +538,185 @@ async function copyText(value) {
   area.remove();
 }
 
-function DashboardOverview({ affiliate, catalog, orderData }) {
+const emptyDashboardFilters = { year: '', from: '', to: '' };
+
+function storedDashboardFilters(affiliateId) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`daymoment-affiliate-dashboard:${affiliateId}`) || 'null');
+    if (!saved || typeof saved !== 'object') return { ...emptyDashboardFilters };
+    return Object.fromEntries(Object.keys(emptyDashboardFilters).map((key) => [key, typeof saved[key] === 'string' ? saved[key] : '']));
+  } catch {
+    return { ...emptyDashboardFilters };
+  }
+}
+
+function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) {
   const templates = catalog?.templates || [];
   const products = templates.flatMap((template) => template.products || []);
-  const visible = products.filter((product) => product.is_visible).length;
-  const summary = orderData?.summary || {};
+  const visibleProducts = templates.flatMap((template) => (template.products || []).filter((product) => product.is_visible).map((product) => ({ ...product, template_name: template.name })));
+  const visibleTemplates = templates.filter((item) => item.visible_products > 0);
+  const orders = orderData?.orders || [];
+  const [filters, setFilters] = useState(() => storedDashboardFilters(affiliate.id));
+  const [detail, setDetail] = useState('');
+  const [chartSelection, setChartSelection] = useState(null);
+  useEffect(() => {
+    try { localStorage.setItem(`daymoment-affiliate-dashboard:${affiliate.id}`, JSON.stringify(filters)); } catch {}
+  }, [affiliate.id, filters]);
+  useEffect(() => {
+    setChartSelection(null);
+  }, [filters.year, filters.from, filters.to]);
+  const availableYears = useMemo(() => [...new Set(orders.map((order) => orderDateKey(order.created_at).slice(0, 4)).filter(Boolean))].sort((left, right) => right.localeCompare(left)), [orders]);
+  const filteredOrders = useMemo(() => orders.filter((order) => {
+    const date = orderDateKey(order.created_at);
+    if (!date) return false;
+    if (filters.year) return date.startsWith(`${filters.year}-`);
+    if (filters.from && date < filters.from) return false;
+    if (filters.to && date > filters.to) return false;
+    return true;
+  }), [orders, filters]);
+  const paidOrders = filteredOrders.filter((order) => order.payment_status === 'paid');
+  const pendingOrders = filteredOrders.filter((order) => order.payment_status !== 'paid');
+  const commissionEarned = paidOrders.reduce((total, order) => total + Number(order.affiliate_commission_amount || 0), 0);
+  const commissionPending = pendingOrders.reduce((total, order) => total + Number(order.affiliate_commission_amount || 0), 0);
+  const hasFilters = Boolean(filters.year || filters.from || filters.to);
+  const periodLabel = filters.year
+    ? `Januari–Desember ${filters.year}`
+    : filters.from || filters.to
+      ? `${filters.from || 'Awal'} sampai ${filters.to || 'Sekarang'}`
+      : 'Semua waktu';
+  const yearOptions = [{ value: '', label: 'Semua tahun', meta: 'Gunakan rentang tanggal atau semua data' }, ...availableYears.map((year) => ({ value: year, label: year, meta: 'Januari sampai Desember' }))];
+  const updateFilter = (key, value) => {
+    const next = { ...filters, [key]: value };
+    if (key === 'from' && value && next.to && value > next.to) next.to = '';
+    if (key === 'to' && value && next.from && value < next.from) next.from = '';
+    setFilters(next);
+  };
+  const chartData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    let buckets = [];
+    if (filters.year) {
+      buckets = monthNames.map((label, index) => ({ key: `${filters.year}-${String(index + 1).padStart(2, '0')}`, label }));
+    } else {
+      const rangeStart = filters.from ? new Date(`${filters.from}T00:00:00+07:00`) : null;
+      const rangeEnd = filters.to ? new Date(`${filters.to}T00:00:00+07:00`) : null;
+      const rangeDays = rangeStart && rangeEnd ? Math.round((rangeEnd - rangeStart) / 86400000) : null;
+      if (rangeStart && rangeEnd && rangeDays >= 0 && rangeDays <= 31) {
+        const cursor = new Date(rangeStart);
+        while (cursor <= rangeEnd) {
+          const key = orderDateKey(cursor);
+          buckets.push({ key, label: new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' }).format(cursor), daily: true });
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      } else {
+        const keys = [...new Set(filteredOrders.map((order) => orderDateKey(order.created_at).slice(0, 7)).filter(Boolean))].sort();
+        buckets = keys.map((key) => {
+          const [year, month] = key.split('-');
+          return { key, label: `${monthNames[Number(month) - 1]} ${String(year).slice(-2)}` };
+        });
+      }
+    }
+    return buckets.map((bucket) => {
+      const items = filteredOrders.filter((order) => {
+        const date = orderDateKey(order.created_at);
+        return bucket.daily ? date === bucket.key : date.startsWith(bucket.key);
+      });
+      const paid = items.filter((order) => order.payment_status === 'paid');
+      return {
+        ...bucket,
+        items,
+        paidItems: paid,
+        orders: items.length,
+        paid: paid.length,
+        commission: paid.reduce((total, order) => total + Number(order.affiliate_commission_amount || 0), 0),
+      };
+    });
+  }, [filteredOrders, filters.year, filters.from, filters.to]);
+  const maxChartOrders = Math.max(1, ...chartData.map((item) => item.orders));
+  const maxChartCommission = Math.max(1, ...chartData.map((item) => item.commission));
+  const selectedChartBucket = chartSelection ? chartData.find((item) => item.key === chartSelection.key) : null;
+  const selectedChartRows = selectedChartBucket
+    ? chartSelection.type === 'commission' ? selectedChartBucket.paidItems : selectedChartBucket.items
+    : [];
+  const toggleDetail = (nextDetail) => setDetail((current) => current === nextDetail ? '' : nextDetail);
   return <>
     <section className="affiliate-dashboard-hero">
-      <div><span>SELAMAT DATANG</span><h1>Halo, {affiliate.full_name?.split(' ')[0] || 'Partner'}.</h1><p>Kelola produk yang ingin kamu promosikan dan tentukan komisi untuk setiap paket.</p></div>
+      <div>
+        <span>SELAMAT DATANG</span>
+        <div className="affiliate-heading-title-line">
+          <h1>Halo, {affiliate.full_name?.split(' ')[0] || 'Partner'}.</h1>
+          <AffiliateHeadingTools category="all" title="Aktivitas Referral Terbaru" reloadFn={onReloadOverview}/>
+        </div>
+        <p>Pilih produk yang ingin ditampilkan melalui etalase dan link referralmu.</p>
+      </div>
       <DashboardLink to="/products">Atur produk <b>→</b></DashboardLink>
     </section>
-    <section className="affiliate-stat-grid">
-      <article><span>Produk ditampilkan</span><strong>{visible}</strong><small>dari {products.length} produk aktif</small></article>
-      <article><span>Template referral</span><strong>{templates.filter((item) => item.visible_products > 0).length}</strong><small>link siap dibagikan</small></article>
-      <article><span>Pesanan referral</span><strong>{summary.total_orders || 0}</strong><small>{summary.paid_orders || 0} pesanan sudah dibayar</small></article>
-      <article><span>Komisi order lunas</span><strong className="money">{rupiah(summary.commission_earned || 0)}</strong><small>{rupiah(summary.commission_pending || 0)} masih menunggu pembayaran</small></article>
+    <section className="affiliate-dashboard-filter-panel">
+      <div><span>FILTER RINGKASAN</span><h2>Performa referral</h2><p>Pilih tahun untuk grafik Januari–Desember, atau kosongkan tahun agar memakai rentang tanggal.</p></div>
+      <div className="affiliate-dashboard-filter-fields">
+        <OrderFilterDropdown label="Tahun" value={filters.year} options={yearOptions} onChange={(value) => updateFilter('year', value)}/>
+        <label><span>Dari tanggal</span><input type="date" disabled={Boolean(filters.year)} value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter('from', event.target.value)}/></label>
+        <label><span>Sampai tanggal</span><input type="date" disabled={Boolean(filters.year)} value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter('to', event.target.value)}/></label>
+        <button type="button" disabled={!hasFilters} onClick={() => setFilters({ ...emptyDashboardFilters })}>Reset filter</button>
+      </div>
+      <small>{periodLabel} · filter berjalan dari data yang sudah dimuat</small>
     </section>
-    <section className="affiliate-quick-panel"><div><span>LANGKAH PERTAMA</span><h2>Siapkan etalase referralmu</h2><p>Pilih paket yang ingin ditampilkan, atur komisinya, lalu salin link referral per template.</p></div><div className="affiliate-quick-actions"><DashboardLink to="/products"><i>1</i><span><b>Atur produk & komisi</b><small>Tentukan paket yang kamu tawarkan</small></span></DashboardLink><DashboardLink to="/links"><i>2</i><span><b>Salin link referral</b><small>Bagikan template pilihanmu</small></span></DashboardLink></div></section>
+    <section className="affiliate-stat-grid">
+      <button type="button" className={detail === 'products' ? 'is-active' : ''} onClick={() => toggleDetail('products')}><span>Produk ditampilkan</span><strong>{visibleProducts.length}</strong><small>dari {products.length} produk aktif</small><i>Lihat isi →</i></button>
+      <button type="button" className={detail === 'templates' ? 'is-active' : ''} onClick={() => toggleDetail('templates')}><span>Template referral</span><strong>{visibleTemplates.length}</strong><small>link siap dibagikan</small><i>Lihat isi →</i></button>
+      <button type="button" className={detail === 'orders' ? 'is-active' : ''} onClick={() => toggleDetail('orders')}><span>Pesanan referral</span><strong>{filteredOrders.length}</strong><small>{paidOrders.length} pesanan sudah dibayar</small><i>Lihat isi →</i></button>
+      <button type="button" className={detail === 'commission' ? 'is-active' : ''} onClick={() => toggleDetail('commission')}><span>Komisi order lunas</span><strong className="money">{rupiah(commissionEarned)}</strong><small>{rupiah(commissionPending)} masih menunggu pembayaran</small><i>Lihat isi →</i></button>
+    </section>
+    {detail && <section className="affiliate-dashboard-detail-panel">
+      <header><div><span>RINCIAN RINGKASAN</span><h2>{detail === 'products' ? 'Produk ditampilkan' : detail === 'templates' ? 'Template referral' : detail === 'orders' ? 'Pesanan referral' : 'Komisi order lunas'}</h2><p>{['orders', 'commission'].includes(detail) ? periodLabel : 'Kondisi etalase saat ini'}</p></div><button type="button" onClick={() => setDetail('')} aria-label="Tutup rincian">×</button></header>
+      <div className="affiliate-dashboard-detail-list">
+        {detail === 'products' && (visibleProducts.length ? visibleProducts.map((product) => <article key={product.id}><div><b>{product.template_name}</b><span>{product.name}</span></div><strong>{rupiah(product.price)}</strong><small>{Number(product.commission_percent || 0).toLocaleString('id-ID')}% · estimasi {rupiah(product.commission_amount || 0)}</small></article>) : <p>Belum ada produk yang ditampilkan.</p>)}
+        {detail === 'templates' && (visibleTemplates.length ? visibleTemplates.map((template) => <article key={template.id}><div><b>{template.name}</b><span>{template.category}</span></div><strong>{template.visible_products} produk</strong><small>Link referral siap dibagikan</small></article>) : <p>Belum ada template referral aktif.</p>)}
+        {detail === 'orders' && (filteredOrders.length ? filteredOrders.map((order) => <article key={order.id}><div><b>{order.order_code}</b><span>{order.customer_name}</span></div><strong>{orderStatus(order.payment_status)}</strong><small>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small></article>) : <p>Tidak ada pesanan pada periode ini.</p>)}
+        {detail === 'commission' && (paidOrders.length ? paidOrders.map((order) => <article key={order.id}><div><b>{order.order_code}</b><span>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'}</span></div><strong>{rupiah(order.affiliate_commission_amount)}</strong><small>{Number(order.affiliate_commission_percent || 0).toLocaleString('id-ID')}% · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small></article>) : <p>Belum ada komisi lunas pada periode ini.</p>)}
+      </div>
+    </section>}
+    <section className="affiliate-dashboard-chart-card">
+      <header><div><span>GRAFIK PESANAN</span><h2>Pergerakan referral</h2><p>{periodLabel}</p></div><div><span><i/>Total pesanan</span><span><i/>Komisi lunas</span></div></header>
+      {chartData.length ? <div className={`affiliate-dashboard-chart ${filters.year ? 'is-yearly' : ''}`}>
+        {chartData.map((item) => <div className="affiliate-dashboard-chart-column" key={item.key}>
+          <div className="affiliate-dashboard-chart-bars">
+            <button
+              type="button"
+              className={`affiliate-dashboard-chart-bar is-orders ${chartSelection?.key === item.key && chartSelection?.type === 'orders' ? 'is-selected' : ''}`}
+              style={{ height: `${Math.max(item.orders ? item.orders / maxChartOrders * 100 : 3, 3)}%` }}
+              disabled={!item.orders}
+              onClick={() => setChartSelection((current) => current?.key === item.key && current?.type === 'orders' ? null : { key: item.key, type: 'orders' })}
+              aria-label={`Lihat ${item.orders} pesanan pada ${item.label}`}
+              title={`${item.orders} pesanan`}
+            />
+            <button
+              type="button"
+              className={`affiliate-dashboard-chart-bar is-commission ${chartSelection?.key === item.key && chartSelection?.type === 'commission' ? 'is-selected' : ''}`}
+              style={{ height: `${Math.max(item.commission ? item.commission / maxChartCommission * 100 : 3, 3)}%` }}
+              disabled={!item.commission}
+              onClick={() => setChartSelection((current) => current?.key === item.key && current?.type === 'commission' ? null : { key: item.key, type: 'commission' })}
+              aria-label={`Lihat komisi lunas ${rupiah(item.commission)} pada ${item.label}`}
+              title={`${rupiah(item.commission)} komisi lunas`}
+            />
+          </div>
+          <small>{item.label}</small>
+        </div>)}
+      </div> : <div className="affiliate-dashboard-chart-empty">Belum ada pesanan pada periode yang dipilih.</div>}
+      {selectedChartBucket && <div className="affiliate-dashboard-chart-detail">
+        <header>
+          <div><span>RINCIAN GRAFIK</span><h3>{chartSelection.type === 'commission' ? 'Komisi lunas' : 'Pesanan'} · {selectedChartBucket.label}</h3><p>{chartSelection.type === 'commission' ? `${selectedChartBucket.paid} order lunas · ${rupiah(selectedChartBucket.commission)}` : `${selectedChartBucket.orders} pesanan pada periode ini`}</p></div>
+          <button type="button" onClick={() => setChartSelection(null)} aria-label="Tutup rincian grafik">×</button>
+        </header>
+        <div>
+          {selectedChartRows.map((order) => <article key={order.id}>
+            <div><b>{order.order_code}</b><span>{order.customer_name}</span></div>
+            <strong>{chartSelection.type === 'commission' ? rupiah(order.affiliate_commission_amount) : orderStatus(order.payment_status)}</strong>
+            <small>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small>
+          </article>)}
+        </div>
+      </div>}
+    </section>
+    <section className="affiliate-quick-panel"><div><span>LANGKAH PERTAMA</span><h2>Siapkan etalase referralmu</h2><p>Pilih paket yang ingin ditampilkan, lalu salin link referral per template.</p></div><div className="affiliate-quick-actions"><DashboardLink to="/products"><i>1</i><span><b>Atur produk</b><small>Pilih paket yang ingin kamu tawarkan</small></span></DashboardLink><DashboardLink to="/links"><i>2</i><span><b>Salin link referral</b><small>Bagikan template pilihanmu</small></span></DashboardLink></div></section>
   </>;
 }
 
@@ -376,21 +754,14 @@ function ProductSettings({ catalog, setCatalog, onboarding = false }) {
   };
 
   const persistProduct = async (template, product, nextProduct = product, action = 'disimpan') => {
-    const previous = {
-      commission_percent: product.commission_percent,
-      is_visible: product.is_visible,
-    };
+    const previous = { is_visible: product.is_visible };
     setSaving(String(product.id));
     setNotice('');
-    updateLocal(template.id, product.id, {
-      commission_percent: nextProduct.commission_percent,
-      is_visible: nextProduct.is_visible,
-    });
+    updateLocal(template.id, product.id, { is_visible: nextProduct.is_visible });
     try {
       const result = await affiliateApi(`/products/${product.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          commissionPercent: Number(nextProduct.commission_percent),
           isVisible: nextProduct.is_visible === true,
         }),
       });
@@ -404,31 +775,23 @@ function ProductSettings({ catalog, setCatalog, onboarding = false }) {
     }
   };
 
-  const save = (template, product) => persistProduct(template, product);
-
   const toggleProduct = (template, product, checked) => {
-    const nextProduct = {
-      ...product,
-      is_visible: checked,
-      commission_percent: checked && Number(product.commission_percent) < 1 ? 1 : product.commission_percent,
-    };
+    const nextProduct = { ...product, is_visible: checked };
     persistProduct(template, product, nextProduct, checked ? 'ditampilkan' : 'disembunyikan');
   };
 
   return <section className="affiliate-products-page">
-    <div className="affiliate-page-heading"><div><span>{onboarding ? 'LANGKAH WAJIB PERTAMA' : 'ETALASE AFFILIATE'}</span><h1>{onboarding ? 'Pilih Produk Affiliate' : 'Produk & Komisi'}</h1><p>{onboarding ? 'Pilih minimal satu produk, tentukan komisinya, lalu simpan untuk membuka dashboard affiliate.' : 'Atur persentase komisi dan pilih paket yang ingin tampil melalui link referralmu.'}</p></div><div className="affiliate-limit-note"><b>Komisi 1%–50%</b><span>Produk yang ditampilkan wajib memiliki komisi minimal 1%.</span></div></div>
-    {onboarding && <div className="affiliate-onboarding-banner"><span>1</span><div><b>Akunmu sudah aktif, etalasenya belum.</b><p>Semua produk dimulai dari kondisi nonaktif dan komisi 0%. Aktifkan produk yang memang ingin kamu promosikan.</p></div></div>}
+    <div className="affiliate-page-heading"><div><span>{onboarding ? 'LANGKAH WAJIB PERTAMA' : 'ETALASE AFFILIATE'}</span><h1>{onboarding ? 'Pilih Produk Affiliate' : 'Produk'}</h1><p>{onboarding ? 'Pilih minimal satu produk untuk membuka dashboard affiliate.' : 'Pilih paket yang ingin tampil melalui link referralmu. Persentase komisi ditentukan oleh admin Daymoment.'}</p></div><div className="affiliate-limit-note"><b>Kontrol etalase</b><span>Perubahan tampil atau sembunyi hanya berlaku pada etalase referralmu.</span></div></div>
+    {onboarding && <div className="affiliate-onboarding-banner"><span>1</span><div><b>Akunmu sudah aktif, etalasenya belum.</b><p>Aktifkan produk yang memang ingin kamu promosikan. Besaran komisi dikelola langsung oleh admin.</p></div></div>}
     {notice && <div className="affiliate-dashboard-notice">{notice}</div>}
     <article className="affiliate-template-group affiliate-product-catalog">
       <div className="affiliate-product-table">
-        <div className="affiliate-product-row affiliate-product-labels"><span>Template & produk</span><span>Harga</span><span>Komisi</span><span>Estimasi</span><span>Tampilkan</span><span/></div>
+        <div className="affiliate-product-row affiliate-product-labels"><span>Template & produk</span><span>Harga</span><span>Komisi</span><span>Tampilkan di etalase</span></div>
         {pageItems.map(({ template, product }) => <div className={`affiliate-product-row ${product.is_visible ? '' : 'is-hidden'}`} key={product.id}>
           <div className="affiliate-product-identity"><i className={`affiliate-product-mini-glyph glyph-${template.code}`}>{template.name.slice(0, 1)}</i><span><small>{template.name}</small><b>{product.name}</b><em>{product.tagline}</em></span></div>
           <strong>{rupiah(product.price)}</strong>
-          <label className="affiliate-percent-field"><input type="number" min={product.is_visible ? 1 : 0} max={Math.min(50, product.max_commission_percent)} step="0.5" value={product.commission_percent} onChange={(event) => updateLocal(template.id, product.id, { commission_percent: event.target.value })}/><span>%</span><small>Maks. {Math.min(50, product.max_commission_percent)}%</small></label>
-          <strong className="affiliate-estimate">{rupiah(product.price * Number(product.commission_percent || 0) / 100)}</strong>
+          <div className="affiliate-product-commission"><strong>{Number(product.commission_percent || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%</strong><small>Estimasi {rupiah(product.commission_amount || 0)}</small></div>
           <label className={`affiliate-switch ${saving === String(product.id) ? 'is-saving' : ''}`}><input type="checkbox" checked={product.is_visible} disabled={saving === String(product.id)} onChange={(event) => toggleProduct(template, product, event.target.checked)}/><span/><small>{saving === String(product.id) ? 'Menyimpan…' : product.is_visible ? 'Tampil' : 'Hidden'}</small></label>
-          <button type="button" onClick={() => save(template, product)} disabled={saving === String(product.id)}>{saving === String(product.id) ? 'Menyimpan…' : 'Simpan'}</button>
         </div>)}
       </div>
     </article>
@@ -461,6 +824,7 @@ const orderStatus = (status) => ({
 }[status] || status || 'Menunggu');
 
 const emptyOrderFilters = { search: '', product: '', status: '', from: '', to: '' };
+const emptyWithdrawalFilters = { status: '', from: '', to: '' };
 const ORDER_PAGE_SIZE = 10;
 
 function storedOrderView(affiliateId) {
@@ -484,6 +848,20 @@ function storedEarningView(affiliateId) {
     if (!saved || typeof saved !== 'object') return fallback;
     return {
       filters: Object.fromEntries(Object.keys(emptyOrderFilters).map((key) => [key, typeof saved.filters?.[key] === 'string' ? saved.filters[key] : ''])),
+      page: Math.max(1, Number.parseInt(saved.page, 10) || 1),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function storedWithdrawalView(affiliateId) {
+  const fallback = { filters: { ...emptyWithdrawalFilters }, page: 1 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(`daymoment-affiliate-withdrawals:${affiliateId}`) || 'null');
+    if (!saved || typeof saved !== 'object') return fallback;
+    return {
+      filters: Object.fromEntries(Object.keys(emptyWithdrawalFilters).map((key) => [key, typeof saved.filters?.[key] === 'string' ? saved.filters[key] : ''])),
       page: Math.max(1, Number.parseInt(saved.page, 10) || 1),
     };
   } catch {
@@ -547,7 +925,7 @@ function OrderFilterDropdown({ label, value, options, onChange, disabled = false
   </div>;
 }
 
-function OrdersPage({ data, affiliateId }) {
+function OrdersPage({ data, affiliateId, onReloadOrders }) {
   const [view, setView] = useState(() => storedOrderView(affiliateId));
   const { filters } = view;
   useEffect(() => {
@@ -589,7 +967,17 @@ function OrdersPage({ data, affiliateId }) {
     { value: 'cancelled', label: 'Dibatalkan' },
   ];
   return <section className="affiliate-orders-page">
-    <div className="affiliate-page-heading"><div><span>TRANSAKSI REFERRAL</span><h1>Pesanan</h1><p>Pesanan yang masuk melalui link referralmu akan tercatat otomatis beserta snapshot komisinya.</p></div><div className="affiliate-ref-code"><small>TOTAL KOMISI DIBAYAR</small><strong>{rupiah(summary.commission_earned || 0)}</strong></div></div>
+    <div className="affiliate-page-heading">
+      <div>
+        <span>TRANSAKSI REFERRAL</span>
+        <div className="affiliate-heading-title-line">
+          <h1>Pesanan</h1>
+          <AffiliateHeadingTools category="orders" title="Pesanan Referral Terbaru" reloadFn={onReloadOrders}/>
+        </div>
+        <p>Pesanan yang masuk melalui link referralmu akan tercatat otomatis beserta snapshot komisinya.</p>
+      </div>
+      <div className="affiliate-ref-code"><small>TOTAL KOMISI DIBAYAR</small><strong>{rupiah(summary.commission_earned || 0)}</strong></div>
+    </div>
     <div className="affiliate-order-stats"><article><span>Total pesanan</span><b>{summary.total_orders || 0}</b></article><article><span>Sudah dibayar</span><b>{summary.paid_orders || 0}</b></article><article><span>Menunggu</span><b>{summary.pending_orders || 0}</b></article><article><span>Komisi tertunda</span><b>{rupiah(summary.commission_pending || 0)}</b></article></div>
     <div className="affiliate-order-filters">
       <div className="affiliate-order-filter-grid">
@@ -669,7 +1057,17 @@ function EarningsPage({ data, error, reload, affiliateId }) {
     ? <div className="affiliate-dashboard-error"><strong>Penghasilan belum dapat dimuat</strong><p>{error}</p><button type="button" onClick={reload}>Coba lagi</button></div>
     : <FinanceLoading/>;
   return <section className="affiliate-earnings-page">
-    <div className="affiliate-page-heading"><div><span>RINGKASAN KOMISI</span><h1>Penghasilan</h1><p>Komisi dicatat ketika order dibuat dan menjadi saldo tersedia setelah pembayaran pelanggan berhasil.</p></div><div className="affiliate-heading-balances"><div className="affiliate-ref-code"><small>SALDO TERSEDIA</small><strong>{rupiah(data.summary.available)}</strong><span>Siap diajukan untuk penarikan</span></div><div className={`affiliate-ref-code affiliate-reserved-balance ${activeWithdrawals ? 'is-active' : ''}`}><small><i/>DALAM PENARIKAN</small><strong>{rupiah(data.summary.reserved)}</strong><span>{activeWithdrawals ? `${activeWithdrawals} penarikan sedang diproses` : 'Tidak ada penarikan aktif'}</span></div></div></div>
+    <div className="affiliate-page-heading">
+      <div>
+        <span>RINGKASAN KOMISI</span>
+        <div className="affiliate-heading-title-line">
+          <h1>Penghasilan</h1>
+          <AffiliateHeadingTools category="orders" title="Komisi Referral Terbaru" reloadFn={reload}/>
+        </div>
+        <p>Komisi dicatat ketika order dibuat dan menjadi saldo tersedia setelah pembayaran pelanggan berhasil.</p>
+      </div>
+      <div className="affiliate-heading-balances"><div className="affiliate-ref-code"><small>SALDO TERSEDIA</small><strong>{rupiah(data.summary.available)}</strong><span>Siap diajukan untuk penarikan</span></div><div className={`affiliate-ref-code affiliate-reserved-balance ${activeWithdrawals ? 'is-active' : ''}`}><small><i/>DALAM PENARIKAN</small><strong>{rupiah(data.summary.reserved)}</strong><span>{activeWithdrawals ? `${activeWithdrawals} penarikan sedang diproses` : 'Tidak ada penarikan aktif'}</span></div></div>
+    </div>
     <div className="affiliate-finance-summary"><article className="primary"><small>Total komisi dibayar</small><strong>{rupiah(filteredPaidCommission)}</strong><span>{hasActiveFilters ? 'Total komisi dibayar dari hasil filter' : 'Dari seluruh order berstatus dibayar'}</span></article><article><small>Menunggu pembayaran</small><strong>{rupiah(filteredPendingCommission)}</strong><span>{hasActiveFilters ? 'Komisi tertunda dari hasil filter' : 'Belum masuk saldo tersedia'}</span></article></div>
     <div className="affiliate-finance-section-heading"><div><span>RIWAYAT</span><h2>Pergerakan komisi</h2></div><small>{filteredEarnings.length} dari {earnings.length} transaksi referral</small></div>
     <div className="affiliate-order-filters affiliate-earning-filters">
@@ -1193,12 +1591,47 @@ function ProUpgradeGate({ pro, reload, onOpenHistory, onPreviewProof }) {
   </article>;
 }
 
-function WithdrawalsPage({ data, error, reload }) {
+function WithdrawalsPage({ data, error, reload, affiliateId }) {
   const [form, setForm] = useState({ amount: '', payoutMethod: 'bank', provider: '', accountName: '', accountNumber: '' });
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState({ type: '', message: '' });
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [previewProof, setPreviewProof] = useState(null);
+  const [view, setView] = useState(() => storedWithdrawalView(affiliateId));
+  const { filters } = view;
+  useEffect(() => {
+    try { localStorage.setItem(`daymoment-affiliate-withdrawals:${affiliateId}`, JSON.stringify(view)); } catch {}
+  }, [affiliateId, view]);
+  const filteredWithdrawals = useMemo(() => (data?.withdrawals || []).filter((withdrawal) => {
+    if (filters.status && withdrawal.status !== filters.status) return false;
+    const date = orderDateKey(withdrawal.requested_at);
+    if (filters.from && date < filters.from) return false;
+    if (filters.to && date > filters.to) return false;
+    return true;
+  }), [data?.withdrawals, filters]);
+  const pageCount = Math.max(1, Math.ceil(filteredWithdrawals.length / ORDER_PAGE_SIZE));
+  const page = Math.min(view.page, pageCount);
+  const rows = filteredWithdrawals.slice((page - 1) * ORDER_PAGE_SIZE, page * ORDER_PAGE_SIZE);
+  const pageNumbers = visiblePages(page, pageCount);
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const filteredProcessed = filteredWithdrawals.filter((withdrawal) => ['pending', 'processing'].includes(withdrawal.status))
+    .reduce((total, withdrawal) => total + Number(withdrawal.amount || 0), 0);
+  const filteredPaid = filteredWithdrawals.filter((withdrawal) => withdrawal.status === 'paid')
+    .reduce((total, withdrawal) => total + Number(withdrawal.amount || 0), 0);
+  const statusOptions = [
+    { value: '', label: 'Semua status' },
+    { value: 'pending', label: 'Menunggu', meta: 'Belum diproses admin' },
+    { value: 'processing', label: 'Diproses', meta: 'Transfer sedang diproses' },
+    { value: 'paid', label: 'Selesai', meta: 'Komisi sudah dicairkan' },
+    { value: 'rejected', label: 'Ditolak' },
+    { value: 'cancelled', label: 'Dibatalkan' },
+  ];
+  const updateFilter = (key, value) => {
+    const nextFilters = { ...filters, [key]: value };
+    if (key === 'from' && value && nextFilters.to && value > nextFilters.to) nextFilters.to = '';
+    if (key === 'to' && value && nextFilters.from && value < nextFilters.from) nextFilters.from = '';
+    setView({ filters: nextFilters, page: 1 });
+  };
+  const resetFilters = () => setView({ filters: { ...emptyWithdrawalFilters }, page: 1 });
+  const changePage = (nextPage) => setView((current) => ({ ...current, page: Math.min(pageCount, Math.max(1, nextPage)) }));
   const submit = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -1217,83 +1650,73 @@ function WithdrawalsPage({ data, error, reload }) {
   if (!data) return error
     ? <div className="affiliate-dashboard-error"><strong>Penarikan belum dapat dimuat</strong><p>{error}</p><button type="button" onClick={reload}>Coba lagi</button></div>
     : <FinanceLoading/>;
-  const isPro = data.pro?.active === true;
-  const canWithdraw = isPro && data.summary.available >= data.minimum_withdrawal;
-  const proRequests = data.pro?.requests || (data.pro?.request ? [data.pro.request] : []);
+  const canWithdraw = data.summary.available >= data.minimum_withdrawal;
+  const settings = data.withdrawal_settings || {};
+  const requestedAmount = Math.max(0, Number(form.amount || 0));
+  const estimatedFee = Math.round(requestedAmount * Number(settings.fee_percent || 0) / 100);
+  const estimatedNet = Math.max(0, requestedAmount - estimatedFee);
   return <section className="affiliate-withdrawals-page">
     <div className="affiliate-page-heading">
       <div>
         <span>PAYOUT AFFILIATE</span>
-        <h1>Penarikan</h1>
-        <p>Ajukan pencairan komisi ke rekening bank atau e-wallet. Akun Pro diperlukan sebelum penarikan pertama.</p>
+        <div className="affiliate-heading-title-line">
+          <h1>Penarikan</h1>
+          <AffiliateHeadingTools category="withdrawals" title="Permintaan Penarikan Terbaru" reloadFn={reload}/>
+        </div>
+        <p>Ajukan pencairan komisi ke rekening bank atau e-wallet. Setiap permintaan diproses dan ditransfer secara manual oleh admin Daymoment.</p>
       </div>
       <div className="affiliate-heading-balances">
         <div className="affiliate-ref-code">
           <small>SALDO TERSEDIA</small>
           <strong>{rupiah(data.summary.available)}</strong>
         </div>
-        <div className={`affiliate-ref-code affiliate-pro-status ${isPro ? 'is-pro' : ''}`}>
-          <small>STATUS AKUN</small>
-          <strong>{isPro ? 'PRO' : 'BASIC'}</strong>
+        <div className="affiliate-ref-code affiliate-fee-status">
+          <small>FEE PENARIKAN</small>
+          <strong>{Number(settings.fee_percent || 0).toLocaleString('id-ID')}%</strong>
         </div>
-        {proRequests.length > 0 && (
-          <button
-            type="button"
-            className="affiliate-heading-history-btn"
-            onClick={() => setShowHistoryModal(true)}
-            title="Lihat riwayat pengajuan akun Pro & catatan admin"
-          >
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <span>Riwayat Pengajuan</span>
-            <b className="affiliate-history-badge-count">{proRequests.length}</b>
-          </button>
-        )}
       </div>
     </div>
     <div className="affiliate-withdrawal-grid">
-      {isPro ? <article className="affiliate-withdrawal-form-card">
-        <div><span>AJUKAN PENARIKAN</span><h2>Informasi tujuan payout</h2><p>Minimal penarikan {rupiah(data.minimum_withdrawal)}. Tidak ada saldo yang dipotong sebelum permintaan berhasil tersimpan.</p></div>
+      <article className="affiliate-withdrawal-form-card">
+        <div><span>AJUKAN PENARIKAN</span><h2>Informasi tujuan payout</h2><p>Minimal penarikan {rupiah(data.minimum_withdrawal)}. Fee {Number(settings.fee_percent || 0).toLocaleString('id-ID')}% dihitung saat permintaan disimpan dan tidak akan berubah untuk transaksi tersebut.</p></div>
         {notice.message && <div className={`affiliate-form-alert ${notice.type}`}>{notice.message}</div>}
         <form onSubmit={submit}>
           <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="number" min={data.minimum_withdrawal} max={data.summary.available} step="1000" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder="50000" required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
           <div className="affiliate-withdrawal-fields"><label><span>Metode</span><select value={form.payoutMethod} onChange={(event) => setForm({ ...form, payoutMethod: event.target.value })}><option value="bank">Transfer bank</option><option value="e_wallet">E-wallet</option></select></label><label><span>Bank / E-wallet</span><input value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value })} placeholder={form.payoutMethod === 'bank' ? 'Contoh: BCA' : 'Contoh: DANA'} maxLength="50" required/></label></div>
           <label><span>Nama pemilik</span><input value={form.accountName} onChange={(event) => setForm({ ...form, accountName: event.target.value })} placeholder="Sesuai rekening" maxLength="120" required/></label>
           <label><span>Nomor rekening / e-wallet</span><input inputMode="numeric" value={form.accountNumber} onChange={(event) => setForm({ ...form, accountNumber: event.target.value })} placeholder="Masukkan nomor tujuan" maxLength="80" required/></label>
+          <div className="affiliate-withdrawal-estimate"><span>Nominal diajukan <b>{rupiah(requestedAmount)}</b></span><span>Fee {Number(settings.fee_percent || 0).toLocaleString('id-ID')}% <b>- {rupiah(estimatedFee)}</b></span><strong>Perkiraan diterima <b>{rupiah(estimatedNet)}</b></strong></div>
           <button type="submit" disabled={!canWithdraw || submitting}>{submitting ? 'Mengirim permintaan…' : canWithdraw ? 'Ajukan penarikan →' : `Saldo belum mencapai ${rupiah(data.minimum_withdrawal)}`}</button>
         </form>
-      </article> : <ProUpgradeGate pro={data.pro} reload={reload} onOpenHistory={() => setShowHistoryModal(true)} onPreviewProof={setPreviewProof}/>} 
+      </article>
       <aside className="affiliate-balance-card">
         <small>RINCIAN SALDO</small>
         <h2>{rupiah(data.summary.available)}</h2>
-        <div><span><i/>Komisi dibayar <b>{rupiah(data.summary.earned)}</b></span><span><i/>Sedang diproses <b>{rupiah(data.summary.reserved)}</b></span><span><i/>Sudah dicairkan <b>{rupiah(data.summary.withdrawn)}</b></span></div>
+        <div className="affiliate-balance-breakdown"><span><i/>Sedang diproses <b>{rupiah(data.summary.reserved)}</b></span></div>
         <p>Saldo tersedia dihitung dari komisi order lunas dikurangi penarikan pending, diproses, dan selesai.</p>
+        <div className="affiliate-sender-bank"><small>REKENING PENGIRIM DAYMOMENT</small>{settings.sender_bank_name ? <dl><div><dt>Bank</dt><dd>{settings.sender_bank_name}</dd></div><div><dt>Nomor rekening</dt><dd>{settings.sender_account_number || '—'}</dd></div><div><dt>Nama pemilik</dt><dd>{settings.sender_account_name || '—'}</dd></div></dl> : <p>Informasi rekening pengirim belum diatur oleh admin.</p>}</div>
       </aside>
     </div>
-    <div className="affiliate-finance-section-heading"><div><span>RIWAYAT</span><h2>Permintaan penarikan</h2></div><small>{data.withdrawals.length} permintaan</small></div>
+    <div className="affiliate-finance-section-heading"><div><span>RIWAYAT</span><h2>Permintaan penarikan</h2></div><small>{filteredWithdrawals.length} dari {data.withdrawals.length} permintaan</small></div>
+    <div className="affiliate-withdrawal-filter-summary"><article><small>Sedang diproses</small><strong>{rupiah(filteredProcessed)}</strong><span>Penarikan menunggu dan sedang diproses dari hasil filter</span></article><article className="is-paid"><small>Sudah dicairkan</small><strong>{rupiah(filteredPaid)}</strong><span>Penarikan selesai dari hasil filter</span></article></div>
+    <div className="affiliate-order-filters affiliate-withdrawal-filters">
+      <div className="affiliate-withdrawal-filter-grid">
+        <OrderFilterDropdown label="Status penarikan" value={filters.status} options={statusOptions} onChange={(value) => updateFilter('status', value)}/>
+        <label><span>Dari tanggal</span><input type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter('from', event.target.value)}/></label>
+        <label><span>Sampai tanggal</span><input type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter('to', event.target.value)}/></label>
+      </div>
+      <div className="affiliate-order-filter-actions"><small>{filteredWithdrawals.length} permintaan ditemukan · disaring langsung dari data tersimpan</small><button type="button" className="secondary" onClick={resetFilters} disabled={!hasActiveFilters}>Reset semua filter</button></div>
+    </div>
     <div className="affiliate-order-table-wrap">
       <table className="affiliate-order-table affiliate-withdrawal-table">
-        <thead><tr><th>Tanggal</th><th>Tujuan</th><th>Nominal</th><th>Status</th><th>Catatan</th></tr></thead>
+        <thead><tr><th>Tanggal</th><th>Tujuan</th><th>Pengirim Daymoment</th><th>Diajukan</th><th>Fee</th><th>Diterima</th><th>Status</th><th>Catatan</th></tr></thead>
         <tbody>
-          {data.withdrawals.length ? data.withdrawals.map((withdrawal) => <tr key={withdrawal.id}><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(withdrawal.requested_at))}</td><td><b>{withdrawal.provider}</b><small>{withdrawal.account_name} · {withdrawal.account_number}</small></td><td><strong>{rupiah(withdrawal.amount)}</strong></td><td><span className={`affiliate-withdrawal-status status-${withdrawal.status}`}>{withdrawalStatus(withdrawal.status)}</span></td><td>{withdrawal.admin_note || '—'}</td></tr>) : <tr><td colSpan="5" className="affiliate-order-empty">Belum ada permintaan penarikan.</td></tr>}
+          {rows.length ? rows.map((withdrawal) => <tr key={withdrawal.id}><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(withdrawal.requested_at))}</td><td><b>{withdrawal.provider}</b><small>{withdrawal.account_name} · {withdrawal.account_number}</small></td><td>{withdrawal.sender_bank_name ? <><b>{withdrawal.sender_bank_name}</b><small>{withdrawal.sender_account_number || '—'} · a.n. {withdrawal.sender_account_name || '—'}</small></> : <small>Belum terekam pada transaksi lama</small>}</td><td><strong>{rupiah(withdrawal.amount)}</strong></td><td>{withdrawal.fee_percent.toLocaleString('id-ID')}%<small>{rupiah(withdrawal.fee_amount)}</small></td><td><strong>{rupiah(withdrawal.net_amount)}</strong></td><td><span className={`affiliate-withdrawal-status status-${withdrawal.status}`}>{withdrawalStatus(withdrawal.status)}</span></td><td>{withdrawal.admin_note || '—'}</td></tr>) : <tr><td colSpan="8" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada penarikan yang sesuai dengan filter.' : 'Belum ada permintaan penarikan.'}</td></tr>}
         </tbody>
       </table>
     </div>
-    {showHistoryModal && (
-      <ProUpgradeHistoryModal
-        requests={proRequests}
-        onClose={() => setShowHistoryModal(false)}
-        onPreviewProof={setPreviewProof}
-      />
-    )}
-    {previewProof && (
-      <ProofLightboxModal
-        proof={previewProof}
-        onClose={() => setPreviewProof(null)}
-      />
-    )}
+    {pageCount > 1 && <nav className="affiliate-pagination" aria-label="Halaman penarikan"><button type="button" disabled={page === 1} onClick={() => changePage(page - 1)}>← Sebelumnya</button><div>{pageNumbers.map((number) => <button type="button" className={page === number ? 'active' : ''} aria-current={page === number ? 'page' : undefined} onClick={() => changePage(number)} key={number}>{number}</button>)}</div><button type="button" disabled={page === pageCount} onClick={() => changePage(page + 1)}>Berikutnya →</button></nav>}
+    <p className="affiliate-page-count">Maksimal 10 penarikan per halaman · halaman {page} dari {pageCount}</p>
   </section>;
 }
 
@@ -1412,6 +1835,84 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
   const pathRef = useRef(path);
   const scrollPositions = useRef(new Map());
 
+  const [notificationsData, setNotificationsData] = useState({
+    counts: { total: 0, orders: 0, withdrawals: 0, pro: 0 },
+    notifications: { all: [], orders: [], withdrawals: [], pro: [] },
+    refreshed_at: null,
+  });
+  const [openHeadingNotif, setOpenHeadingNotif] = useState(null);
+  const [headingRefreshing, setHeadingRefreshing] = useState('');
+  const [readMarkers, setReadMarkers] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`daymoment_affiliate_read_markers_${affiliate.id}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const loadNotifications = useCallback(async (showFeedback = false) => {
+    try {
+      const res = await affiliateApi('/notifications');
+      if (res?.ok) {
+        setNotificationsData({
+          counts: res.counts || { total: 0, orders: 0, withdrawals: 0, pro: 0 },
+          notifications: res.notifications || { all: [], orders: [], withdrawals: [], pro: [] },
+          refreshed_at: res.refreshed_at || new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error('Gagal memuat notifikasi affiliate:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+    const timer = setInterval(() => loadNotifications(), 45000);
+    return () => clearInterval(timer);
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.affiliate-notif-box')) {
+        setOpenHeadingNotif(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const toggleHeadingNotif = (category) => {
+    if (openHeadingNotif === category) {
+      setOpenHeadingNotif(null);
+    } else {
+      setOpenHeadingNotif(category);
+      const nowIso = new Date().toISOString();
+      setReadMarkers((prev) => {
+        const next = { ...prev, [category]: nowIso, all: nowIso };
+        try {
+          localStorage.setItem(`daymoment_affiliate_read_markers_${affiliate.id}`, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    }
+  };
+
+  const handleHeadingRefresh = async (category, reloadFn) => {
+    setHeadingRefreshing(category);
+    try {
+      await Promise.allSettled([
+        loadNotifications(false),
+        typeof reloadFn === 'function' ? reloadFn() : Promise.resolve(),
+      ]);
+      window.showToast?.('Data dan notifikasi berhasil diperbarui.');
+    } catch (err) {
+      window.showToast?.('Gagal memuat ulang data.', 'error');
+    } finally {
+      setHeadingRefreshing('');
+    }
+  };
+
   useEffect(() => { pathRef.current = path; }, [path]);
 
   const loadData = useCallback((key) => {
@@ -1498,12 +1999,12 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
     const dashboardReady = catalog && orderData;
     const catalogReady = Boolean(catalog);
     content = <>
-      <div hidden={path !== '/dashboard'}>{dashboardReady ? <DashboardOverview affiliate={affiliate} catalog={catalog} orderData={orderData}/> : dataError('Dashboard belum dapat dimuat', errors.catalog || errors.orders, () => loadMany(['catalog', 'orders']))}</div>
+      <div hidden={path !== '/dashboard'}>{dashboardReady ? <DashboardOverview affiliate={affiliate} catalog={catalog} orderData={orderData} onReloadOverview={() => loadMany(['catalog', 'orders'])}/> : dataError('Dashboard belum dapat dimuat', errors.catalog || errors.orders, () => loadMany(['catalog', 'orders']))}</div>
       <div hidden={path !== '/products'}>{catalogReady ? <ProductSettings catalog={catalog} setCatalog={setCatalog}/> : dataError('Produk belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
       <div hidden={path !== '/links'}>{catalogReady ? <ReferralLinks catalog={catalog}/> : dataError('Link referral belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
-      <div hidden={path !== '/orders'}>{orderData ? <OrdersPage data={orderData} affiliateId={affiliate.id}/> : dataError('Pesanan belum dapat dimuat', errors.orders, () => loadData('orders'))}</div>
+      <div hidden={path !== '/orders'}>{orderData ? <OrdersPage data={orderData} affiliateId={affiliate.id} onReloadOrders={() => loadData('orders')}/> : dataError('Pesanan belum dapat dimuat', errors.orders, () => loadData('orders'))}</div>
       <div hidden={path !== '/earnings'}><EarningsPage data={financeData} error={errors.finance} reload={() => loadData('finance')} affiliateId={affiliate.id}/></div>
-      <div hidden={path !== '/withdrawals'}><WithdrawalsPage data={financeData} error={errors.finance} reload={() => loadData('finance')}/></div>
+      <div hidden={path !== '/withdrawals'}><WithdrawalsPage data={financeData} error={errors.finance} reload={() => loadData('finance')} affiliateId={affiliate.id}/></div>
       <div hidden={path !== '/profile'}><ProfilePage data={profileData} error={errors.profile} reload={() => loadData('profile')} setData={setProfileData} onAffiliateUpdate={(updatedProfile) => {
         onAffiliateUpdate(updatedProfile);
         loadData('catalog');
@@ -1512,14 +2013,38 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
     </>;
   }
 
-  return <DashboardNavigationContext.Provider value={navigate}><main className="affiliate-dashboard-shell">
-    <aside className="affiliate-dashboard-sidebar"><Brand/><nav>{dashboardMenus.map((menu) => {
-      const target = catalog?.onboarding_required ? '/products' : menu.path;
-      const isActive = catalog?.onboarding_required ? menu.path === '/products' : menu.path === path;
-      return <DashboardLink className={isActive ? 'active' : ''} to={target} key={menu.path}><i>{menu.icon}</i><span>{menu.label}</span>{menu.soon && <small>Segera</small>}</DashboardLink>;
-    })}</nav><div className="affiliate-sidebar-help"><small>BUTUH BANTUAN?</small><p>Hubungi tim Daymoment apabila ada kendala dengan akun affiliate.</p><a href="mailto:support@daymoment.biz.id">Hubungi support</a></div></aside>
-    <section className="affiliate-dashboard-main"><header className="affiliate-dashboard-topbar"><button className="affiliate-mobile-menu" type="button" aria-label="Buka menu">☰</button><div><small>KODE PARTNER</small><strong>{affiliate.referral_code}</strong></div><div className="affiliate-user-menu"><span>{initials}</span><div><b>{affiliate.full_name}</b><small>{affiliate.email}</small></div><button type="button" onClick={onLogout}>Keluar</button></div></header><div className="affiliate-dashboard-content">{content}</div></section>
-  </main></DashboardNavigationContext.Provider>;
+  const toolsContextValue = {
+    notificationsData,
+    readMarkers,
+    openHeadingNotif,
+    onToggleNotif: toggleHeadingNotif,
+    headingRefreshing,
+    onRefresh: handleHeadingRefresh,
+  };
+
+  return <DashboardNavigationContext.Provider value={navigate}>
+    <AffiliateToolsContext.Provider value={toolsContextValue}>
+      <main className="affiliate-dashboard-shell">
+        <aside className="affiliate-dashboard-sidebar"><Brand/><nav>{dashboardMenus.map((menu) => {
+          const target = catalog?.onboarding_required ? '/products' : menu.path;
+          const isActive = catalog?.onboarding_required ? menu.path === '/products' : menu.path === path;
+          return <DashboardLink className={isActive ? 'active' : ''} to={target} key={menu.path}><i>{menu.icon}</i><span>{menu.label}</span>{menu.soon && <small>Segera</small>}</DashboardLink>;
+        })}</nav><div className="affiliate-sidebar-help"><small>BUTUH BANTUAN?</small><p>Hubungi tim Daymoment apabila ada kendala dengan akun affiliate.</p><a href="mailto:support@daymoment.biz.id">Hubungi support</a></div></aside>
+        <section className="affiliate-dashboard-main">
+          <header className="affiliate-dashboard-topbar">
+            <button className="affiliate-mobile-menu" type="button" aria-label="Buka menu">☰</button>
+            <div><small>KODE PARTNER</small><strong>{affiliate.referral_code}</strong></div>
+            <div className="affiliate-user-menu">
+              <span>{initials}</span>
+              <div><b>{affiliate.full_name}</b><small>{affiliate.email}</small></div>
+              <button type="button" onClick={onLogout}>Keluar</button>
+            </div>
+          </header>
+          <div className="affiliate-dashboard-content">{content}</div>
+        </section>
+      </main>
+    </AffiliateToolsContext.Provider>
+  </DashboardNavigationContext.Provider>;
 }
 
 export default function AffiliateApp() {

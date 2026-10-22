@@ -75,7 +75,8 @@ export const EDITABLE_FIELDS = {
   bride_full_name: 150, bride_nickname: 80, bride_father: 150, bride_mother: 150,
   akad_date: 10, akad_start_time: 8, akad_end_time: 8, reception_date: 10,
   reception_start_time: 8, reception_end_time: 8, venue_name: 180,
-  venue_address: 1500, maps_url: 500, love_story: 3000, instagram: 100,
+  venue_address: 1500, maps_url: 500, nearest_landmark: 240,
+  route_directions: 1200, transportation_guide: 1000, love_story: 3000, instagram: 100,
 };
 
 export function invitationInput(input, includeSlug = true) {

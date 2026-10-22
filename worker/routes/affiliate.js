@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
-import { sendAffiliatePasswordChangedEmail, sendAffiliatePasswordResetEmail, sendAffiliateVerificationEmail } from '../lib/email.js';
+import { sendAdminWithdrawalRequestedEmail, sendAffiliatePasswordChangedEmail, sendAffiliatePasswordResetEmail, sendAffiliateVerificationEmail, sendAffiliateWithdrawalRequestedEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, validEmail, validPhone } from '../lib/helpers.js';
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
 
@@ -270,12 +270,27 @@ async function applyAffiliateProPayment(db, request, payload) {
   return nextStatus;
 }
 
+affiliate.get('/affiliate/registration-options', async (c) => {
+  const db = database(c.env);
+  const { data, error } = await db.from('affiliate_social_platforms')
+    .select('id,name')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return c.json({ ok: true, social_platforms: data || [] });
+});
+
 affiliate.post('/affiliate/register', async (c) => {
   const input = await c.req.formData().catch(() => null);
   if (!input) return c.json({ ok: false, message: 'Data pendaftaran tidak valid.' }, 400);
   const fullName = cleanText(input.get('fullName'), 120);
   const nik = String(input.get('nik') || '').replace(/\D/g, '').slice(0, 16);
   const ktp = input.get('ktp');
+  const socialPlatform = cleanText(input.get('socialPlatform'), 40);
+  const socialHandle = cleanText(input.get('socialHandle'), 120);
+  const socialFollowerCount = Number(String(input.get('socialFollowerCount') || '').replace(/\D/g, ''));
+  const socialProof = input.get('socialProof');
   const phone = normalizePhone(input.get('phone'));
   const email = normalizeEmail(input.get('email'));
   const password = String(input.get('password') || '');
@@ -286,12 +301,25 @@ affiliate.post('/affiliate/register', async (c) => {
   if (!(ktp instanceof File) || !ktp.size) return c.json({ ok: false, message: 'Foto KTP wajib diunggah.' }, 422);
   if (!identityImageExtension(ktp.type) || !await validIdentityImage(ktp)) return c.json({ ok: false, message: 'Format foto KTP harus JPG, PNG, atau WEBP yang valid.' }, 422);
   if (ktp.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran foto KTP maksimal 4 MB.' }, 422);
+  if (socialPlatform.length < 2) return c.json({ ok: false, message: 'Pilih media sosial yang digunakan.' }, 422);
+  if (socialHandle.length < 2) return c.json({ ok: false, message: 'Username atau nama akun media sosial wajib diisi.' }, 422);
+  if (!Number.isInteger(socialFollowerCount) || socialFollowerCount < 0) return c.json({ ok: false, message: 'Jumlah followers tidak valid.' }, 422);
+  if (!(socialProof instanceof File) || !socialProof.size) return c.json({ ok: false, message: 'Screenshot akun media sosial wajib diunggah.' }, 422);
+  if (!identityImageExtension(socialProof.type) || !await validIdentityImage(socialProof)) return c.json({ ok: false, message: 'Screenshot media sosial harus berupa JPG, PNG, atau WEBP yang valid.' }, 422);
+  if (socialProof.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran screenshot media sosial maksimal 4 MB.' }, 422);
   if (!validPhone(phone)) return c.json({ ok: false, message: 'Nomor WhatsApp tidak valid.' }, 422);
   if (!validEmail(email)) return c.json({ ok: false, message: 'Alamat email tidak valid.' }, 422);
   if (password.length < 8) return c.json({ ok: false, message: 'Password minimal 8 karakter.' }, 422);
   if (passwordBytes > 72) return c.json({ ok: false, message: 'Password terlalu panjang. Gunakan maksimal 72 byte.' }, 422);
 
   const db = database(c.env);
+  const { data: selectedPlatform, error: platformError } = await db.from('affiliate_social_platforms')
+    .select('name')
+    .eq('name', socialPlatform)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (platformError) throw platformError;
+  if (!selectedPlatform) return c.json({ ok: false, message: 'Pilihan media sosial sudah tidak tersedia. Muat ulang halaman lalu pilih kembali.' }, 422);
   const registrationLimit = await consumeRateLimit(db, 'register_ip', clientIp(c), 5, 3600, 3600);
   const registrationBlocked = rateLimitResponse(c, registrationLimit, 'Terlalu banyak pendaftaran dari perangkat ini.');
   if (registrationBlocked) return registrationBlocked;
@@ -300,10 +328,20 @@ affiliate.post('/affiliate/register', async (c) => {
   const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS).toISOString();
   if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan dokumen belum tersedia. Silakan coba lagi.' }, 503);
   const ktpObjectKey = `affiliate-ktp/${randomToken(24)}.${identityImageExtension(ktp.type)}`;
+  const socialProofObjectKey = `affiliate-social/${randomToken(24)}.${identityImageExtension(socialProof.type)}`;
   await c.env.MEDIA.put(ktpObjectKey, ktp.stream(), {
     httpMetadata: { contentType: ktp.type, cacheControl: 'private, no-store' },
     customMetadata: { uploadedAt: new Date().toISOString() },
   });
+  try {
+    await c.env.MEDIA.put(socialProofObjectKey, socialProof.stream(), {
+      httpMetadata: { contentType: socialProof.type, cacheControl: 'private, no-store' },
+      customMetadata: { uploadedAt: new Date().toISOString() },
+    });
+  } catch (uploadError) {
+    await c.env.MEDIA.delete(ktpObjectKey);
+    throw uploadError;
+  }
   const { data: account, error } = await db.rpc('register_affiliate_account', {
     p_full_name: fullName,
     p_phone: phone,
@@ -311,12 +349,16 @@ affiliate.post('/affiliate/register', async (c) => {
     p_password: password,
     p_nik: nik,
     p_ktp_object_key: ktpObjectKey,
+    p_social_platform: selectedPlatform.name,
+    p_social_handle: socialHandle,
+    p_social_follower_count: socialFollowerCount,
+    p_social_proof_object_key: socialProofObjectKey,
     p_verification_token_hash: verificationHash,
     p_verification_expires_at: expiresAt,
   }).single();
 
   if (error) {
-    await c.env.MEDIA.delete(ktpObjectKey);
+    await Promise.all([c.env.MEDIA.delete(ktpObjectKey), c.env.MEDIA.delete(socialProofObjectKey)]);
     if (error.code === '23505' || /affiliate_email_or_nik_exists|duplicate key/i.test(error.message || '')) {
       return c.json({ ok: false, message: 'Email atau NIK ini sudah terdaftar. Silakan gunakan data lain.' }, 409);
     }
@@ -329,7 +371,7 @@ affiliate.post('/affiliate/register', async (c) => {
     if (sent?.skipped) throw new Error('SMTP affiliate belum dikonfigurasi.');
   } catch (sendError) {
     await db.from('affiliate_accounts').delete().eq('id', account.id);
-    await c.env.MEDIA.delete(ktpObjectKey);
+    await Promise.all([c.env.MEDIA.delete(ktpObjectKey), c.env.MEDIA.delete(socialProofObjectKey)]);
     console.error('Email verifikasi affiliate gagal:', sendError);
     return c.json({ ok: false, message: 'Email verifikasi gagal dikirim. Periksa konfigurasi SMTP lalu coba daftar kembali.' }, 502);
   }
@@ -360,7 +402,7 @@ async function readReviewCorrection(db, tokenHash) {
   if (!correction || correction.used_at || new Date(correction.expires_at).getTime() <= Date.now()) return null;
 
   const { data: account, error: accountError } = await db.from('affiliate_accounts')
-    .select('id,email,full_name,phone,nik,status,review_note')
+    .select('id,email,full_name,phone,nik,status,review_note,social_platform,social_handle,social_follower_count,social_proof_object_key')
     .eq('id', correction.affiliate_id)
     .maybeSingle();
   if (accountError) throw accountError;
@@ -384,6 +426,10 @@ affiliate.get('/affiliate/review-correction', async (c) => {
       full_name: result.account.full_name,
       phone: result.account.phone,
       nik: result.account.nik,
+      social_platform: result.account.social_platform,
+      social_handle: result.account.social_handle,
+      social_follower_count: result.account.social_follower_count,
+      has_social_proof: Boolean(result.account.social_proof_object_key),
       review_note: result.account.review_note,
       expires_at: result.correction.expires_at,
     },
@@ -399,21 +445,41 @@ affiliate.post('/affiliate/review-correction', async (c) => {
   const nik = String(input.get('nik') || '').replace(/\D/g, '').slice(0, 16);
   const ktp = input.get('ktp');
   const hasNewKtp = ktp instanceof File && ktp.size > 0;
+  const socialPlatform = cleanText(input.get('socialPlatform'), 40);
+  const socialHandle = cleanText(input.get('socialHandle'), 120);
+  const socialFollowerCount = Number(String(input.get('socialFollowerCount') || '').replace(/\D/g, ''));
+  const socialProof = input.get('socialProof');
+  const hasNewSocialProof = socialProof instanceof File && socialProof.size > 0;
   if (token.length < 32 || token.length > 200) return c.json({ ok: false, message: 'Tautan perbaikan tidak valid.' }, 400);
   if (fullName.length < 2) return c.json({ ok: false, message: 'Nama lengkap minimal 2 karakter.' }, 422);
   if (!/^\d{16}$/.test(nik)) return c.json({ ok: false, message: 'NIK wajib terdiri dari 16 digit angka.' }, 422);
   if (!validPhone(phone)) return c.json({ ok: false, message: 'Nomor WhatsApp tidak valid.' }, 422);
+  if (socialPlatform.length < 2) return c.json({ ok: false, message: 'Pilih media sosial yang digunakan.' }, 422);
+  if (socialHandle.length < 2) return c.json({ ok: false, message: 'Username atau nama akun media sosial wajib diisi.' }, 422);
+  if (!Number.isInteger(socialFollowerCount) || socialFollowerCount < 0) return c.json({ ok: false, message: 'Jumlah followers tidak valid.' }, 422);
   if (hasNewKtp && (!identityImageExtension(ktp.type) || !await validIdentityImage(ktp))) return c.json({ ok: false, message: 'Format foto KTP harus JPG, PNG, atau WEBP yang valid.' }, 422);
   if (hasNewKtp && ktp.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran foto KTP maksimal 4 MB.' }, 422);
+  if (hasNewSocialProof && (!identityImageExtension(socialProof.type) || !await validIdentityImage(socialProof))) return c.json({ ok: false, message: 'Screenshot media sosial harus berupa JPG, PNG, atau WEBP yang valid.' }, 422);
+  if (hasNewSocialProof && socialProof.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran screenshot media sosial maksimal 4 MB.' }, 422);
 
   const db = database(c.env);
   const submitLimit = await consumeRateLimit(db, 'review_correction_submit_ip', clientIp(c), 10, 3600, 3600);
   const blocked = rateLimitResponse(c, submitLimit, 'Terlalu banyak pengiriman perbaikan data.');
   if (blocked) return blocked;
   const tokenHash = await sha256(token);
-  if (!await readReviewCorrection(db, tokenHash)) return c.json({ ok: false, message: 'Tautan perbaikan tidak valid, sudah digunakan, atau telah kedaluwarsa.' }, 410);
+  const correctionData = await readReviewCorrection(db, tokenHash);
+  if (!correctionData) return c.json({ ok: false, message: 'Tautan perbaikan tidak valid, sudah digunakan, atau telah kedaluwarsa.' }, 410);
+  if (!correctionData.account.social_proof_object_key && !hasNewSocialProof) return c.json({ ok: false, message: 'Screenshot akun media sosial wajib diunggah.' }, 422);
+  const { data: selectedPlatform, error: platformError } = await db.from('affiliate_social_platforms')
+    .select('name')
+    .eq('name', socialPlatform)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (platformError) throw platformError;
+  if (!selectedPlatform) return c.json({ ok: false, message: 'Pilihan media sosial sudah tidak tersedia. Muat ulang halaman lalu pilih kembali.' }, 422);
 
   let newKtpObjectKey = null;
+  let newSocialProofObjectKey = null;
   if (hasNewKtp) {
     if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan dokumen belum tersedia. Silakan coba lagi.' }, 503);
     newKtpObjectKey = `affiliate-ktp/${randomToken(24)}.${identityImageExtension(ktp.type)}`;
@@ -422,6 +488,22 @@ affiliate.post('/affiliate/review-correction', async (c) => {
       customMetadata: { uploadedAt: new Date().toISOString() },
     });
   }
+  if (hasNewSocialProof) {
+    if (!c.env.MEDIA) {
+      if (newKtpObjectKey) await c.env.MEDIA?.delete(newKtpObjectKey);
+      return c.json({ ok: false, message: 'Penyimpanan dokumen belum tersedia. Silakan coba lagi.' }, 503);
+    }
+    newSocialProofObjectKey = `affiliate-social/${randomToken(24)}.${identityImageExtension(socialProof.type)}`;
+    try {
+      await c.env.MEDIA.put(newSocialProofObjectKey, socialProof.stream(), {
+        httpMetadata: { contentType: socialProof.type, cacheControl: 'private, no-store' },
+        customMetadata: { uploadedAt: new Date().toISOString() },
+      });
+    } catch (uploadError) {
+      if (newKtpObjectKey) await c.env.MEDIA.delete(newKtpObjectKey);
+      throw uploadError;
+    }
+  }
 
   const { data: resubmitted, error } = await db.rpc('resubmit_affiliate_registration', {
     p_token_hash: tokenHash,
@@ -429,20 +511,27 @@ affiliate.post('/affiliate/review-correction', async (c) => {
     p_phone: phone,
     p_nik: nik,
     p_ktp_object_key: newKtpObjectKey,
+    p_social_platform: selectedPlatform.name,
+    p_social_handle: socialHandle,
+    p_social_follower_count: socialFollowerCount,
+    p_social_proof_object_key: newSocialProofObjectKey,
   }).maybeSingle();
   if (error) {
-    if (newKtpObjectKey) await c.env.MEDIA.delete(newKtpObjectKey);
+    await Promise.all([newKtpObjectKey ? c.env.MEDIA.delete(newKtpObjectKey) : null, newSocialProofObjectKey ? c.env.MEDIA.delete(newSocialProofObjectKey) : null].filter(Boolean));
     if (error.code === '23505' || /affiliate_nik_exists|duplicate key/i.test(error.message || '')) {
       return c.json({ ok: false, message: 'NIK tersebut sudah digunakan oleh akun affiliate lain.' }, 409);
     }
     throw error;
   }
   if (!resubmitted) {
-    if (newKtpObjectKey) await c.env.MEDIA.delete(newKtpObjectKey);
+    await Promise.all([newKtpObjectKey ? c.env.MEDIA.delete(newKtpObjectKey) : null, newSocialProofObjectKey ? c.env.MEDIA.delete(newSocialProofObjectKey) : null].filter(Boolean));
     return c.json({ ok: false, message: 'Tautan perbaikan tidak valid, sudah digunakan, atau telah kedaluwarsa.' }, 410);
   }
   if (newKtpObjectKey && resubmitted.old_ktp_object_key && resubmitted.old_ktp_object_key !== newKtpObjectKey && String(resubmitted.old_ktp_object_key).startsWith('affiliate-ktp/')) {
     await c.env.MEDIA.delete(resubmitted.old_ktp_object_key).catch((deleteError) => console.error('Gagal menghapus KTP affiliate lama:', deleteError));
+  }
+  if (newSocialProofObjectKey && resubmitted.old_social_proof_object_key && resubmitted.old_social_proof_object_key !== newSocialProofObjectKey && String(resubmitted.old_social_proof_object_key).startsWith('affiliate-social/')) {
+    await c.env.MEDIA.delete(resubmitted.old_social_proof_object_key).catch((deleteError) => console.error('Gagal menghapus bukti sosial affiliate lama:', deleteError));
   }
   return c.json({ ok: true, message: 'Data perbaikan berhasil dikirim dan sudah masuk kembali ke antrean review admin.' });
 });
@@ -637,12 +726,12 @@ affiliate.get('/affiliate/products', async (c) => {
   if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
   const [templateResult, settingResult] = await Promise.all([
     current.db.from('templates')
-      .select('id,code,name,category,description,thumbnail,template_packages(id,code,name,tagline,price,sort_order,is_active,affiliate_commission_default_percent,affiliate_commission_max_percent)')
+      .select('id,code,name,category,description,thumbnail,template_packages(id,code,name,tagline,price,affiliate_commission_default_percent,sort_order,is_active)')
       .eq('is_active', true)
       .eq('template_packages.is_active', true)
       .order('id'),
     current.db.from('affiliate_product_settings')
-      .select('package_id,commission_percent,is_visible')
+      .select('package_id,is_visible')
       .eq('affiliate_id', current.account.id),
   ]);
   if (templateResult.error) throw templateResult.error;
@@ -653,14 +742,12 @@ affiliate.get('/affiliate/products', async (c) => {
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
       .map((product) => {
         const setting = settings.get(String(product.id));
-        const maxCommission = Number(product.affiliate_commission_max_percent ?? 50);
-        const selectedCommission = Number(setting?.commission_percent ?? 0);
         return {
           ...product,
           price: Number(product.price || 0),
-          commission_percent: Math.min(maxCommission, Math.max(0, selectedCommission)),
-          max_commission_percent: maxCommission,
-          is_visible: setting?.is_visible === true && selectedCommission >= 1,
+          commission_percent: Number(product.affiliate_commission_default_percent || 0),
+          commission_amount: Math.round(Number(product.price || 0) * Number(product.affiliate_commission_default_percent || 0) / 100),
+          is_visible: setting?.is_visible === true,
         };
       });
     return {
@@ -692,7 +779,7 @@ affiliate.patch('/affiliate/products/:packageId', async (c) => {
   const input = await c.req.json().catch(() => ({}));
   if (!Number.isSafeInteger(packageId) || packageId <= 0) return c.json({ ok: false, message: 'Produk tidak valid.' }, 400);
   const { data: product, error: productError } = await current.db.from('template_packages')
-    .select('id,template_id,affiliate_commission_default_percent,affiliate_commission_max_percent,is_active')
+    .select('id,template_id,is_active')
     .eq('id', packageId)
     .maybeSingle();
   if (productError) throw productError;
@@ -703,32 +790,22 @@ affiliate.patch('/affiliate/products/:packageId', async (c) => {
     return c.json({ ok: false, message: 'Template atau paket ini sedang maintenance dan belum dapat diafiliasikan.' }, 409);
   }
 
-  const maxPercent = Math.min(50, Number(product.affiliate_commission_max_percent ?? 50));
-  const commissionPercent = Number(input.commissionPercent ?? 0);
   const isVisible = input.isVisible === true;
-  const minimumPercent = isVisible ? 1 : 0;
-  if (!Number.isFinite(commissionPercent) || commissionPercent < minimumPercent || commissionPercent > maxPercent) {
-    const range = isVisible ? `minimal 1% dan maksimal ${maxPercent}%` : `antara 0% sampai ${maxPercent}%`;
-    return c.json({ ok: false, message: `Komisi produk ini harus ${range}.` }, 422);
-  }
   const now = new Date().toISOString();
   const { data: setting, error } = await current.db.from('affiliate_product_settings').upsert({
     affiliate_id: current.account.id,
     package_id: packageId,
-    commission_percent: Math.round(commissionPercent * 100) / 100,
     is_visible: isVisible,
     updated_at: now,
-  }, { onConflict: 'affiliate_id,package_id' }).select('package_id,commission_percent,is_visible').single();
+  }, { onConflict: 'affiliate_id,package_id' }).select('package_id,is_visible').single();
   if (error) throw error;
   const { count: visibleCount, error: countError } = await current.db.from('affiliate_product_settings')
     .select('package_id', { count: 'exact', head: true })
     .eq('affiliate_id', current.account.id)
-    .eq('is_visible', true)
-    .gte('commission_percent', 1);
+    .eq('is_visible', true);
   if (countError) throw countError;
   return c.json({ ok: true, onboarding_required: Number(visibleCount || 0) === 0, setting: {
     package_id: setting.package_id,
-    commission_percent: Number(setting.commission_percent),
     is_visible: setting.is_visible,
   } });
 });
@@ -836,7 +913,7 @@ affiliate.get('/affiliate/finance', async (c) => {
   const current = await activeSession(c);
   if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
 
-  const [orderResult, withdrawalResult, proAccountResult, upgradeResult, socialPlatformResult] = await Promise.all([
+  const [orderResult, withdrawalResult, settingsResult] = await Promise.all([
     current.db.from('orders')
       .select('id,order_code,template_id,package_id,payment_status,affiliate_commission_percent,affiliate_commission_amount,created_at')
       .eq('affiliate_id', current.account.id)
@@ -844,40 +921,18 @@ affiliate.get('/affiliate/finance', async (c) => {
       .order('created_at', { ascending: false })
       .limit(1000),
     current.db.from('affiliate_withdrawals')
-      .select('id,amount,payout_method,provider,account_name,account_number,status,admin_note,requested_at,processed_at')
+      .select('id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,sender_bank_name,sender_account_name,sender_account_number,status,admin_note,requested_at,processed_at')
       .eq('affiliate_id', current.account.id)
       .order('requested_at', { ascending: false })
       .limit(100),
-    current.db.from('affiliate_accounts')
-      .select('account_tier,pro_source,pro_activated_at')
-      .eq('id', current.account.id)
+    current.db.from('affiliate_withdrawal_settings')
+      .select('fee_percent,sender_bank_name,sender_account_name,sender_account_number')
+      .eq('singleton', true)
       .maybeSingle(),
-    current.db.from('affiliate_pro_upgrade_requests')
-      .select('id,method,status,social_platform,social_handle,follower_count,proof_object_key,payment_amount,snap_redirect_url,review_note,reviewed_at,paid_at,created_at,updated_at')
-      .eq('affiliate_id', current.account.id)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    current.db.from('affiliate_social_platforms')
-      .select('id,name')
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true }),
   ]);
   if (orderResult.error) throw orderResult.error;
   if (withdrawalResult.error) throw withdrawalResult.error;
-  if (proAccountResult.error) throw proAccountResult.error;
-  if (upgradeResult.error) throw upgradeResult.error;
-  if (socialPlatformResult.error) throw socialPlatformResult.error;
-
-  const rawUpgradeRequests = upgradeResult.data || [];
-  const upgradeRequests = rawUpgradeRequests.map(({ proof_object_key: proofObjectKey, ...req }) => ({
-    ...req,
-    payment_amount: Number(req.payment_amount || 0),
-    follower_count: req.follower_count != null ? Number(req.follower_count) : null,
-    has_proof: Boolean(proofObjectKey),
-    proof_url: proofObjectKey ? `/api/affiliate/pro-upgrades/${req.id}/proof` : null,
-  }));
-  const latestUpgradeRequest = upgradeRequests[0] || null;
+  if (settingsResult.error) throw settingsResult.error;
 
   const rawEarnings = orderResult.data || [];
   const templateIds = [...new Set(rawEarnings.map((order) => order.template_id).filter(Boolean))];
@@ -905,6 +960,9 @@ affiliate.get('/affiliate/finance', async (c) => {
   const withdrawals = (withdrawalResult.data || []).map((withdrawal) => ({
     ...withdrawal,
     amount: Number(withdrawal.amount || 0),
+    fee_percent: Number(withdrawal.fee_percent || 0),
+    fee_amount: Number(withdrawal.fee_amount || 0),
+    net_amount: Number(withdrawal.net_amount || withdrawal.amount || 0),
     account_number: maskedAccountNumber(withdrawal.account_number),
   }));
   const earned = earnings.filter((item) => item.payment_status === 'paid')
@@ -919,15 +977,11 @@ affiliate.get('/affiliate/finance', async (c) => {
   return c.json({
     ok: true,
     minimum_withdrawal: 50000,
-    pro: {
-      active: proAccountResult.data?.account_tier === 'pro',
-      tier: proAccountResult.data?.account_tier || 'basic',
-      source: proAccountResult.data?.pro_source || null,
-      activated_at: proAccountResult.data?.pro_activated_at || null,
-      upgrade_price: PRO_UPGRADE_PRICE,
-      request: latestUpgradeRequest,
-      requests: upgradeRequests,
-      social_platforms: socialPlatformResult.data || [],
+    withdrawal_settings: {
+      fee_percent: Number(settingsResult.data?.fee_percent || 0),
+      sender_bank_name: settingsResult.data?.sender_bank_name || null,
+      sender_account_name: settingsResult.data?.sender_account_name || null,
+      sender_account_number: settingsResult.data?.sender_account_number || null,
     },
     summary: {
       earned,
@@ -938,6 +992,83 @@ affiliate.get('/affiliate/finance', async (c) => {
     },
     earnings,
     withdrawals,
+  });
+});
+
+affiliate.get('/affiliate/notifications', async (c) => {
+  const current = await activeSession(c);
+  if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
+
+  const [orderRes, withdrawalRes, proRes] = await Promise.all([
+    current.db.from('orders')
+      .select('id,order_code,customer_name,payment_status,affiliate_commission_amount,created_at')
+      .eq('affiliate_id', current.account.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    current.db.from('affiliate_withdrawals')
+      .select('id,amount,net_amount,provider,account_number,status,admin_note,requested_at,processed_at')
+      .eq('affiliate_id', current.account.id)
+      .order('requested_at', { ascending: false })
+      .limit(15),
+    current.db.from('affiliate_pro_upgrade_requests')
+      .select('id,method,status,social_platform,review_note,reviewed_at,created_at')
+      .eq('affiliate_id', current.account.id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ]);
+
+  const orders = (orderRes.data || []).map((o) => ({
+    id: `order-${o.id}`,
+    type: 'order',
+    title: `Order ${o.order_code}`,
+    snippet: `${o.customer_name || 'Customer'} · Komisi Rp ${Number(o.affiliate_commission_amount || 0).toLocaleString('id-ID')}`,
+    status: o.payment_status,
+    status_label: o.payment_status === 'paid' ? 'Lunas' : 'Menunggu',
+    created_at: o.created_at,
+    view: '/orders',
+  }));
+
+  const withdrawals = (withdrawalRes.data || []).map((w) => ({
+    id: `withdrawal-${w.id}`,
+    type: 'withdrawal',
+    title: `Penarikan Rp ${Number(w.amount || 0).toLocaleString('id-ID')}`,
+    snippet: `${w.provider || 'Rekening'} (${w.account_number ? String(w.account_number).slice(-4).padStart(String(w.account_number).length, '•') : '—'})${w.admin_note ? ` · ${w.admin_note}` : ''}`,
+    status: w.status,
+    status_label: w.status === 'paid' ? 'Selesai' : w.status === 'processing' ? 'Diproses' : w.status === 'rejected' ? 'Ditolak' : 'Menunggu',
+    created_at: w.requested_at,
+    view: '/withdrawals',
+  }));
+
+  const proUpgrades = (proRes.data || []).map((p) => ({
+    id: `pro-${p.id}`,
+    type: 'pro',
+    title: p.method === 'social' ? 'Verifikasi Media Sosial' : 'Upgrade Pro',
+    snippet: p.review_note || (p.status === 'approved' ? 'Pengajuan akun Pro disetujui!' : p.status === 'rejected' ? 'Pengajuan perlu perbaikan' : 'Sedang ditinjau admin'),
+    status: p.status,
+    status_label: p.status === 'approved' ? 'Disetujui' : p.status === 'rejected' ? 'Perlu Perbaikan' : 'Menunggu',
+    created_at: p.reviewed_at || p.created_at,
+    view: '/withdrawals',
+  }));
+
+  const all = [...orders, ...withdrawals, ...proUpgrades].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+
+  return c.json({
+    ok: true,
+    notifications: {
+      all,
+      orders,
+      withdrawals,
+      pro: proUpgrades,
+    },
+    counts: {
+      total: all.length,
+      orders: orders.length,
+      withdrawals: withdrawals.length,
+      pro: proUpgrades.length,
+    },
+    refreshed_at: new Date().toISOString(),
   });
 });
 
@@ -1171,10 +1302,6 @@ affiliate.post('/affiliate/withdrawals', async (c) => {
   const withdrawalBlocked = rateLimitResponse(c, withdrawalLimit, 'Terlalu banyak permintaan penarikan.');
   if (withdrawalBlocked) return withdrawalBlocked;
   const input = await c.req.json().catch(() => ({}));
-  const proAccount = await affiliateProAccount(current.db, current.account.id);
-  if (proAccount?.account_tier !== 'pro') {
-    return c.json({ ok: false, code: 'AFFILIATE_PRO_REQUIRED', message: 'Upgrade akun ke Pro terlebih dahulu untuk melakukan penarikan saldo.' }, 403);
-  }
   const amount = Number(input.amount);
   const payoutMethod = input.payoutMethod === 'e_wallet' ? 'e_wallet' : input.payoutMethod === 'bank' ? 'bank' : '';
   const provider = cleanText(input.provider, 50);
@@ -1206,12 +1333,38 @@ affiliate.post('/affiliate/withdrawals', async (c) => {
     if (/affiliate_not_active/i.test(error.message || '')) {
       return c.json({ ok: false, message: 'Akun affiliate tidak aktif.' }, 403);
     }
-    if (/affiliate_pro_required/i.test(error.message || '')) {
-      return c.json({ ok: false, code: 'AFFILIATE_PRO_REQUIRED', message: 'Upgrade akun ke Pro terlebih dahulu untuk melakukan penarikan saldo.' }, 403);
-    }
     throw error;
   }
-  return c.json({ ok: true, withdrawal_id: withdrawalId, message: 'Permintaan penarikan berhasil dikirim dan sedang menunggu diproses.' }, 201);
+  const { data: withdrawal, error: withdrawalReadError } = await current.db.from('affiliate_withdrawals')
+    .select('id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,status,requested_at')
+    .eq('id', withdrawalId)
+    .maybeSingle();
+  if (withdrawalReadError) console.error('Withdrawal email data read failed:', withdrawalReadError.message);
+  const emailWithdrawal = withdrawal || {
+    id: withdrawalId,
+    amount,
+    fee_percent: 0,
+    fee_amount: 0,
+    net_amount: amount,
+    payout_method: payoutMethod,
+    provider,
+    account_name: accountName,
+    account_number: accountNumber,
+    status: 'pending',
+    requested_at: new Date().toISOString(),
+  };
+  const emailTask = Promise.allSettled([
+    sendAffiliateWithdrawalRequestedEmail(c.env, current.account, emailWithdrawal),
+    sendAdminWithdrawalRequestedEmail(c.env, current.account, emailWithdrawal),
+  ]).then((results) => {
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') console.error(index === 0 ? 'Affiliate withdrawal confirmation email failed:' : 'Admin withdrawal notification email failed:', result.reason?.message || result.reason);
+    });
+  });
+  if (c.executionCtx?.waitUntil) {
+    c.executionCtx.waitUntil(emailTask);
+  }
+  return c.json({ ok: true, withdrawal_id: withdrawalId, message: 'Permintaan penarikan berhasil dikirim. Konfirmasi juga dikirim ke emailmu dan notifikasi dikirim ke admin.' }, 201);
 });
 
 affiliate.get('/affiliate/profile', async (c) => {

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
-import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail } from '../lib/email.js';
+import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
+import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
 import { allTemplates, demoTemplates, hasRealSupabaseConfig } from '../lib/repositories.js';
 
 const admin = new Hono();
@@ -156,11 +157,24 @@ function demoOrders(env) {
     customer_phone: order.customer_phone,
     referral_name: order.referral_name || '',
     referral_amount: Number(order.referral_amount || 0),
+    affiliate_id: order.affiliate_id || null,
+    affiliate_name: order.affiliate_name || order.affiliate?.full_name || null,
+    affiliate_email: order.affiliate_email || order.affiliate?.email || null,
+    affiliate_referral_code: order.affiliate_referral_code || order.affiliate?.referral_code || null,
+    affiliate_status: order.affiliate_status || order.affiliate?.status || null,
+    affiliate_commission_percent: Number(order.affiliate_commission_percent || 0),
+    affiliate_commission_amount: Number(order.affiliate_commission_amount || order.referral_amount || 0),
+    order_source: order.order_source || 'customer',
+    complimentary_note: order.complimentary_note || '',
     template_name: order.template_name,
     template_code: order.template_code,
     package_name: order.package_name,
     package_code: order.package_code,
     payment_status: order.payment_status,
+    paid_at: order.paid_at || null,
+    gateway: order.gateway || null,
+    transaction_id: order.transaction_id || null,
+    gateway_order_id: order.gateway_order_id || null,
     status: order.status,
     website_active: websiteActive,
     active_until: order.active_until || null,
@@ -169,6 +183,8 @@ function demoOrders(env) {
     editor_url: order.payment_status === 'paid' && order.editor_token ? publicAppUrl(env, `/edit/${order.editor_token}`) : null,
     website_url: order.slug ? publicAppUrl(env, `/${order.slug}`) : null,
     package_price: Number(order.package_price || 0),
+    payment_amount: Number(order.payment_amount ?? (order.order_source === 'admin_free' ? 0 : order.package_price) ?? 0),
+    editor_email_sent_at: order.editor_email_sent_at || null,
     created_at: order.created_at || new Date().toISOString(),
     });
   });
@@ -190,6 +206,7 @@ async function adminOrders(env) {
   const packageIds = [...new Set((orderResult.data || []).map((order) => order.package_id).filter(Boolean))];
   const templateMap = new Map();
   const packageMap = new Map();
+  const affiliateMap = new Map();
 
   if (templateIds.length) {
     const { data: templateData, error: templateError } = await db.from('templates').select('id,code,name,category').in('id', templateIds);
@@ -203,6 +220,15 @@ async function adminOrders(env) {
     (packageData || []).forEach((item) => packageMap.set(item.id, item));
   }
 
+  const affiliateIds = [...new Set((orderResult.data || []).map((order) => order.affiliate_id).filter(Boolean))];
+  if (affiliateIds.length) {
+    const { data: affiliateData, error: affiliateError } = await db.from('affiliate_accounts')
+      .select('id,full_name,email,referral_code,status')
+      .in('id', affiliateIds);
+    if (affiliateError) throw affiliateError;
+    (affiliateData || []).forEach((item) => affiliateMap.set(item.id, item));
+  }
+
   const invitations = new Map((invitationResult.data || []).map((item) => [item.order_id, item]));
   const payments = new Map((paymentResult.data || []).map((item) => [item.order_id, item]));
   return (orderResult.data || []).map((order) => {
@@ -210,6 +236,7 @@ async function adminOrders(env) {
     const packageInfo = packageMap.get(order.package_id) || {};
     const payment = payments.get(order.id) || {};
     const invitation = invitations.get(order.id) || {};
+    const affiliate = affiliateMap.get(order.affiliate_id) || null;
     const packagePrice = Number(packageInfo.price ?? order.package_price ?? 0);
     const activeUntil = invitation.active_until ? new Date(invitation.active_until) : null;
     return {
@@ -220,6 +247,12 @@ async function adminOrders(env) {
       package_code: packageInfo.code || null,
       package_name: packageInfo.name || null,
       package_price: packagePrice,
+      affiliate_name: affiliate?.full_name || null,
+      affiliate_email: affiliate?.email || null,
+      affiliate_referral_code: affiliate?.referral_code || null,
+      affiliate_status: affiliate?.status || null,
+      affiliate_commission_percent: Number(order.affiliate_commission_percent || 0),
+      affiliate_commission_amount: Number(order.affiliate_commission_amount || 0),
       gallery_limit: packageInfo.gallery_limit ?? null,
       has_music: Boolean(packageInfo.has_music),
       has_gift: Boolean(packageInfo.has_gift),
@@ -228,7 +261,7 @@ async function adminOrders(env) {
       active_until: invitation.active_until || null,
       slug: invitation.slug || null,
       published_at: invitation.published_at || null,
-      payment_amount: Number(payment.amount || packagePrice || 0),
+      payment_amount: Number(payment.amount ?? packagePrice ?? 0),
       payment_record_status: payment.status || order.payment_record_status,
       paid_at: payment.paid_at || null,
       gateway: payment.gateway || null,
@@ -240,9 +273,34 @@ async function adminOrders(env) {
   });
 }
 
+async function adminAffiliateOptions(env) {
+  if (!hasRealSupabaseConfig(env)) {
+    const unique = new Map();
+    for (const order of demoOrders(env)) {
+      if (!order.affiliate_id || unique.has(order.affiliate_id)) continue;
+      unique.set(order.affiliate_id, {
+        id: order.affiliate_id,
+        full_name: order.affiliate_name || order.referral_name || 'Affiliate',
+        email: order.affiliate_email || '',
+        referral_code: order.affiliate_referral_code || '',
+        status: order.affiliate_status || 'active',
+      });
+    }
+    return [...unique.values()];
+  }
+  const { data, error } = await database(env).from('affiliate_accounts')
+    .select('id,full_name,email,referral_code,status')
+    .in('status', ['active', 'suspended'])
+    .order('full_name', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
 admin.get('/admin/summary', async (c) => {
   const orders = await adminOrders(c.env);
+  const salesOrders = orders.filter((order) => order.order_source !== 'admin_free');
   const templates = await allTemplates(c.env);
+  const affiliateOptions = await adminAffiliateOptions(c.env);
   const db = hasRealSupabaseConfig(c.env) ? database(c.env) : null;
   const homepage = await homepageAdminSettings(db);
   let templateCount = templates.length;
@@ -251,34 +309,169 @@ admin.get('/admin/summary', async (c) => {
     if (error) throw error;
     templateCount = count || 0;
   }
-  const paidOrders = orders.filter((order) => order.payment_status === 'paid');
+  const paidOrders = salesOrders.filter((order) => order.payment_status === 'paid');
   const summary = {
-    total_orders: orders.length,
+    total_orders: salesOrders.length,
     total_paid: paidOrders.length,
-    total_published: orders.filter((order) => order.status === 'published').length,
+    total_published: salesOrders.filter((order) => order.status === 'published').length,
     total_templates: templateCount,
-    total_revenue: paidOrders.reduce((total, order) => total + Number(order.payment_amount || order.package_price || 0), 0),
-    total_pending: orders.filter((order) => order.payment_status === 'pending').length,
-    total_inactive: orders.filter((order) => order.website_active === false).length,
+    total_revenue: paidOrders.reduce((total, order) => total + Number(order.payment_amount ?? order.package_price ?? 0), 0),
+    total_pending: salesOrders.filter((order) => order.payment_status === 'pending').length,
+    total_inactive: salesOrders.filter((order) => order.website_active === false).length,
   };
   const revenueByDate = paidOrders.reduce((items, order) => {
     const date = String(order.paid_at || order.created_at || '').slice(0, 10);
     if (!date) return items;
-    items[date] = (items[date] || 0) + Number(order.payment_amount || order.package_price || 0);
+    items[date] = (items[date] || 0) + Number(order.payment_amount ?? order.package_price ?? 0);
     return items;
   }, {});
-  const referralSummary = Object.values(orders.reduce((items, order) => {
+  const referralSummary = Object.values(salesOrders.reduce((items, order) => {
     const name = String(order.referral_name || '').trim() || 'Tanpa referral';
     if (!items[name]) items[name] = { name, orders: 0, revenue: 0 };
     items[name].orders += 1;
-    if (order.payment_status === 'paid') items[name].revenue += Number(order.payment_amount || order.package_price || 0);
+    if (order.payment_status === 'paid') items[name].revenue += Number(order.payment_amount ?? order.package_price ?? 0);
     return items;
   }, {})).sort((a, b) => b.revenue - a.revenue || b.orders - a.orders);
-  return c.json({ ok: true, summary, orders, templates: templates.map((template) => adminTemplate(c.env, template)), homepage, revenue_by_date: revenueByDate, referral_summary: referralSummary, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+  return c.json({ ok: true, summary, orders, templates: templates.map((template) => adminTemplate(c.env, template)), affiliate_options: affiliateOptions, homepage, revenue_by_date: revenueByDate, referral_summary: referralSummary, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
 });
 
 admin.get('/admin/orders', async (c) => {
   return c.json({ ok: true, orders: await adminOrders(c.env), mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+});
+
+admin.post('/admin/complimentary-orders', async (c) => {
+  const input = await c.req.json().catch(() => ({}));
+  const customerName = cleanText(input.customer_name, 120);
+  const customerEmail = cleanText(input.customer_email, 254).toLowerCase();
+  const customerPhone = cleanText(input.customer_phone, 24);
+  const templateCode = cleanText(input.template_code, 50);
+  const packageCode = cleanText(input.package_code, 30);
+  const complimentaryNote = cleanText(input.complimentary_note, 500);
+  const errors = {};
+
+  if (customerName.length < 3) errors.customer_name = 'Nama lengkap minimal 3 karakter.';
+  if (!validEmail(customerEmail)) errors.customer_email = 'Masukkan alamat email yang valid.';
+  if (!validPhone(customerPhone)) errors.customer_phone = 'Gunakan nomor Indonesia yang diawali 08 atau +62.';
+
+  const templates = await allTemplates(c.env);
+  const template = templates.find((item) => item.code === templateCode);
+  const selectedPackage = template?.packages?.find((item) => item.code === packageCode);
+  if (!template) errors.template_code = 'Pilih template yang tersedia.';
+  if (!selectedPackage) errors.package_code = 'Pilih paket yang tersedia untuk template tersebut.';
+  if (Object.keys(errors).length) return c.json({ ok: false, message: 'Periksa kembali data order gratis.', errors }, 422);
+
+  const code = orderCode();
+  const editorToken = randomHex(32);
+  const now = new Date().toISOString();
+  if (!hasRealSupabaseConfig(c.env)) {
+    DEMO_STATE.orders.set(code, {
+      id: `demo-${code}`,
+      order_code: code,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: normalizePhone(customerPhone),
+      template_id: template.id,
+      template_code: template.code,
+      template_name: template.name,
+      template_category: template.category,
+      package_id: selectedPackage.id,
+      package_code: selectedPackage.code,
+      package_name: selectedPackage.name,
+      package_price: Number(selectedPackage.price || 0),
+      editor_token: editorToken,
+      status: 'editing',
+      payment_status: 'paid',
+      payment_amount: 0,
+      paid_at: now,
+      gateway: 'admin_complimentary',
+      transaction_id: `FREE-${code}`,
+      order_source: 'admin_free',
+      complimentary_note: complimentaryNote,
+      referral_name: null,
+      referral_amount: 0,
+      website_active: false,
+      active_until: null,
+      created_at: now,
+      updated_at: now,
+    });
+  } else {
+    const db = database(c.env);
+    const { error } = await db.rpc('create_daymoment_admin_free_order', {
+      p_order_code: code,
+      p_template_id: template.id,
+      p_package_id: selectedPackage.id,
+      p_customer_name: customerName,
+      p_customer_phone: normalizePhone(customerPhone),
+      p_customer_email: customerEmail,
+      p_editor_token: editorToken,
+      p_complimentary_note: complimentaryNote || null,
+    });
+    if (error) throw error;
+  }
+
+  let createdOrder = (await adminOrders(c.env)).find((item) => item.order_code === code);
+  const editorUrl = publicAppUrl(c.env, `/edit/${encodeURIComponent(editorToken)}`);
+  let emailSent = false;
+  let emailWarning = '';
+  try {
+    const sent = await sendComplimentaryOrderEmail(c.env, createdOrder || {
+      order_code: code,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      template_name: template.name,
+      package_name: selectedPackage.name,
+    }, editorUrl);
+    emailSent = sent?.skipped !== true;
+    if (!emailSent) emailWarning = 'SMTP belum dikonfigurasi, jadi email belum terkirim.';
+  } catch (emailError) {
+    console.error('Complimentary order email failed:', emailError.message);
+    emailWarning = 'Order berhasil dibuat, tetapi email gagal dikirim. Gunakan tombol kirim ulang.';
+  }
+
+  if (emailSent) {
+    if (!hasRealSupabaseConfig(c.env)) {
+      const stored = DEMO_STATE.orders.get(code);
+      if (stored) stored.editor_email_sent_at = now;
+    } else {
+      const db = database(c.env);
+      const { error: emailStampError } = await db.from('orders').update({ editor_email_sent_at: now }).eq('order_code', code);
+      if (emailStampError) console.error('Complimentary email timestamp failed:', emailStampError.message);
+    }
+    createdOrder = { ...createdOrder, editor_email_sent_at: now };
+  }
+
+  return c.json({
+    ok: true,
+    order: { ...createdOrder, editor_url: editorUrl },
+    email_sent: emailSent,
+    message: emailSent ? 'Order gratis berhasil dibuat dan akses editor sudah dikirim ke email customer.' : emailWarning,
+  }, 201);
+});
+
+admin.post('/admin/complimentary-orders/:code/resend-email', async (c) => {
+  const code = c.req.param('code');
+  const order = (await adminOrders(c.env)).find((item) => item.order_code === code);
+  if (!order || order.order_source !== 'admin_free') return c.json({ ok: false, message: 'Order gratis tidak ditemukan.' }, 404);
+  if (!order.editor_url) return c.json({ ok: false, message: 'Akses editor untuk order ini belum tersedia.' }, 422);
+
+  try {
+    const sent = await sendComplimentaryOrderEmail(c.env, order, order.editor_url);
+    if (sent?.skipped) return c.json({ ok: false, message: 'SMTP belum dikonfigurasi sehingga email belum dapat dikirim.' }, 503);
+  } catch (emailError) {
+    console.error('Complimentary order resend failed:', emailError.message);
+    return c.json({ ok: false, message: 'Email gagal dikirim. Periksa konfigurasi SMTP lalu coba lagi.' }, 502);
+  }
+
+  const sentAt = new Date().toISOString();
+  if (!hasRealSupabaseConfig(c.env)) {
+    const stored = DEMO_STATE.orders.get(code);
+    if (stored) stored.editor_email_sent_at = sentAt;
+  } else {
+    const db = database(c.env);
+    const { error } = await db.from('orders').update({ editor_email_sent_at: sentAt }).eq('order_code', code);
+    if (error) throw error;
+  }
+  return c.json({ ok: true, email_sent_at: sentAt, message: `Akses editor berhasil dikirim ulang ke ${order.customer_email}.` });
 });
 
 admin.get('/admin/templates', async (c) => {
@@ -293,6 +486,9 @@ function adminAffiliate(account) {
     full_name: account.full_name,
     phone: account.phone,
     nik: account.nik,
+    social_platform: account.social_platform,
+    social_handle: account.social_handle,
+    social_follower_count: account.social_follower_count != null ? Number(account.social_follower_count) : null,
     referral_code: account.referral_code,
     status: account.status,
     account_tier: account.account_tier || 'basic',
@@ -305,17 +501,26 @@ function adminAffiliate(account) {
     created_at: account.created_at,
     updated_at: account.updated_at,
     ktp_url: account.ktp_object_key ? `/api/admin/affiliates/${account.id}/ktp` : null,
+    social_proof_url: account.social_proof_object_key ? `/api/admin/affiliates/${account.id}/social-proof` : null,
   };
 }
 
 admin.get('/admin/affiliates', async (c) => {
-  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: true, affiliates: [], summary: { pending: 0, active: 0, rejected: 0 } });
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: true, affiliates: [], social_platforms: [], summary: { pending: 0, active: 0, rejected: 0 } });
   const db = database(c.env);
-  const { data, error } = await db.from('affiliate_accounts')
-    .select('id,email,full_name,phone,nik,referral_code,ktp_object_key,status,account_tier,pro_source,pro_activated_at,email_verified_at,reviewed_at,review_note,resubmitted_at,created_at,updated_at')
-    .order('updated_at', { ascending: false })
-    .limit(500);
-  if (error) throw error;
+  const [accountResult, platformResult] = await Promise.all([
+    db.from('affiliate_accounts')
+      .select('id,email,full_name,phone,nik,referral_code,ktp_object_key,social_platform,social_handle,social_follower_count,social_proof_object_key,status,account_tier,pro_source,pro_activated_at,email_verified_at,reviewed_at,review_note,resubmitted_at,created_at,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(500),
+    db.from('affiliate_social_platforms')
+      .select('id,name,is_active,sort_order')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+  ]);
+  if (accountResult.error) throw accountResult.error;
+  if (platformResult.error) throw platformResult.error;
+  const data = accountResult.data;
   const affiliateIds = (data || []).map((account) => account.id);
   const historyResult = affiliateIds.length
     ? await db.from('affiliate_review_history')
@@ -336,6 +541,7 @@ admin.get('/admin/affiliates', async (c) => {
   return c.json({
     ok: true,
     affiliates,
+    social_platforms: platformResult.data || [],
     summary: {
       pending: affiliates.filter((item) => item.status === 'pending').length,
       active: affiliates.filter((item) => item.status === 'active').length,
@@ -387,6 +593,245 @@ admin.get('/admin/affiliates/:affiliateId/ktp', async (c) => {
   headers.set('cache-control', 'private, no-store');
   headers.set('x-content-type-options', 'nosniff');
   headers.set('content-disposition', 'inline; filename="identitas-affiliate"');
+  return new Response(object.body, { headers });
+});
+
+admin.get('/admin/affiliates/:affiliateId/social-proof', async (c) => {
+  if (!c.env.MEDIA || !hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Bukti media sosial tidak ditemukan.' }, 404);
+  const { data: account, error } = await database(c.env).from('affiliate_accounts')
+    .select('social_proof_object_key')
+    .eq('id', c.req.param('affiliateId'))
+    .maybeSingle();
+  if (error) throw error;
+  if (!account?.social_proof_object_key) return c.json({ ok: false, message: 'Bukti media sosial tidak ditemukan.' }, 404);
+  const object = await c.env.MEDIA.get(account.social_proof_object_key);
+  if (!object) return c.json({ ok: false, message: 'Bukti media sosial tidak ditemukan.' }, 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'private, no-store');
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('content-disposition', 'inline; filename="media-sosial-affiliate"');
+  return new Response(object.body, { headers });
+});
+
+admin.get('/admin/withdrawals', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: true, withdrawals: [], settings: { fee_percent: 0, sender_bank_name: '', sender_account_name: '', sender_account_number: '' }, summary: { pending: 0, processing: 0, paid: 0, rejected: 0 } });
+  const db = database(c.env);
+  const [withdrawalResult, settingsResult] = await Promise.all([
+    db.from('affiliate_withdrawals')
+      .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,sender_bank_name,sender_account_name,sender_account_number,status,admin_note,transfer_proof_object_key,requested_at,processed_at,updated_at')
+      .order('requested_at', { ascending: false })
+      .limit(1000),
+    db.from('affiliate_withdrawal_settings')
+      .select('fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at')
+      .eq('singleton', true)
+      .maybeSingle(),
+  ]);
+  if (withdrawalResult.error) throw withdrawalResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+  const affiliateIds = [...new Set((withdrawalResult.data || []).map((item) => item.affiliate_id).filter(Boolean))];
+  const affiliateResult = affiliateIds.length
+    ? await db.from('affiliate_accounts').select('id,email,full_name,phone,referral_code').in('id', affiliateIds)
+    : { data: [], error: null };
+  if (affiliateResult.error) throw affiliateResult.error;
+  const accountMap = new Map((affiliateResult.data || []).map((account) => [account.id, account]));
+  const withdrawals = (withdrawalResult.data || []).map(({ transfer_proof_object_key: proofKey, ...item }) => ({
+    ...item,
+    amount: Number(item.amount || 0),
+    fee_percent: Number(item.fee_percent || 0),
+    fee_amount: Number(item.fee_amount || 0),
+    net_amount: Number(item.net_amount || item.amount || 0),
+    affiliate: accountMap.get(item.affiliate_id) || null,
+    has_transfer_proof: Boolean(proofKey),
+    transfer_proof_url: proofKey ? `/api/admin/withdrawals/${item.id}/proof` : null,
+  }));
+  return c.json({
+    ok: true,
+    withdrawals,
+    settings: {
+      fee_percent: Number(settingsResult.data?.fee_percent || 0),
+      sender_bank_name: settingsResult.data?.sender_bank_name || '',
+      sender_account_name: settingsResult.data?.sender_account_name || '',
+      sender_account_number: settingsResult.data?.sender_account_number || '',
+      updated_at: settingsResult.data?.updated_at || null,
+    },
+    summary: {
+      pending: withdrawals.filter((item) => item.status === 'pending').length,
+      processing: withdrawals.filter((item) => item.status === 'processing').length,
+      paid: withdrawals.filter((item) => item.status === 'paid').length,
+      rejected: withdrawals.filter((item) => ['rejected', 'cancelled'].includes(item.status)).length,
+    },
+  });
+});
+
+admin.patch('/admin/withdrawal-settings', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Pengaturan penarikan hanya tersedia pada database utama.' }, 422);
+  const input = await c.req.json().catch(() => ({}));
+  const feePercent = Number(input.fee_percent);
+  const senderBankName = cleanTemplateField(input.sender_bank_name, 80);
+  const senderAccountName = cleanTemplateField(input.sender_account_name, 120);
+  const senderAccountNumber = String(input.sender_account_number || '').trim().replace(/\s+/g, '').slice(0, 80);
+  if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) return c.json({ ok: false, message: 'Fee penarikan harus berada di antara 0% sampai 100%.' }, 422);
+  if (!senderBankName || !senderAccountName || senderAccountNumber.length < 5) return c.json({ ok: false, message: 'Lengkapi informasi rekening pengirim Daymoment.' }, 422);
+  const { data, error } = await database(c.env).from('affiliate_withdrawal_settings').upsert({
+    singleton: true,
+    fee_percent: Math.round(feePercent * 100) / 100,
+    sender_bank_name: senderBankName,
+    sender_account_name: senderAccountName,
+    sender_account_number: senderAccountNumber,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'singleton' }).select('fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at').single();
+  if (error) throw error;
+  return c.json({ ok: true, settings: { ...data, fee_percent: Number(data.fee_percent || 0) }, message: 'Fee dan rekening pengirim berhasil disimpan.' });
+});
+
+admin.post('/admin/withdrawals/:withdrawalId/process', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Penarikan hanya tersedia pada database utama.' }, 422);
+  const input = await c.req.formData().catch(() => null);
+  if (!input) return c.json({ ok: false, message: 'Data proses penarikan tidak valid.' }, 400);
+  const status = String(input.get('status') || '');
+  const adminNote = cleanTemplateField(input.get('adminNote'), 500) || null;
+  const proof = input.get('proof');
+  const hasNewProof = proof instanceof File && proof.size > 0;
+  if (!['pending', 'processing', 'paid', 'rejected', 'cancelled'].includes(status)) return c.json({ ok: false, message: 'Status penarikan tidak valid.' }, 422);
+  if (['rejected', 'cancelled'].includes(status) && !adminNote) return c.json({ ok: false, message: 'Catatan wajib diisi untuk penarikan yang ditolak atau dibatalkan.' }, 422);
+  if (hasNewProof && !['image/jpeg', 'image/png', 'image/webp'].includes(proof.type)) return c.json({ ok: false, message: 'Bukti transfer harus berupa JPG, PNG, atau WEBP.' }, 422);
+  if (hasNewProof && proof.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran bukti transfer maksimal 4 MB.' }, 422);
+  if (hasNewProof && !c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan bukti transfer belum tersedia.' }, 503);
+
+  const db = database(c.env);
+  const { data: current, error: currentError } = await db.from('affiliate_withdrawals')
+    .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,sender_bank_name,sender_account_name,sender_account_number,status,admin_note,requested_at,processed_at,transfer_proof_object_key')
+    .eq('id', c.req.param('withdrawalId'))
+    .maybeSingle();
+  if (currentError) throw currentError;
+  if (!current) return c.json({ ok: false, message: 'Permintaan penarikan tidak ditemukan.' }, 404);
+  if (status === 'paid' && !hasNewProof && !current.transfer_proof_object_key) return c.json({ ok: false, message: 'Upload bukti transfer sebelum menandai penarikan sebagai selesai.' }, 422);
+
+  let newProofKey = null;
+  if (hasNewProof) {
+    newProofKey = `withdrawal-proofs/${current.id}/${crypto.randomUUID()}.${imageExtension(proof)}`;
+    await c.env.MEDIA.put(newProofKey, proof.stream(), {
+      httpMetadata: { contentType: proof.type, cacheControl: 'private, no-store' },
+      customMetadata: { uploadedAt: new Date().toISOString(), originalName: String(proof.name || 'bukti-transfer').slice(0, 150) },
+    });
+  }
+
+  const terminal = ['paid', 'rejected', 'cancelled'].includes(status);
+  const update = {
+    status,
+    admin_note: adminNote,
+    processed_at: terminal ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+    ...(newProofKey ? { transfer_proof_object_key: newProofKey } : {}),
+  };
+
+  if (status === 'paid' && !current.sender_bank_name) {
+    const { data: settings } = await db.from('affiliate_withdrawal_settings')
+      .select('sender_bank_name,sender_account_name,sender_account_number')
+      .eq('singleton', true)
+      .maybeSingle();
+    if (settings) {
+      if (settings.sender_bank_name) update.sender_bank_name = settings.sender_bank_name;
+      if (settings.sender_account_name) update.sender_account_name = settings.sender_account_name;
+      if (settings.sender_account_number) update.sender_account_number = settings.sender_account_number;
+    }
+  }
+
+  const { data: updated, error } = await db.from('affiliate_withdrawals').update(update).eq('id', current.id)
+    .select('id,status,admin_note,sender_bank_name,sender_account_name,sender_account_number,processed_at,transfer_proof_object_key,updated_at').single();
+  if (error) {
+    if (newProofKey) await c.env.MEDIA.delete(newProofKey);
+    throw error;
+  }
+  if (newProofKey && current.transfer_proof_object_key && current.transfer_proof_object_key !== newProofKey && current.transfer_proof_object_key.startsWith('withdrawal-proofs/')) {
+    await c.env.MEDIA.delete(current.transfer_proof_object_key).catch((deleteError) => console.error('Gagal menghapus bukti transfer lama:', deleteError));
+  }
+  const statusChanged = current.status !== updated.status;
+  const noteChanged = (current.admin_note || '') !== (updated.admin_note || '');
+  const shouldNotify = statusChanged || (noteChanged && Boolean(updated.admin_note)) || (hasNewProof && status === 'paid');
+
+  if (shouldNotify) {
+    const notifyPromise = (async () => {
+      const { data: affiliateAccount, error: affiliateError } = await db.from('affiliate_accounts')
+        .select('id,email,full_name,referral_code')
+        .eq('id', current.affiliate_id)
+        .maybeSingle();
+      if (affiliateError) throw affiliateError;
+      if (!affiliateAccount) throw new Error('Affiliate penerima email status penarikan tidak ditemukan.');
+
+      let senderInfo = {
+        sender_bank_name: updated.sender_bank_name || current.sender_bank_name,
+        sender_account_name: updated.sender_account_name || current.sender_account_name,
+        sender_account_number: updated.sender_account_number || current.sender_account_number,
+      };
+      if (!senderInfo.sender_bank_name) {
+        const { data: settings } = await db.from('affiliate_withdrawal_settings')
+          .select('sender_bank_name,sender_account_name,sender_account_number')
+          .eq('singleton', true)
+          .maybeSingle();
+        if (settings) {
+          senderInfo = {
+            sender_bank_name: settings.sender_bank_name,
+            sender_account_name: settings.sender_account_name,
+            sender_account_number: settings.sender_account_number,
+          };
+        }
+      }
+
+      const mergedWithdrawal = {
+        ...current,
+        ...senderInfo,
+        ...updated,
+      };
+
+      const sent = await sendAffiliateWithdrawalStatusEmail(c.env, affiliateAccount, mergedWithdrawal);
+      if (sent?.skipped) {
+        console.log(`[Email Info] Email status penarikan untuk ${affiliateAccount.email} dilewati (SMTP belum aktif/kredensial kosong).`);
+      } else {
+        console.log(`[Email Success] Email status penarikan (${updated.status}) berhasil dikirim ke ${affiliateAccount.email}.`);
+      }
+    })().catch((emailError) => console.error('Withdrawal status email failed:', emailError.message));
+
+    if (c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil(notifyPromise);
+    }
+  }
+
+  return c.json({
+    ok: true,
+    withdrawal: {
+      ...updated,
+      has_transfer_proof: Boolean(updated.transfer_proof_object_key),
+      transfer_proof_url: updated.transfer_proof_object_key ? `/api/admin/withdrawals/${updated.id}/proof` : null,
+    },
+    message: statusChanged
+      ? status === 'paid'
+        ? 'Penarikan ditandai selesai, bukti tersimpan, dan email status dikirim ke affiliate.'
+        : 'Status penarikan berhasil diperbarui dan email pemberitahuan dikirim ke affiliate.'
+      : shouldNotify
+        ? 'Pembaruan penarikan berhasil disimpan dan email pemberitahuan dikirim ke affiliate.'
+        : 'Data penarikan berhasil disimpan.',
+  });
+});
+
+admin.get('/admin/withdrawals/:withdrawalId/proof', async (c) => {
+  if (!c.env.MEDIA || !hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Bukti transfer tidak ditemukan.' }, 404);
+  const { data, error } = await database(c.env).from('affiliate_withdrawals')
+    .select('transfer_proof_object_key')
+    .eq('id', c.req.param('withdrawalId'))
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.transfer_proof_object_key) return c.json({ ok: false, message: 'Bukti transfer tidak ditemukan.' }, 404);
+  const object = await c.env.MEDIA.get(data.transfer_proof_object_key);
+  if (!object) return c.json({ ok: false, message: 'Bukti transfer tidak ditemukan.' }, 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', 'private, no-store');
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('content-disposition', 'inline; filename="bukti-transfer-penarikan"');
   return new Response(object.body, { headers });
 });
 
@@ -652,7 +1097,7 @@ admin.patch('/admin/affiliates/:affiliateId/review', async (c) => {
 
   const db = database(c.env);
   const { data: account, error: readError } = await db.from('affiliate_accounts')
-    .select('id,email,full_name,email_verified_at,nik,ktp_object_key,status,reviewed_at,review_note,resubmitted_at')
+    .select('id,email,full_name,email_verified_at,nik,ktp_object_key,social_platform,social_handle,social_follower_count,social_proof_object_key,status,reviewed_at,review_note,resubmitted_at')
     .eq('id', c.req.param('affiliateId'))
     .maybeSingle();
   if (readError) throw readError;
@@ -660,13 +1105,14 @@ admin.patch('/admin/affiliates/:affiliateId/review', async (c) => {
   if (account.status !== 'pending') return c.json({ ok: false, message: 'Pendaftaran ini sudah pernah direview.' }, 409);
   if (decision === 'approved' && !account.email_verified_at) return c.json({ ok: false, message: 'Email pendaftar belum diverifikasi.' }, 422);
   if (decision === 'approved' && (!account.nik || !account.ktp_object_key)) return c.json({ ok: false, message: 'Data NIK atau KTP belum lengkap.' }, 422);
+  if (decision === 'approved' && (!account.social_platform || !account.social_handle || account.social_follower_count == null || !account.social_proof_object_key)) return c.json({ ok: false, message: 'Data media sosial affiliate belum lengkap.' }, 422);
 
   const nextStatus = decision === 'approved' ? 'active' : 'rejected';
   const reviewTimestamp = new Date().toISOString();
   const { data: updated, error: updateError } = await db.from('affiliate_accounts')
     .update({ status: nextStatus, reviewed_at: reviewTimestamp, review_note: reviewNote || null })
     .eq('id', account.id)
-    .select('id,email,full_name,phone,nik,referral_code,ktp_object_key,status,account_tier,pro_source,pro_activated_at,email_verified_at,reviewed_at,review_note,resubmitted_at,created_at,updated_at')
+    .select('id,email,full_name,phone,nik,referral_code,ktp_object_key,social_platform,social_handle,social_follower_count,social_proof_object_key,status,account_tier,pro_source,pro_activated_at,email_verified_at,reviewed_at,review_note,resubmitted_at,created_at,updated_at')
     .single();
   if (updateError) throw updateError;
   const { data: historyEntry, error: historyError } = await db.from('affiliate_review_history')
@@ -896,8 +1342,13 @@ admin.post('/admin/templates/:templateCode/cover', async (c) => {
 admin.patch('/admin/templates/:templateCode/packages/:packageCode/price', async (c) => {
   const input = await c.req.json().catch(() => ({}));
   const price = Math.max(0, Number(input.price ?? 0));
+  const hasCommission = input.commission_percent !== undefined && input.commission_percent !== null;
+  const commissionPercent = Number(input.commission_percent ?? 0);
   if (!Number.isFinite(price)) {
     return c.json({ ok: false, message: 'Harga paket tidak valid.' }, 400);
+  }
+  if (hasCommission && (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100)) {
+    return c.json({ ok: false, message: 'Komisi affiliate harus berada di antara 0% sampai 100%.' }, 422);
   }
 
   if (!hasRealSupabaseConfig(c.env)) {
@@ -906,23 +1357,28 @@ admin.patch('/admin/templates/:templateCode/packages/:packageCode/price', async 
     const selectedPackage = template.template_packages?.find((item) => item.code === c.req.param('packageCode'));
     if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
     selectedPackage.price = Math.round(price);
+    if (hasCommission) selectedPackage.affiliate_commission_default_percent = Math.round(commissionPercent * 100) / 100;
     if (template.packages) {
       const packageMatch = template.packages.find((item) => item.code === c.req.param('packageCode'));
-      if (packageMatch) packageMatch.price = Math.round(price);
+      if (packageMatch) {
+        packageMatch.price = Math.round(price);
+        if (hasCommission) packageMatch.affiliate_commission_default_percent = Math.round(commissionPercent * 100) / 100;
+      }
     }
-    return c.json({ ok: true, template_code: template.code, package_code: selectedPackage.code, price: Math.round(price) });
+    return c.json({ ok: true, template_code: template.code, package_code: selectedPackage.code, price: Math.round(price), commission_percent: Number(selectedPackage.affiliate_commission_default_percent || 0) });
   }
 
   const db = database(c.env);
   const { data: template, error: templateError } = await db.from('templates').select('id').eq('code', c.req.param('templateCode')).maybeSingle();
   if (templateError) throw templateError;
   if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
-  const { data: selectedPackage, error: packageError } = await db.from('template_packages').select('id').eq('template_id', template.id).eq('code', c.req.param('packageCode')).maybeSingle();
+  const { data: selectedPackage, error: packageError } = await db.from('template_packages').select('id,affiliate_commission_default_percent').eq('template_id', template.id).eq('code', c.req.param('packageCode')).maybeSingle();
   if (packageError) throw packageError;
   if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
-  const { error } = await db.from('template_packages').update({ price: Math.round(price) }).eq('id', selectedPackage.id);
+  const nextCommission = hasCommission ? Math.round(commissionPercent * 100) / 100 : Number(selectedPackage.affiliate_commission_default_percent || 0);
+  const { error } = await db.from('template_packages').update({ price: Math.round(price), affiliate_commission_default_percent: nextCommission }).eq('id', selectedPackage.id);
   if (error) throw error;
-  return c.json({ ok: true, template_code: template.code, package_code: selectedPackage.code, price: Math.round(price) });
+  return c.json({ ok: true, template_code: template.code, package_code: c.req.param('packageCode'), price: Math.round(price), commission_percent: nextCommission });
 });
 
 admin.patch('/admin/templates/:templateCode/packages/:packageCode/visibility', async (c) => {
@@ -950,6 +1406,113 @@ admin.patch('/admin/templates/:templateCode/packages/:packageCode/visibility', a
   if (error) throw error;
   if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
   return c.json({ ok: true, is_active: selectedPackage.is_active, message: isActive ? 'Paket ditampilkan kembali.' : 'Paket disembunyikan dari katalog.' });
+});
+
+admin.patch('/admin/orders/:code', async (c) => {
+  const input = await c.req.json().catch(() => ({}));
+  const customerName = String(input.customer_name || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+  const customerEmail = String(input.customer_email || '').trim().toLowerCase().slice(0, 254);
+  const customerPhone = normalizeAffiliatePhone(input.customer_phone);
+  const orderStatus = String(input.status || 'waiting_payment');
+  const paymentStatus = String(input.payment_status || 'pending');
+  const templateCode = String(input.template_code || '').trim();
+  const packageCode = String(input.package_code || '').trim();
+  const affiliateId = String(input.affiliate_id || '').trim() || null;
+  const commissionPercent = Number(input.affiliate_commission_percent || 0);
+  const commissionAmount = Math.round(Number(input.affiliate_commission_amount || 0));
+  const paymentAmount = Math.round(Number(input.payment_amount || 0));
+  const allowedOrderStatuses = ['waiting_payment', 'editing', 'published', 'cancelled'];
+  const allowedPaymentStatuses = ['pending', 'paid', 'failed', 'expired', 'refunded'];
+
+  if (customerName.length < 2) return c.json({ ok: false, message: 'Nama customer minimal 2 karakter.' }, 422);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) return c.json({ ok: false, message: 'Alamat email customer tidak valid.' }, 422);
+  if (customerPhone.length < 8) return c.json({ ok: false, message: 'Nomor WhatsApp customer tidak valid.' }, 422);
+  if (!allowedOrderStatuses.includes(orderStatus)) return c.json({ ok: false, message: 'Status order tidak valid.' }, 422);
+  if (!allowedPaymentStatuses.includes(paymentStatus)) return c.json({ ok: false, message: 'Status pembayaran tidak valid.' }, 422);
+  if (!templateCode || !packageCode) return c.json({ ok: false, message: 'Template dan paket wajib dipilih.' }, 422);
+  if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) return c.json({ ok: false, message: 'Persentase komisi harus 0% sampai 100%.' }, 422);
+  if (!Number.isFinite(commissionAmount) || commissionAmount < 0) return c.json({ ok: false, message: 'Nominal komisi tidak valid.' }, 422);
+  if (!Number.isFinite(paymentAmount) || paymentAmount < 0) return c.json({ ok: false, message: 'Nominal pembayaran tidak valid.' }, 422);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = DEMO_STATE.orders.get(c.req.param('code'));
+    if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
+    const template = demoTemplates().find((item) => item.code === templateCode);
+    const packageInfo = template?.template_packages?.find((item) => item.code === packageCode);
+    if (!template || !packageInfo) return c.json({ ok: false, message: 'Template atau paket tidak ditemukan.' }, 404);
+    const affiliate = affiliateId ? (await adminAffiliateOptions(c.env)).find((item) => item.id === affiliateId) : null;
+    Object.assign(order, {
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone,
+      status: orderStatus,
+      payment_status: paymentStatus,
+      template_code: template.code,
+      template_name: template.name,
+      package_code: packageInfo.code,
+      package_name: packageInfo.name,
+      package_price: Number(packageInfo.price || 0),
+      payment_amount: paymentAmount,
+      affiliate_id: affiliate?.id || null,
+      affiliate_name: affiliate?.full_name || null,
+      affiliate_email: affiliate?.email || null,
+      affiliate_referral_code: affiliate?.referral_code || null,
+      referral_name: affiliate?.full_name || '',
+      referral_amount: affiliate ? commissionAmount : 0,
+      affiliate_commission_percent: affiliate ? Math.round(commissionPercent * 100) / 100 : 0,
+      affiliate_commission_amount: affiliate ? commissionAmount : 0,
+      updated_at: new Date().toISOString(),
+    });
+    return c.json({ ok: true, order: demoOrders(c.env).find((item) => item.order_code === order.order_code), message: 'Data pesanan berhasil diperbarui.' });
+  }
+
+  const db = database(c.env);
+  const { data: currentOrder, error: currentError } = await db.from('orders').select('id,order_code').eq('order_code', c.req.param('code')).maybeSingle();
+  if (currentError) throw currentError;
+  if (!currentOrder) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
+
+  const { data: template, error: templateError } = await db.from('templates').select('id,code,name').eq('code', templateCode).maybeSingle();
+  if (templateError) throw templateError;
+  if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+  const { data: packageInfo, error: packageError } = await db.from('template_packages').select('id,code,name,price').eq('template_id', template.id).eq('code', packageCode).maybeSingle();
+  if (packageError) throw packageError;
+  if (!packageInfo) return c.json({ ok: false, message: 'Paket tidak tersedia untuk template tersebut.' }, 422);
+
+  let affiliate = null;
+  if (affiliateId) {
+    const { data: account, error: affiliateError } = await db.from('affiliate_accounts').select('id,full_name,email,referral_code,status').eq('id', affiliateId).maybeSingle();
+    if (affiliateError) throw affiliateError;
+    if (!account) return c.json({ ok: false, message: 'Affiliate tidak ditemukan.' }, 404);
+    affiliate = account;
+  }
+
+  const { data: payment, error: paymentReadError } = await db.from('payments').select('paid_at').eq('order_id', currentOrder.id).maybeSingle();
+  if (paymentReadError) throw paymentReadError;
+  const paymentUpdate = { status: paymentStatus, amount: paymentAmount };
+  if (paymentStatus === 'paid' && !payment?.paid_at) paymentUpdate.paid_at = new Date().toISOString();
+  const { error: paymentError } = await db.from('payments').update(paymentUpdate).eq('order_id', currentOrder.id);
+  if (paymentError) throw paymentError;
+
+  const effectiveCommissionPercent = affiliate ? Math.round(commissionPercent * 100) / 100 : 0;
+  const effectiveCommissionAmount = affiliate ? commissionAmount : 0;
+  const { error: updateError } = await db.from('orders').update({
+    customer_name: customerName,
+    customer_email: customerEmail,
+    customer_phone: customerPhone,
+    template_id: template.id,
+    package_id: packageInfo.id,
+    status: orderStatus,
+    payment_status: paymentStatus,
+    affiliate_id: affiliate?.id || null,
+    referral_name: affiliate?.full_name || null,
+    referral_amount: effectiveCommissionAmount,
+    affiliate_commission_percent: effectiveCommissionPercent,
+    affiliate_commission_amount: effectiveCommissionAmount,
+  }).eq('id', currentOrder.id);
+  if (updateError) throw updateError;
+
+  const updatedOrder = (await adminOrders(c.env)).find((item) => item.order_code === currentOrder.order_code);
+  return c.json({ ok: true, order: updatedOrder, message: 'Data pesanan berhasil diperbarui.' });
 });
 
 admin.patch('/admin/orders/:code/website', async (c) => {
@@ -997,6 +1560,201 @@ admin.patch('/admin/orders/:code/referral', async (c) => {
   if (error) throw error;
   if (!updated) return c.json({ ok: false, message: 'Invoice tidak ditemukan di database.' }, 404);
   return c.json({ ok: true, order_code: updated.order_code, referral_name: updated.referral_name || '', referral_amount: Number(updated.referral_amount || 0) });
+});
+
+
+admin.get('/admin/feedbacks', async (c) => {
+  const db = database(c.env);
+  if (!hasRealSupabaseConfig(c.env) || !db) {
+    return c.json({ ok: true, feedbacks: globalThis.__daymoment_demo_feedbacks__ || [] });
+  }
+  try {
+    const { data, error } = await db.from('feedback_messages')
+      .select('id,name,message,created_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (error) {
+      if (['42P01', 'PGRST205'].includes(error.code)) {
+        return c.json({ ok: true, feedbacks: globalThis.__daymoment_demo_feedbacks__ || [] });
+      }
+      throw error;
+    }
+    return c.json({ ok: true, feedbacks: data || [] });
+  } catch (err) {
+    return c.json({ ok: true, feedbacks: globalThis.__daymoment_demo_feedbacks__ || [] });
+  }
+});
+
+admin.delete('/admin/feedbacks/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!id) return c.json({ ok: false, message: 'ID feedback tidak valid.' }, 400);
+
+  if (globalThis.__daymoment_demo_feedbacks__) {
+    globalThis.__daymoment_demo_feedbacks__ = globalThis.__daymoment_demo_feedbacks__.filter((item) => Number(item.id) !== id);
+  }
+
+  const db = database(c.env);
+  if (!hasRealSupabaseConfig(c.env) || !db) {
+    return c.json({ ok: true, message: 'Feedback berhasil dihapus.' });
+  }
+  try {
+    const { error } = await db.from('feedback_messages').delete().eq('id', id);
+    if (error && !['42P01', 'PGRST205'].includes(error.code)) throw error;
+    return c.json({ ok: true, message: 'Feedback berhasil dihapus.' });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal menghapus feedback.' }, 500);
+  }
+});
+
+admin.get('/admin/notifications', async (c) => {
+  const env = c.env;
+  const isRealDb = hasRealSupabaseConfig(env);
+  const db = isRealDb ? database(env) : null;
+
+  // 1. Orders
+  let ordersList = [];
+  try {
+    ordersList = await adminOrders(env);
+  } catch (err) {
+    ordersList = [];
+  }
+  const pendingOrders = ordersList.filter((o) => o.payment_status === 'pending');
+  const recentOrders = [...ordersList]
+    .sort((a, b) => {
+      if (a.payment_status === 'pending' && b.payment_status !== 'pending') return -1;
+      if (b.payment_status === 'pending' && a.payment_status !== 'pending') return 1;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    })
+    .slice(0, 6)
+    .map((o) => ({
+      id: String(o.id || o.order_code),
+      order_code: o.order_code,
+      title: o.customer_name || 'Pelanggan',
+      snippet: `${o.order_code} · ${o.package_name || 'Paket'} (Rp ${(Number(o.payment_amount ?? o.package_price ?? 0)).toLocaleString('id-ID')})`,
+      status: o.payment_status,
+      status_label: o.payment_status === 'paid' ? 'Lunas' : o.payment_status === 'pending' ? 'Menunggu' : o.payment_status,
+      created_at: o.created_at,
+      view: 'order-history',
+      type: 'order'
+    }));
+
+  // 2. Feedbacks
+  let feedbacksList = [];
+  if (isRealDb && db) {
+    try {
+      const { data, error } = await db.from('feedback_messages')
+        .select('id,name,message,created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (!error && data) feedbacksList = data;
+      else feedbacksList = globalThis.__daymoment_demo_feedbacks__ || [];
+    } catch {
+      feedbacksList = globalThis.__daymoment_demo_feedbacks__ || [];
+    }
+  } else {
+    feedbacksList = globalThis.__daymoment_demo_feedbacks__ || [];
+  }
+  const recentFeedbacks = (feedbacksList || []).slice(0, 6).map((f) => ({
+    id: String(f.id),
+    title: f.name || 'Pengunjung',
+    snippet: String(f.message || '').slice(0, 85) + (String(f.message || '').length > 85 ? '...' : ''),
+    status: 'new',
+    status_label: 'Saran Klien',
+    created_at: f.created_at,
+    view: 'feedback',
+    type: 'feedback'
+  }));
+
+  // 3. Withdrawals
+  let withdrawalsList = [];
+  let withdrawalAffiliateMap = new Map();
+  if (isRealDb && db) {
+    try {
+      const { data, error } = await db.from('affiliate_withdrawals')
+        .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,status,payout_method,provider,account_name,account_number,admin_note,requested_at,updated_at')
+        .order('requested_at', { ascending: false })
+        .limit(15);
+      if (!error && data) {
+        withdrawalsList = data;
+        const affiliateIds = [...new Set(data.map((w) => w.affiliate_id).filter(Boolean))];
+        if (affiliateIds.length > 0) {
+          const { data: accounts } = await db.from('affiliate_accounts').select('id,full_name,email').in('id', affiliateIds);
+          if (accounts) accounts.forEach((acc) => withdrawalAffiliateMap.set(acc.id, acc));
+        }
+      } else if (error) {
+        console.error('Failed to query affiliate_withdrawals for notifications:', error.message);
+      }
+    } catch (err) {
+      console.error('Exception querying affiliate_withdrawals for notifications:', err.message);
+    }
+  }
+  const pendingWithdrawals = withdrawalsList.filter((w) => w.status === 'pending');
+  const statusLabels = {
+    pending: 'Menunggu',
+    processing: 'Diproses',
+    paid: 'Selesai',
+    rejected: 'Ditolak',
+    cancelled: 'Dibatalkan',
+  };
+  const recentWithdrawals = withdrawalsList.slice(0, 8).map((w) => {
+    const affiliate = withdrawalAffiliateMap.get(w.affiliate_id);
+    const affiliateName = affiliate?.full_name || w.account_name || 'Affiliate';
+    const amountStr = `Rp ${(Number(w.amount || 0)).toLocaleString('id-ID')}`;
+    const statusText = statusLabels[w.status] || w.status;
+    return {
+      id: String(w.id),
+      title: `${affiliateName} — ${amountStr}`,
+      snippet: `${w.provider || w.payout_method || 'Bank'} · a.n ${w.account_name || '-'} · ${statusText}`,
+      status: w.status,
+      status_label: statusText,
+      created_at: w.requested_at || w.updated_at,
+      view: 'withdrawals',
+      type: 'withdrawal',
+    };
+  });
+
+  // 4. Affiliate Reviews
+  let pendingAffiliatesList = [];
+  if (isRealDb && db) {
+    try {
+      const { data, error } = await db.from('affiliate_accounts')
+        .select('id,full_name,email,status,created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (!error && data) pendingAffiliatesList = data;
+    } catch {}
+  }
+  const recentAffiliates = pendingAffiliatesList.slice(0, 6).map((a) => ({
+    id: String(a.id),
+    title: a.full_name || 'Affiliate Baru',
+    snippet: `${a.email || '-'} · Menunggu verifikasi pendaftaran`,
+    status: 'pending',
+    status_label: 'Perlu Review',
+    created_at: a.created_at,
+    view: 'affiliates',
+    type: 'affiliate'
+  }));
+
+  const counts = {
+    orders: pendingOrders.length,
+    feedbacks: feedbacksList.length,
+    withdrawals: pendingWithdrawals.length,
+    affiliates: pendingAffiliatesList.length,
+    total: pendingOrders.length + feedbacksList.length + pendingWithdrawals.length + pendingAffiliatesList.length,
+  };
+
+  return c.json({
+    ok: true,
+    counts,
+    refreshed_at: new Date().toISOString(),
+    notifications: {
+      orders: recentOrders,
+      feedbacks: recentFeedbacks,
+      withdrawals: recentWithdrawals,
+      affiliates: recentAffiliates,
+    }
+  });
 });
 
 export default admin;

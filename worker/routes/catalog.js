@@ -48,14 +48,12 @@ catalog.get('/affiliate-catalog/:referralCode', async (c) => {
   if (account.status !== 'active') return c.json({ ok: false, message: 'Etalase affiliate tidak ditemukan.' }, 404);
 
   const { data: settings, error: settingError } = await db.from('affiliate_product_settings')
-    .select('package_id,commission_percent')
+    .select('package_id')
     .eq('affiliate_id', account.id)
     .eq('is_visible', true);
   if (settingError) throw settingError;
 
-  const visiblePackageIds = new Set((settings || [])
-    .filter((setting) => Number(setting.commission_percent) >= 1)
-    .map((setting) => String(setting.package_id)));
+  const visiblePackageIds = new Set((settings || []).map((setting) => String(setting.package_id)));
   const templates = (await activeTemplates(c.env)).map((template) => {
     const packages = template.packages.filter((item) => visiblePackageIds.has(String(item.id)));
     return {
@@ -99,10 +97,10 @@ catalog.get('/templates/:code', async (c) => {
   if (account.status !== 'active') return c.json({ ok: true, template });
   const packageIds = template.packages.map((item) => item.id);
   const { data: settings, error } = packageIds.length
-    ? await db.from('affiliate_product_settings').select('package_id,is_visible,commission_percent').eq('affiliate_id', account.id).in('package_id', packageIds)
+    ? await db.from('affiliate_product_settings').select('package_id,is_visible').eq('affiliate_id', account.id).in('package_id', packageIds)
     : { data: [], error: null };
   if (error) throw error;
-  const visibility = new Map((settings || []).map((item) => [String(item.package_id), item.is_visible === true && Number(item.commission_percent) >= 1]));
+  const visibility = new Map((settings || []).map((item) => [String(item.package_id), item.is_visible === true]));
   const packages = template.packages.filter((item) => visibility.get(String(item.id)) === true);
   c.header('Cache-Control', 'private, no-store');
   return c.json({ ok: true, template: { ...template, packages, package_count: packages.length, starting_price: packages.length ? Math.min(...packages.map((item) => Number(item.price))) : null } });

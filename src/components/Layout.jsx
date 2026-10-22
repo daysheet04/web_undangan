@@ -11,7 +11,7 @@ export function Layout({ children, title, className = '' }) {
   const stylesReady = useHeadLinks([
     '/assets/css/app.css',
     ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css'] : []),
-    ...(bodyClasses.includes('admin-page') ? ['/assets/css/admin.css'] : []),
+    ...(bodyClasses.includes('admin-page') ? ['/assets/css/admin.css', '/assets/css/admin-withdrawals.css', '/assets/css/admin-commissions.css', '/assets/css/admin-orders.css', '/assets/css/admin-free-orders.css'] : []),
   ]);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export function Layout({ children, title, className = '' }) {
             className={`desktop-nav-link ${activeNav === 'cara-kerja' ? 'is-active' : ''}`}
             onClick={(e) => handleNavClick(e, 'cara-kerja')}
           >
-            Cara kerja
+            Langkah Pemesanan
           </a>
           <a className="affiliate-nav-btn" href="/affiliate">
             <span>Affiliate</span>
@@ -170,7 +170,7 @@ export function Layout({ children, title, className = '' }) {
             className={`mobile-nav-link-item ${activeNav === 'cara-kerja' ? 'is-active' : ''}`}
             onClick={(e) => handleNavClick(e, 'cara-kerja')}
           >
-            Cara Kerja
+            Langkah Pemesanan
           </a>
           <a
             href="/affiliate"

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Loading, ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
+import { downloadInvitationPdf } from '../lib/invitationPdf.js';
 
 const providers=['BCA','BRI','BNI','Mandiri','BSI','CIMB Niaga','PermataBank','SeaBank','Jago','GoPay','DANA','OVO','ShopeePay','Lainnya'];
 const salutations=['Bapak/Ibu/Saudara/i','Bapak & Ibu','Saudara/i','Keluarga','Teman/Sahabat'];
@@ -10,10 +11,11 @@ const invitationDateLabel=(value)=>value?new Intl.DateTimeFormat('id-ID',{timeZo
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css','/assets/css/builder-pdf.css']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
+  const [pdfWorking,setPdfWorking]=useState(false);
   useEffect(()=>{
     if(!showPaymentSuccess||state.loading||state.error)return undefined;
     const cleanUrl=new URL(window.location.href);
@@ -45,6 +47,25 @@ export default function BuilderPage({token}){
   const activationState=!published?'pending':!i.is_active?'disabled':activeExpired?'expired':'active';
   const activationTitle=!published?'Masa aktif belum dimulai':!i.is_active?'Link undangan sedang dinonaktifkan':activeExpired?`Masa aktif berakhir pada ${activeUntilLabel}`:`Link aktif sampai ${activeUntilLabel}`;
   const activationCopy=!published?'Link baru aktif selama 2 bulan setelah tombol publish pertama kali ditekan.':!i.is_active?'Undangan sudah pernah diterbitkan, tetapi akses publik sedang dinonaktifkan.':activeExpired?'Tautan publik sudah melewati masa aktif dua bulan.':'Tanggal berakhir tetap sama meskipun undangan diedit dan disimpan ulang.';
+  const downloadPrintPdf=async()=>{
+    if(pdfWorking)return;
+    setPdfWorking(true);
+    try{
+      const form=document.getElementById('invitationForm');
+      const latest=form?Object.fromEntries(new FormData(form).entries()):{};
+      await downloadInvitationPdf({
+        invitation:{...i,...latest},
+        templateCode:i.template_code,
+        templateName:i.template_name,
+        orderCode:i.order_code,
+      });
+      window.showToast?.('PDF A4 berhasil dibuat.');
+    }catch(error){
+      window.showToast?.(error?.message||'PDF belum dapat dibuat.','error');
+    }finally{
+      setPdfWorking(false);
+    }
+  };
   return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={i.template_code} data-gallery-limit={galleryLimit} data-published={published?'true':'false'} data-personal-links={personalLinksAvailable?'true':'false'} data-app-url={String(appUrl||location.origin).replace(/\/$/,'')} data-custom-couple={customCoupleUrl||''}>
     {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang dapat digunakan.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
     <div className="builder-topbar"><div><a href="/" className="builder-brand"><img className="brand-logo" src="/assets/images/brand/daymoment-mark.svg" alt=""/><span className="builder-brand-copy"><strong>Daymoment</strong></span></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div></div>
@@ -54,7 +75,20 @@ export default function BuilderPage({token}){
         <section className="form-step active" data-step="0" data-title="Data Pengantin"><Intro icon="♡" title="Kenalkan kedua mempelai" copy="Nama panggilan akan menjadi nama utama pada cover undangan."/><Card title="Mempelai pria"><div className="field-grid"><TextField full label="Nama lengkap" name="groom_full_name" maxLength="150" required value={i.groom_full_name} placeholder="Contoh: Andi Pratama"/><TextField label="Nama panggilan" name="groom_nickname" maxLength="80" required value={i.groom_nickname} placeholder="Andi"/></div></Card><Card title="Mempelai wanita"><div className="field-grid"><TextField full label="Nama lengkap" name="bride_full_name" maxLength="150" required value={i.bride_full_name} placeholder="Contoh: Nisa Maharani"/><TextField label="Nama panggilan" name="bride_nickname" maxLength="80" required value={i.bride_nickname} placeholder="Nisa"/></div></Card></section>
         <section className="form-step" data-step="1" data-title="Data Orang Tua"><Intro icon="⌂" title="Nama orang tua" copy="Lengkapi nama ayah dan ibu dari masing-masing mempelai."/><Card title="Orang tua mempelai pria"><div className="field-grid"><TextField label="Nama ayah" name="groom_father" required value={i.groom_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="groom_mother" required value={i.groom_mother} placeholder="Ibu ..."/></div></Card><Card title="Orang tua mempelai wanita"><div className="field-grid"><TextField label="Nama ayah" name="bride_father" required value={i.bride_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="bride_mother" required value={i.bride_mother} placeholder="Ibu ..."/></div></Card></section>
         <section className="form-step" data-step="2" data-title="Jadwal Acara"><Intro icon="◫" title="Kapan hari bahagianya?" copy="Isi waktu akad dan resepsi sesuai jadwal yang telah ditentukan."/><EventFields title="Akad Nikah" prefix="akad" invitation={i}/><EventFields title="Resepsi" prefix="reception" invitation={i}/></section>
-        <section className="form-step" data-step="3" data-title="Lokasi"><Intro icon="⌖" title="Di mana acaranya?" copy="Bantu tamu menemukan lokasi dengan alamat jelas dan tautan peta."/><Card><div className="field-grid"><TextField full label="Nama gedung atau lokasi" name="venue_name" required value={i.venue_name} placeholder="Contoh: Pendopo Arunika"/><label className="field full"><span>Alamat lengkap <b>*</b></span><textarea name="venue_address" rows="4" maxLength="1500" required defaultValue={i.venue_address||''}/></label><TextField full type="url" label="Link Google Maps" name="maps_url" value={i.maps_url} placeholder="https://maps.google.com/..."/></div></Card></section>
+        <section className="form-step" data-step="3" data-title="Lokasi">
+          <Intro icon="⌖" title="Di mana acaranya?" copy="Bantu tamu menemukan lokasi dengan alamat, patokan, dan petunjuk perjalanan yang jelas."/>
+          <Card>
+            <p className="pdf-location-auto-note"><strong>Navigasi PDF dibuat otomatis.</strong> Cukup isi nama dan alamat lokasi. Link Maps, patokan, serta panduan transportasi di bawah bersifat opsional untuk membuat petunjuknya lebih spesifik.</p>
+            <div className="field-grid">
+              <TextField full label="Nama gedung atau lokasi" name="venue_name" required value={i.venue_name} placeholder="Contoh: Pendopo Arunika"/>
+              <label className="field full"><span>Alamat lengkap <b>*</b></span><textarea name="venue_address" rows="4" maxLength="1500" required defaultValue={i.venue_address||''}/></label>
+              <TextField full type="url" label="Link Google Maps" name="maps_url" value={i.maps_url} placeholder="https://maps.google.com/..."/>
+              <TextField full label="Patokan terdekat" name="nearest_landmark" maxLength="240" value={i.nearest_landmark} placeholder="Contoh: 300 meter dari Gedung Sate, seberang minimarket"/>
+              <label className="field full"><span>Petunjuk arah dari patokan</span><textarea name="route_directions" rows="4" maxLength="1200" defaultValue={i.route_directions||''} placeholder="Contoh: Dari Gedung Sate ambil arah timur, lurus 300 meter, lalu belok kiri setelah minimarket."/><small>Gunakan langkah singkat dan mudah diikuti.</small></label>
+              <label className="field full"><span>Akses dan pilihan transportasi</span><textarea name="transportation_guide" rows="4" maxLength="1000" defaultValue={i.transportation_guide||''} placeholder="Contoh: Bisa menggunakan angkot jurusan ..., turun di ..., lalu jalan kaki 5 menit. Kendaraan pribadi dapat masuk dari gerbang timur."/><small>Jelaskan naik apa, titik turun, area parkir, atau akses transportasi online.</small></label>
+            </div>
+          </Card>
+        </section>
         <section className="form-step" data-step="4" data-title="Cerita dan Foto"><Intro icon="✦" title="Hidupkan ceritamu" copy="Tambahkan cerita singkat dan foto pilihan. Gambar akan dikompres sebelum diunggah."/><Card><label className="field full"><span>Kisah singkat pasangan <b>*</b></span><textarea name="love_story" rows="6" maxLength="3000" required defaultValue={i.love_story||''}/><small><span data-char-count="love_story">0</span>/3000 karakter</small></label><TextField full label="Instagram pasangan (opsional)" name="instagram" value={i.instagram} placeholder="andindanisa"/></Card>
         {['verdant_vow', 'aurelia_grande'].includes(i.template_code) && (
           <div className="form-section-card upload-section verdant-couple-card" id="verdantCoupleStudio">
@@ -184,7 +218,7 @@ export default function BuilderPage({token}){
           </Card>
         </section>
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
-        <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
+        <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover, profil mempelai, jadwal acara, serta peta arah dan panduan transportasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
       </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
       <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{i.template_name}</small></div><button type="button" data-refresh-preview>↻</button></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${i.template_code}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
