@@ -11,9 +11,9 @@ const invitationDateLabel=(value)=>value?new Intl.DateTimeFormat('id-ID',{timeZo
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css','/assets/css/builder-pdf.css']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-1','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
-  useLegacyScripts(['/assets/js/builder.js'],!state.loading&&!state.error);
+  useLegacyScripts(['/assets/js/builder.js','/assets/js/builder-invitee-edit.js?v=20261023-1'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
   const [pdfWorking,setPdfWorking]=useState(false);
   useEffect(()=>{
@@ -29,7 +29,14 @@ export default function BuilderPage({token}){
       window.removeEventListener('scroll',dismiss);
     };
   },[showPaymentSuccess,state.loading,state.error]);
-  if(state.loading)return <Loading/>; if(state.error)return <ErrorState error={state.error}/>;
+  if(state.loading)return <BuilderLoading/>;
+  if(state.error) {
+    const isDeactivated = state.error?.status === 403 || state.error?.data?.code === 'INVITATION_DEACTIVATED' || /dinonaktifkan/i.test(state.error?.message || '');
+    if (isDeactivated) {
+      return <BuilderDeactivatedScreen error={state.error} />;
+    }
+    return <ErrorState error={state.error}/>;
+  }
   const {invitation:i,media,giftAccounts,invitees,appUrl}=state.data;
   const customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple'));
   const customCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null);
@@ -68,7 +75,7 @@ export default function BuilderPage({token}){
   };
   return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={i.template_code} data-gallery-limit={galleryLimit} data-published={published?'true':'false'} data-personal-links={personalLinksAvailable?'true':'false'} data-app-url={String(appUrl||location.origin).replace(/\/$/,'')} data-custom-couple={customCoupleUrl||''}>
     {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang dapat digunakan.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
-    <div className="builder-topbar"><div><a href="/" className="builder-brand"><img className="brand-logo" src="/assets/images/brand/daymoment-mark.svg" alt=""/><span className="builder-brand-copy"><strong>Daymoment</strong></span></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div></div>
+    <div className="builder-topbar"><div><a href="/" className="builder-brand" aria-label="Daymoment, kembali ke beranda"><img className="brand-logo builder-brand-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="128" height="46"/></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div></div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
     <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
       <form id="invitationForm" autoComplete="off">
@@ -223,6 +230,18 @@ export default function BuilderPage({token}){
       <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{i.template_name}</small></div><button type="button" data-refresh-preview>↻</button></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${i.template_code}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
     <dialog className="publish-activation-dialog" id="publishActivationDialog"><div className="publish-activation-card"><span className="publish-activation-icon">✓</span><span className="eyebrow">Undangan berhasil diterbitkan</span><h2>Link aktif selama 2 bulan</h2><p>Masa aktif dimulai hari ini. Tamu dapat membuka undangan sampai:</p><strong className="publish-active-until" id="publishActiveUntil">-</strong><small>Tanggal berakhir ini tidak berubah saat undangan diedit ulang.</small><button className="button button-primary button-wide" id="continueAfterPublish" type="button">Lihat tautan undangan →</button></div></dialog>
+    <dialog className="invitee-edit-dialog" id="inviteeEditDialog">
+      <form id="inviteeEditForm">
+        <header><div><span>DAFTAR TAMU</span><h2>Edit data tamu</h2><p>Perubahan nama otomatis memperbarui tautan personal tamu.</p></div><button type="button" data-close-invitee-edit aria-label="Tutup">×</button></header>
+        <input type="hidden" id="inviteeEditId"/>
+        <div className="invitee-edit-fields">
+          <label className="field"><span>Sapaan</span><select id="inviteeEditSalutation">{salutations.map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="field"><span>Nama tamu <b>*</b></span><input id="inviteeEditName" maxLength="150" required/></label>
+          <label className="field full"><span>No. WhatsApp (opsional)</span><input id="inviteeEditPhone" type="tel" maxLength="35" placeholder="Contoh: 081234567890"/></label>
+        </div>
+        <footer><button type="button" className="button button-secondary" data-close-invitee-edit>Batal</button><button type="submit" className="button button-primary" id="saveInviteeEdit">Simpan perubahan</button></footer>
+      </form>
+    </dialog>
     <div className="toast-region" id="toastRegion"/>
   </div>;
 }
@@ -253,24 +272,25 @@ function InviteeRow({guest,linkAvailable,appUrl,slug,coupleNames}){
   } else if (!/^(bapak|ibu|sdr|saudara|keluarga|dr\.|prof\.|ustadz|kak)/i.test(guestName)) {
     guestTitle = `Bapak/Ibu/Saudara/i ${guestName}`;
   }
-  const couple = coupleNames?.trim() || 'Kedua Mempelai';
-  const waMessage = `🕊️ *WEDDING INVITATION*
-✨ *${couple}* ✨
-──────────────────────────
+  const waMessage = `💌 *WEDDING INVITATION*
+💍 *${couple}* 💍
+
+✨ ───────────────────────── ✨
 
 Kepada Yth.
 *${guestTitle}*
 
 Tanpa mengurangi rasa hormat, perkenankan kami mengundang Bapak/Ibu/Saudara/i untuk bersama-sama merayakan momen istimewa dan hari bahagia pernikahan kami.
 
-💌 *Buka Tautan Undangan Digital:*
+🔗 *Buka Tautan Undangan Digital:*
 ${url}
 
 Merupakan suatu kehormatan dan kebahagiaan yang mendalam bagi kami sekeluarga apabila Anda berkenan hadir serta memberikan doa restu untuk mengawali lembaran baru ini.
 
-Terima kasih atas segala perhatian, doa tulus, dan kasih hangat yang senantiasa menyertai. Sampai jumpa di hari bahagia kami! 🤍
+Terima kasih atas segala perhatian, doa tulus, dan kasih hangat yang senantiasa menyertai. Sampai jumpa di hari bahagia kami! 💐🙏✨
 
 ──────────────────────────
+
 _Hormat kami yang berbahagia,_
 *${couple}*`;
   const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
@@ -296,11 +316,13 @@ _Hormat kami yang berbahagia,_
           <a href={waUrl} target="_blank" rel="noopener noreferrer" className="btn-direct-wa" title="Kirim undangan via WhatsApp">
             Bagikan WA
           </a>
+          <button type="button" data-edit-invitee>Edit</button>
           <button type="button" data-delete-invitee>Hapus</button>
         </div>
       ) : (
         <div className="invitee-link invitee-link-locked">
           <span>Link tersedia setelah undangan dipublish dan aktif.</span>
+          <button type="button" data-edit-invitee>Edit</button>
           <button type="button" data-delete-invitee>Hapus</button>
         </div>
       )}
@@ -314,3 +336,55 @@ function EventFields({title,prefix,invitation}){return <Card title={title}><div 
 function UploadCard({title,help,children}){return <div className="form-section-card upload-section"><div className="upload-heading"><div><h2>{title}</h2><p>{help}</p></div></div>{children}</div>}
 function ProfileUpload({id,thumb,src,label}){return <label className="cover-upload compact-upload"><input type="file" id={id} accept="image/jpeg,image/png,image/webp"/><img id={thumb} src={src} alt={`Preview ${label}`}/><span><b>{label}</b><small>Klik untuk pilih foto.</small></span></label>}
 function GiftRow({account}){return <div className="gift-account-row" data-gift-row><label className="field"><span>Bank / e-wallet</span><select data-gift-field="provider" defaultValue={account.provider}>{providers.map(v=><option key={v}>{v}</option>)}</select></label><label className="field"><span>Nomor rekening / akun</span><input data-gift-field="account_number" maxLength="100" defaultValue={account.account_number}/></label><label className="field"><span>Nama pemilik</span><input data-gift-field="account_name" maxLength="150" defaultValue={account.account_name}/></label><label className="field"><span>Label opsional</span><input data-gift-field="label" maxLength="100" defaultValue={account.label||''}/></label><button type="button" className="remove-editor-row" data-remove-gift>Hapus</button></div>}
+
+function BuilderLoading(){
+  return (
+    <div className="builder-loading-shell" role="status" aria-live="polite" aria-label="Sedang memuat editor undangan">
+      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" aria-hidden="true" />
+    </div>
+  );
+}
+
+function BuilderDeactivatedScreen({ error }) {
+  useDocumentTitle('Akses Editor Dinonaktifkan — Daymoment');
+  return (
+    <div className="builder-blocked-screen">
+      <div className="builder-blocked-card">
+        <a href="/" className="builder-blocked-brand" aria-label="Daymoment Beranda">
+          <img src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="130" height="46" />
+        </a>
+        <div className="builder-blocked-icon-wrap">
+          <span className="builder-blocked-icon">🔒</span>
+        </div>
+        <span className="builder-blocked-badge">Akses Editor Dinonaktifkan</span>
+        <h1 className="builder-blocked-title">Akses Editor Dinonaktifkan</h1>
+        <p className="builder-blocked-desc">
+          {error?.message || 'Undangan ini telah dinonaktifkan oleh admin Daymoment. Selama status ini nonaktif, form editor, daftar tamu, galeri foto, dan live preview tidak dapat diakses.'}
+        </p>
+        <div className="builder-blocked-box">
+          <div className="builder-blocked-box-item">
+            <strong>Mengapa akses ditutup?</strong>
+            <p>Admin Daymoment telah menonaktifkan status website atau pesanan ini.</p>
+          </div>
+          <div className="builder-blocked-box-item">
+            <strong>Bagaimana cara mengaktifkan kembali?</strong>
+            <p>Hubungi admin Daymoment untuk memperpanjang masa aktif atau mengaktifkan kembali akses undangan ini.</p>
+          </div>
+        </div>
+        <div className="builder-blocked-actions">
+          <a
+            href="https://wa.me/6285183002235?text=Halo%20Admin%20Daymoment,%20saya%20ingin%20mengaktifkan%20kembali%20akses%20editor%20undangan%20saya"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="builder-blocked-btn-wa"
+          >
+            <span>💬 Hubungi Admin via WhatsApp</span>
+          </a>
+          <a href="/" className="builder-blocked-btn-home">
+            Kembali ke Beranda Daymoment
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}

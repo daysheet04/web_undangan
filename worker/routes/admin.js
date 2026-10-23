@@ -33,23 +33,6 @@ function adminTemplate(env, template) {
   return { ...template, thumbnail_url: templateCoverUrl(env, template.thumbnail) };
 }
 
-async function homepageAdminSettings(db) {
-  if (!db) return { hero_image_key: null, hero_image_url: null };
-  const { data, error } = await db.from('site_settings')
-    .select('value')
-    .eq('key', 'homepage_hero_image')
-    .maybeSingle();
-  if (error) {
-    if (['42P01', 'PGRST205'].includes(error.code)) return { hero_image_key: null, hero_image_url: null };
-    throw error;
-  }
-  const objectKey = String(data?.value || '').trim();
-  return {
-    hero_image_key: objectKey || null,
-    hero_image_url: objectKey ? `/api/admin/media/${objectKey.replace(/^\/+/, '')}` : null,
-  };
-}
-
 function cleanTemplateField(value, maxLength) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
 }
@@ -177,6 +160,7 @@ function demoOrders(env) {
     gateway_order_id: order.gateway_order_id || null,
     status: order.status,
     website_active: websiteActive,
+    website_enabled: Boolean(order.website_enabled ?? order.is_active ?? order.website_active),
     active_until: order.active_until || null,
     slug: order.slug || null,
     published_at: order.published_at || null,
@@ -258,6 +242,7 @@ async function adminOrders(env) {
       has_gift: Boolean(packageInfo.has_gift),
       has_wishes: Boolean(packageInfo.has_wishes),
       website_active: order.status === 'published' && Boolean(invitation.published_at) && invitation.is_active === true && Boolean(activeUntil) && activeUntil > new Date(),
+      website_enabled: invitation.is_active === true,
       active_until: invitation.active_until || null,
       slug: invitation.slug || null,
       published_at: invitation.published_at || null,
@@ -302,7 +287,6 @@ admin.get('/admin/summary', async (c) => {
   const templates = await allTemplates(c.env);
   const affiliateOptions = await adminAffiliateOptions(c.env);
   const db = hasRealSupabaseConfig(c.env) ? database(c.env) : null;
-  const homepage = await homepageAdminSettings(db);
   let templateCount = templates.length;
   if (db) {
     const { count, error } = await db.from('templates').select('id', { count: 'exact', head: true });
@@ -332,7 +316,7 @@ admin.get('/admin/summary', async (c) => {
     if (order.payment_status === 'paid') items[name].revenue += Number(order.payment_amount ?? order.package_price ?? 0);
     return items;
   }, {})).sort((a, b) => b.revenue - a.revenue || b.orders - a.orders);
-  return c.json({ ok: true, summary, orders, templates: templates.map((template) => adminTemplate(c.env, template)), affiliate_options: affiliateOptions, homepage, revenue_by_date: revenueByDate, referral_summary: referralSummary, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+  return c.json({ ok: true, summary, orders, templates: templates.map((template) => adminTemplate(c.env, template)), affiliate_options: affiliateOptions, revenue_by_date: revenueByDate, referral_summary: referralSummary, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
 });
 
 admin.get('/admin/orders', async (c) => {
@@ -616,7 +600,7 @@ admin.get('/admin/affiliates/:affiliateId/social-proof', async (c) => {
 });
 
 admin.get('/admin/withdrawals', async (c) => {
-  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: true, withdrawals: [], settings: { fee_percent: 0, sender_bank_name: '', sender_account_name: '', sender_account_number: '' }, summary: { pending: 0, processing: 0, paid: 0, rejected: 0 } });
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: true, withdrawals: [], settings: { min_withdrawal_amount: 50000, fee_percent: 0, sender_bank_name: '', sender_account_name: '', sender_account_number: '' }, summary: { pending: 0, processing: 0, paid: 0, rejected: 0 } });
   const db = database(c.env);
   const [withdrawalResult, settingsResult] = await Promise.all([
     db.from('affiliate_withdrawals')
@@ -624,7 +608,7 @@ admin.get('/admin/withdrawals', async (c) => {
       .order('requested_at', { ascending: false })
       .limit(1000),
     db.from('affiliate_withdrawal_settings')
-      .select('fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at')
+      .select('min_withdrawal_amount,fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at')
       .eq('singleton', true)
       .maybeSingle(),
   ]);
@@ -650,6 +634,7 @@ admin.get('/admin/withdrawals', async (c) => {
     ok: true,
     withdrawals,
     settings: {
+      min_withdrawal_amount: Number(settingsResult.data?.min_withdrawal_amount || 50000),
       fee_percent: Number(settingsResult.data?.fee_percent || 0),
       sender_bank_name: settingsResult.data?.sender_bank_name || '',
       sender_account_name: settingsResult.data?.sender_account_name || '',
@@ -669,21 +654,24 @@ admin.patch('/admin/withdrawal-settings', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Pengaturan penarikan hanya tersedia pada database utama.' }, 422);
   const input = await c.req.json().catch(() => ({}));
   const feePercent = Number(input.fee_percent);
+  const minWithdrawalAmount = Number(input.min_withdrawal_amount || 50000);
   const senderBankName = cleanTemplateField(input.sender_bank_name, 80);
   const senderAccountName = cleanTemplateField(input.sender_account_name, 120);
   const senderAccountNumber = String(input.sender_account_number || '').trim().replace(/\s+/g, '').slice(0, 80);
   if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) return c.json({ ok: false, message: 'Fee penarikan harus berada di antara 0% sampai 100%.' }, 422);
+  if (!Number.isFinite(minWithdrawalAmount) || minWithdrawalAmount < 10000) return c.json({ ok: false, message: 'Minimal penarikan harus berupa angka minimal Rp10.000.' }, 422);
   if (!senderBankName || !senderAccountName || senderAccountNumber.length < 5) return c.json({ ok: false, message: 'Lengkapi informasi rekening pengirim Daymoment.' }, 422);
   const { data, error } = await database(c.env).from('affiliate_withdrawal_settings').upsert({
     singleton: true,
+    min_withdrawal_amount: Math.round(minWithdrawalAmount),
     fee_percent: Math.round(feePercent * 100) / 100,
     sender_bank_name: senderBankName,
     sender_account_name: senderAccountName,
     sender_account_number: senderAccountNumber,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'singleton' }).select('fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at').single();
+  }, { onConflict: 'singleton' }).select('min_withdrawal_amount,fee_percent,sender_bank_name,sender_account_name,sender_account_number,updated_at').single();
   if (error) throw error;
-  return c.json({ ok: true, settings: { ...data, fee_percent: Number(data.fee_percent || 0) }, message: 'Fee dan rekening pengirim berhasil disimpan.' });
+  return c.json({ ok: true, settings: { ...data, min_withdrawal_amount: Number(data.min_withdrawal_amount || 50000), fee_percent: Number(data.fee_percent || 0) }, message: 'Pengaturan penarikan berhasil disimpan.' });
 });
 
 admin.post('/admin/withdrawals/:withdrawalId/process', async (c) => {
@@ -1517,27 +1505,81 @@ admin.patch('/admin/orders/:code', async (c) => {
 
 admin.patch('/admin/orders/:code/website', async (c) => {
   const input = await c.req.json().catch(() => ({}));
-  const active = input.active === true;
+  const hasActiveChange = typeof input.active === 'boolean';
+  const requestedDate = String(input.active_until || '').trim();
+  let requestedActiveUntil = null;
+  if (requestedDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return c.json({ ok: false, message: 'Tanggal masa aktif tidak valid.' }, 422);
+    requestedActiveUntil = new Date(`${requestedDate}T23:59:59.999+07:00`);
+    if (Number.isNaN(requestedActiveUntil.getTime()) || requestedActiveUntil <= new Date()) return c.json({ ok: false, message: 'Masa aktif baru harus berakhir setelah hari ini.' }, 422);
+  }
   if (!hasRealSupabaseConfig(c.env)) {
     const order = DEMO_STATE.orders.get(c.req.param('code'));
     if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
-    if (active && (!order.published_at || order.status !== 'published')) return c.json({ ok: false, message: 'Undangan harus dipublish terlebih dahulu sebelum dapat diaktifkan.' }, 422);
-    if (active && (!order.active_until || new Date(order.active_until) <= new Date())) return c.json({ ok: false, message: 'Masa aktif undangan sudah berakhir.' }, 422);
-    order.website_active = active;
-    return c.json({ ok: true, website_active: active, message: active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });
+    const currentEnabled = Boolean(order.website_enabled ?? order.is_active ?? order.website_active);
+    const active = hasActiveChange ? input.active : currentEnabled;
+    const currentActiveUntil = order.active_until ? new Date(order.active_until) : null;
+    const isCurrentExpired = !currentActiveUntil || currentActiveUntil <= new Date();
+    const nextActiveUntil = requestedActiveUntil?.toISOString()
+      || (!isCurrentExpired ? order.active_until : null)
+      || (active ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() : null);
+    if (active && (!order.published_at || order.status !== 'published')) {
+      order.status = 'published';
+      order.published_at = new Date().toISOString();
+      order.slug = order.slug || (cleanText(order.customer_name || 'undangan').toLowerCase().replace(/[^a-z0-9]/g, '') || 'undangan') + '-' + randomHex(3);
+      order.website_url = publicAppUrl(c.env, `/${order.slug}`);
+    }
+    if (active && (!nextActiveUntil || new Date(nextActiveUntil) <= new Date())) return c.json({ ok: false, message: 'Pilih tanggal masa aktif baru terlebih dahulu.' }, 422);
+    order.active_until = nextActiveUntil;
+    order.website_enabled = active;
+    order.is_active = active;
+    order.website_active = active && new Date(nextActiveUntil) > new Date();
+    return c.json({ ok: true, website_active: order.website_active, website_enabled: active, active_until: nextActiveUntil, message: requestedActiveUntil ? 'Masa aktif website customer berhasil diperpanjang.' : active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });
   }
   const db = database(c.env);
-  const { data: order, error: orderError } = await db.from('orders').select('id,status').eq('order_code', c.req.param('code')).maybeSingle();
+  const { data: order, error: orderError } = await db.from('orders').select('id,status,customer_name').eq('order_code', c.req.param('code')).maybeSingle();
   if (orderError) throw orderError;
   if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
-  const { data: invitation, error: invitationReadError } = await db.from('invitations').select('published_at,active_until').eq('order_id', order.id).maybeSingle();
+  const { data: invitation, error: invitationReadError } = await db.from('invitations').select('published_at,active_until,is_active,slug').eq('order_id', order.id).maybeSingle();
   if (invitationReadError) throw invitationReadError;
   if (!invitation) return c.json({ ok: false, message: 'Data undangan tidak ditemukan.' }, 404);
-  if (active && (!invitation.published_at || order.status !== 'published')) return c.json({ ok: false, message: 'Undangan harus dipublish terlebih dahulu sebelum dapat diaktifkan.' }, 422);
-  if (active && (!invitation.active_until || new Date(invitation.active_until) <= new Date())) return c.json({ ok: false, message: 'Masa aktif undangan sudah berakhir.' }, 422);
-  const { error } = await db.from('invitations').update({ is_active: active }).eq('order_id', order.id);
+  const currentEnabled = invitation.is_active === true;
+  const active = hasActiveChange ? input.active : currentEnabled;
+  const currentActiveUntil = invitation.active_until ? new Date(invitation.active_until) : null;
+  const isCurrentExpired = !currentActiveUntil || currentActiveUntil <= new Date();
+  const nextActiveUntil = requestedActiveUntil?.toISOString()
+    || (!isCurrentExpired ? invitation.active_until : null)
+    || (active ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() : null);
+
+  if (active && (!invitation.published_at || order.status !== 'published')) {
+    const slugToUse = invitation.slug || ((cleanText(order.customer_name || 'undangan').toLowerCase().replace(/[^a-z0-9]/g, '') || 'undangan') + '-' + randomHex(3));
+    const publishedAt = new Date().toISOString();
+    await db.from('orders').update({ status: 'published' }).eq('id', order.id);
+    const update = {
+      is_active: true,
+      published_at: publishedAt,
+      active_until: nextActiveUntil,
+      slug: slugToUse,
+    };
+    const { error: pubError } = await db.from('invitations').update(update).eq('order_id', order.id);
+    if (pubError) throw pubError;
+    return c.json({ ok: true, website_active: true, website_enabled: true, active_until: nextActiveUntil, message: 'Website customer berhasil diterbitkan & diaktifkan.' });
+  }
+
+  if (active && (!nextActiveUntil || new Date(nextActiveUntil) <= new Date())) return c.json({ ok: false, message: 'Pilih tanggal masa aktif baru terlebih dahulu.' }, 422);
+  const update = { is_active: active };
+  if (requestedActiveUntil) update.active_until = nextActiveUntil;
+  const { error } = await db.from('invitations').update(update).eq('order_id', order.id);
   if (error) throw error;
-  return c.json({ ok: true, website_active: active, message: active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });
+  if (invitation.slug) {
+    try {
+      const edgeCache = globalThis.caches?.default;
+      if (edgeCache) {
+        await edgeCache.delete(new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(invitation.slug)}`));
+      }
+    } catch {}
+  }
+  return c.json({ ok: true, website_active: active && new Date(nextActiveUntil) > new Date(), website_enabled: active, active_until: nextActiveUntil, message: requestedActiveUntil ? 'Masa aktif website customer berhasil diperpanjang.' : active ? 'Website customer diaktifkan.' : 'Website customer dinonaktifkan.' });
 });
 
 admin.patch('/admin/orders/:code/referral', async (c) => {

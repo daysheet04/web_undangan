@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { mediaUrl } from "../lib/api.js";
+import TemplateFooter from '../components/TemplateFooter.jsx';
 import VerdantOpeningScene from "./verdant-vow/VerdantOpeningScene.jsx";
 
 const ASSET = "/assets/images/templates/verdant-vow/layers";
@@ -440,6 +441,7 @@ export default function VerdantVowTemplate({ invitation: i, media = [], giftAcco
           />
           <div><small>Terima kasih</small><p>Merupakan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir dan memberikan doa restu.</p><h2><b>{bride}</b><span>&amp;</span><b>{groom}</b></h2><time>{formatDate(eventDate, { day: "numeric", month: "long", year: "numeric" })}</time>{!preview && <button type="button" className="vv-share-button" data-share data-share-url={`${window.location.origin}/${i.slug}`}>Bagikan undangan <span>→</span></button>}<strong>DAYMOMENT</strong></div>
         </section>
+        <TemplateFooter className="vv-template-footer" />
       </div>}
 
       {opened && <nav className="vv-nav" aria-label="Navigasi undangan"><button type="button" onClick={() => goScene("vv-journey")}>Kisah</button><button type="button" onClick={() => goScene("vv-event")}>Acara</button><button type="button" onClick={() => goScene("vv-gallery")}>Galeri</button>{i.has_wishes && <button type="button" onClick={() => goScene("vv-rsvp")}>Ucapan</button>}</nav>}

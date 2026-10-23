@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { mediaUrl } from '../lib/api.js';
+import TemplateFooter from '../components/TemplateFooter.jsx';
 import VerdantOpeningScene from './verdant-vow/VerdantOpeningScene.jsx';
 import VerdantCinematicJourney from './verdant-vow/VerdantCinematicJourney.jsx';
 import './verdant-vow/experience.css';
@@ -849,6 +850,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
           <strong>DAYMOMENT</strong>
         </div>
       </section>
+       <TemplateFooter className='vv-template-footer'/>
       </>}
     </div>
     {opened && cinematicDone && <nav className={'vv-nav '+(menuOpen?'is-expanded':'')} aria-label='Navigasi undangan'>

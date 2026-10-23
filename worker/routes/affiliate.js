@@ -926,7 +926,7 @@ affiliate.get('/affiliate/finance', async (c) => {
       .order('requested_at', { ascending: false })
       .limit(100),
     current.db.from('affiliate_withdrawal_settings')
-      .select('fee_percent,sender_bank_name,sender_account_name,sender_account_number')
+      .select('min_withdrawal_amount,fee_percent,sender_bank_name,sender_account_name,sender_account_number')
       .eq('singleton', true)
       .maybeSingle(),
   ]);
@@ -974,10 +974,13 @@ affiliate.get('/affiliate/finance', async (c) => {
   const reserved = withdrawals.filter((item) => ['pending', 'processing'].includes(item.status))
     .reduce((total, item) => total + item.amount, 0);
 
+  const minWithdrawal = Number(settingsResult.data?.min_withdrawal_amount || 50000);
+
   return c.json({
     ok: true,
-    minimum_withdrawal: 50000,
+    minimum_withdrawal: minWithdrawal,
     withdrawal_settings: {
+      min_withdrawal_amount: minWithdrawal,
       fee_percent: Number(settingsResult.data?.fee_percent || 0),
       sender_bank_name: settingsResult.data?.sender_bank_name || null,
       sender_account_name: settingsResult.data?.sender_account_name || null,
@@ -1307,8 +1310,13 @@ affiliate.post('/affiliate/withdrawals', async (c) => {
   const provider = cleanText(input.provider, 50);
   const accountName = cleanText(input.accountName, 120);
   const accountNumber = cleanText(input.accountNumber, 80).replace(/\s+/g, '');
-  if (!Number.isFinite(amount) || amount < 50000 || !Number.isInteger(amount)) {
-    return c.json({ ok: false, message: 'Nominal penarikan minimal Rp50.000 dan harus berupa angka bulat.' }, 422);
+  const { data: settingsData } = await current.db.from('affiliate_withdrawal_settings')
+    .select('min_withdrawal_amount')
+    .eq('singleton', true)
+    .maybeSingle();
+  const minWithdrawal = Number(settingsData?.min_withdrawal_amount || 50000);
+  if (!Number.isFinite(amount) || amount < minWithdrawal || !Number.isInteger(amount)) {
+    return c.json({ ok: false, message: `Nominal penarikan minimal Rp${minWithdrawal.toLocaleString('id-ID')} dan harus berupa angka bulat.` }, 422);
   }
   if (!payoutMethod) return c.json({ ok: false, message: 'Pilih metode penarikan bank atau e-wallet.' }, 422);
   if (provider.length < 2) return c.json({ ok: false, message: 'Nama bank atau e-wallet wajib diisi.' }, 422);
@@ -1324,8 +1332,8 @@ affiliate.post('/affiliate/withdrawals', async (c) => {
     p_account_number: accountNumber,
   });
   if (error) {
-    if (/withdrawal_minimum_50000/i.test(error.message || '')) {
-      return c.json({ ok: false, message: 'Minimal penarikan adalah Rp50.000.' }, 422);
+    if (/withdrawal_minimum/i.test(error.message || '')) {
+      return c.json({ ok: false, message: `Minimal penarikan adalah Rp${minWithdrawal.toLocaleString('id-ID')}.` }, 422);
     }
     if (/insufficient_affiliate_balance/i.test(error.message || '')) {
       return c.json({ ok: false, message: 'Saldo tersedia tidak mencukupi untuk penarikan ini.' }, 422);

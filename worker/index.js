@@ -74,7 +74,7 @@ app.get('/media/*', async (c) => {
 app.notFound((c) => c.json({ ok: false, message: 'Endpoint tidak ditemukan.' }, 404));
 app.onError((error, c) => {
   console.error(error);
-  return c.json({ ok: false, message: error.message || 'Terjadi kesalahan pada server.' }, error.status || 500);
+  return c.json({ ok: false, message: error.message || 'Terjadi kesalahan pada server.', code: error.code || null }, error.status || 500);
 });
 
 export default app;

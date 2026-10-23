@@ -12,7 +12,7 @@ const SuccessPage = lazy(() => import('./pages/SuccessPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 function RouteLoading() {
-  return <div className="invitation-loading" role="status" aria-label="Memuat halaman"><span className="invitation-loading-mark" aria-hidden="true" /></div>;
+  return <div className="invitation-loading" role="status" aria-label="Memuat halaman"><img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" aria-hidden="true" /></div>;
 }
 
 export default function App() {

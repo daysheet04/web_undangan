@@ -2,9 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { get } from './api.js';
 
 const REMOTE_CACHE_PREFIX = 'daymoment:remote:';
-const cacheLifetime = (path) => path.startsWith('/api/templates') && !path.includes('?ref=') ? 30 * 60 * 1000
-  : path.startsWith('/api/invitations/') ? 5 * 60 * 1000
-    : 0;
+const cacheLifetime = (path) => path.startsWith('/api/templates') && !path.includes('?ref=') ? 30 * 60 * 1000 : 0;
 const readRemoteCache = (path) => {
   const lifetime = cacheLifetime(path);
   if (!lifetime || typeof sessionStorage === 'undefined') return null;
@@ -45,9 +43,10 @@ export function useRemote(path, dependencies = []) {
       setState({ loading: false, refreshing: false, data, error: null });
     }).catch((error) => {
       if (!active) return;
-      setState((current) => current.data
-        ? { ...current, loading: false, refreshing: false, error: null }
-        : { loading: false, refreshing: false, data: null, error });
+      if (typeof sessionStorage !== 'undefined') {
+        try { sessionStorage.removeItem(REMOTE_CACHE_PREFIX + path); } catch {}
+      }
+      setState({ loading: false, refreshing: false, data: null, error });
     });
     return () => { active = false; };
   }, [...dependencies, revision]); // eslint-disable-line react-hooks/exhaustive-deps

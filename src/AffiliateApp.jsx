@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { affiliateApi, friendlyAffiliateError } from './lib/affiliateApi.js';
+import { downloadAffiliateIncomeReport } from './lib/affiliateReportPdf.js';
 import { MAIN_APP_URL } from './lib/urls.js';
 
 const cleanPath = () => window.location.pathname.replace(/\/+$/, '') || '/';
@@ -559,6 +560,7 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
   const [filters, setFilters] = useState(() => storedDashboardFilters(affiliate.id));
   const [detail, setDetail] = useState('');
   const [chartSelection, setChartSelection] = useState(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   useEffect(() => {
     try { localStorage.setItem(`daymoment-affiliate-dashboard:${affiliate.id}`, JSON.stringify(filters)); } catch {}
   }, [affiliate.id, filters]);
@@ -651,7 +653,44 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
       <DashboardLink to="/products">Atur produk <b>→</b></DashboardLink>
     </section>
     <section className="affiliate-dashboard-filter-panel">
-      <div><span>FILTER RINGKASAN</span><h2>Performa referral</h2><p>Pilih tahun untuk grafik Januari–Desember, atau kosongkan tahun agar memakai rentang tanggal.</p></div>
+      <div className="affiliate-dashboard-filter-info">
+        <span>FILTER RINGKASAN</span>
+        <h2>Performa referral</h2>
+        <p>Pilih tahun untuk grafik Januari–Desember, atau kosongkan tahun agar memakai rentang tanggal.</p>
+        <div style={{ marginTop: '13px' }}>
+          <button
+            type="button"
+            className="affiliate-download-report-btn"
+            onClick={async () => {
+              if (downloadingReport) return;
+              setDownloadingReport(true);
+              try {
+                window.showToast?.('Menyiapkan laporan pemasukan (PDF)...');
+                await downloadAffiliateIncomeReport({
+                  affiliate,
+                  items: filteredOrders,
+                  periodLabel,
+                  summary: {
+                    earned: commissionEarned,
+                    pending: commissionPending,
+                  },
+                });
+                window.showToast?.('Laporan pemasukan berhasil diunduh.');
+              } catch (err) {
+                console.error('Gagal membuat laporan:', err);
+                window.showToast?.('Gagal membuat laporan pemasukan.', 'error');
+              } finally {
+                setDownloadingReport(false);
+              }
+            }}
+            disabled={downloadingReport}
+            title="Download laporan pemasukan dan komisi (PDF)"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>{downloadingReport ? 'Membuat PDF…' : 'Download Laporan Pemasukan (PDF)'}</span>
+          </button>
+        </div>
+      </div>
       <div className="affiliate-dashboard-filter-fields">
         <OrderFilterDropdown label="Tahun" value={filters.year} options={yearOptions} onChange={(value) => updateFilter('year', value)}/>
         <label><span>Dari tanggal</span><input type="date" disabled={Boolean(filters.year)} value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter('from', event.target.value)}/></label>
@@ -1030,8 +1069,9 @@ function FinanceLoading() {
   return <div className="affiliate-dashboard-loading"><span>Rp</span><p>Menyiapkan data keuangan…</p></div>;
 }
 
-function EarningsPage({ data, error, reload, affiliateId }) {
+function EarningsPage({ data, error, reload, affiliateId, affiliate }) {
   const [view, setView] = useState(() => storedEarningView(affiliateId));
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const earnings = data?.earnings || [];
   const { filters } = view;
   useEffect(() => {
@@ -1105,7 +1145,47 @@ function EarningsPage({ data, error, reload, affiliateId }) {
         <label><span>Dari tanggal</span><input type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => updateFilter('from', event.target.value)}/></label>
         <label><span>Sampai tanggal</span><input type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => updateFilter('to', event.target.value)}/></label>
       </div>
-      <div className="affiliate-order-filter-actions"><small>{filteredEarnings.length} transaksi ditemukan · disaring langsung dari data tersimpan</small><button type="button" className="secondary" onClick={resetFilters} disabled={!hasActiveFilters}>Reset semua filter</button></div>
+      <div className="affiliate-order-filter-actions">
+        <small>{filteredEarnings.length} transaksi ditemukan · disaring langsung dari data tersimpan</small>
+        <div className="affiliate-filter-btn-group">
+          <button type="button" className="secondary" onClick={resetFilters} disabled={!hasActiveFilters}>Reset semua filter</button>
+          <button
+            type="button"
+            className="affiliate-download-report-btn"
+            onClick={async () => {
+              if (downloadingReport) return;
+              setDownloadingReport(true);
+              try {
+                window.showToast?.('Menyiapkan laporan pemasukan (PDF)...');
+                const periodLabel = filters.from || filters.to
+                  ? `${filters.from || 'Awal'} s/d ${filters.to || 'Sekarang'}`
+                  : 'Semua waktu';
+                await downloadAffiliateIncomeReport({
+                  affiliate,
+                  items: filteredEarnings,
+                  periodLabel,
+                  summary: {
+                    available: data?.summary?.available,
+                    earned: filteredPaidCommission,
+                    pending: filteredPendingCommission,
+                  },
+                });
+                window.showToast?.('Laporan pemasukan berhasil diunduh.');
+              } catch (err) {
+                console.error('Gagal membuat laporan:', err);
+                window.showToast?.('Gagal membuat laporan pemasukan.', 'error');
+              } finally {
+                setDownloadingReport(false);
+              }
+            }}
+            disabled={downloadingReport}
+            title="Download laporan pemasukan dan komisi (PDF)"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>{downloadingReport ? 'Membuat PDF…' : 'Download Laporan Pemasukan'}</span>
+          </button>
+        </div>
+      </div>
     </div>
     <div className="affiliate-order-table-wrap"><table className="affiliate-order-table affiliate-earning-table"><thead><tr><th>Invoice</th><th>Produk</th><th>Status</th><th>Persentase</th><th>Komisi</th><th>Tanggal</th></tr></thead><tbody>{rows.length ? rows.map((earning) => <tr key={earning.id}><td><strong>{earning.order_code}</strong></td><td><b>{earning.template_name}</b><small>{earning.product_name}</small></td><td><span className={`affiliate-payment-status status-${earning.payment_status}`}>{orderStatus(earning.payment_status)}</span></td><td>{earning.affiliate_commission_percent}%</td><td><b>{rupiah(earning.affiliate_commission_amount)}</b><small>{earning.payment_status === 'paid' ? 'Masuk saldo' : 'Tertunda'}</small></td><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(earning.created_at))}</td></tr>) : <tr><td colSpan="6" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada transaksi yang sesuai dengan filter.' : 'Belum ada penghasilan dari referral.'}</td></tr>}</tbody></table></div>
     {pageCount > 1 && <nav className="affiliate-pagination" aria-label="Halaman penghasilan"><button type="button" disabled={page === 1} onClick={() => changePage(page - 1)}>← Sebelumnya</button><div>{pageNumbers.map((number) => <button type="button" className={page === number ? 'active' : ''} aria-current={page === number ? 'page' : undefined} onClick={() => changePage(number)} key={number}>{number}</button>)}</div><button type="button" disabled={page === pageCount} onClick={() => changePage(page + 1)}>Berikutnya →</button></nav>}
@@ -1748,7 +1828,7 @@ function WithdrawalsPage({ data, error, reload, affiliateId }) {
         <div><span>AJUKAN PENARIKAN</span><h2>Informasi tujuan payout</h2><p>Minimal penarikan {rupiah(data.minimum_withdrawal)}. Fee {Number(settings.fee_percent || 0).toLocaleString('id-ID')}% dihitung saat permintaan disimpan dan tidak akan berubah untuk transaksi tersebut.</p></div>
         {notice.message && <div className={`affiliate-form-alert ${notice.type}`}>{notice.message}</div>}
         <form onSubmit={submit}>
-          <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="number" min={data.minimum_withdrawal} max={data.summary.available} step="1000" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder="50000" required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
+          <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="number" min={data.minimum_withdrawal} max={data.summary.available} step="1000" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder={String(data.minimum_withdrawal || 50000)} required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
           <div className="affiliate-withdrawal-fields">
             <OrderFilterDropdown
               className="affiliate-withdrawal-method-dropdown"
@@ -2107,7 +2187,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
       <div hidden={path !== '/products'}>{catalogReady ? <ProductSettings catalog={catalog} setCatalog={setCatalog}/> : dataError('Produk belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
       <div hidden={path !== '/links'}>{catalogReady ? <ReferralLinks catalog={catalog}/> : dataError('Link referral belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
       <div hidden={path !== '/orders'}>{orderData ? <OrdersPage data={orderData} affiliateId={affiliate.id} onReloadOrders={() => loadData('orders')}/> : dataError('Pesanan belum dapat dimuat', errors.orders, () => loadData('orders'))}</div>
-      <div hidden={path !== '/earnings'}><EarningsPage data={financeData} error={errors.finance} reload={() => loadData('finance')} affiliateId={affiliate.id}/></div>
+      <div hidden={path !== '/earnings'}><EarningsPage data={financeData} error={errors.finance} reload={() => loadData('finance')} affiliateId={affiliate.id} affiliate={affiliate}/></div>
       <div hidden={path !== '/withdrawals'}><WithdrawalsPage data={financeData} error={errors.finance} reload={() => loadData('finance')} affiliateId={affiliate.id}/></div>
       <div hidden={path !== '/profile'}><ProfilePage data={profileData} error={errors.profile} reload={() => loadData('profile')} setData={setProfileData} onAffiliateUpdate={(updatedProfile) => {
         onAffiliateUpdate(updatedProfile);

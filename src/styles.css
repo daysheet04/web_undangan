@@ -1,9 +1,11 @@
 #root { min-height: 100%; }
 .invitation-loading {
+  min-height: 100vh;
   min-height: 100svh;
+  height: 100%;
   display: grid;
   place-items: center;
-  background: #f7f4ef;
+  background: #fbfaf7;
 }
 .invitation-loading-mark {
   width: 34px;
@@ -13,9 +15,32 @@
   border-radius: 50%;
   animation: invitation-loading-spin .8s linear infinite;
 }
+.invitation-loading-logo,
+.app-loading-logo {
+  display: block;
+  width: clamp(132px, 20vw, 184px);
+  height: auto;
+  filter: drop-shadow(0 12px 25px rgba(8, 52, 65, .13));
+  transform-origin: center;
+  animation: daymoment-loading-logo 1.45s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+.app-loading {
+  align-content: center;
+  gap: 14px;
+}
+.app-loading p {
+  margin: 0;
+  color: #567078;
+  font-size: .78rem;
+}
 @keyframes invitation-loading-spin { to { transform: rotate(360deg); } }
+@keyframes daymoment-loading-logo {
+  0%, 100% { opacity: .62; transform: translateY(2px) scale(.975); }
+  50% { opacity: 1; transform: translateY(-3px) scale(1); }
+}
 @media (prefers-reduced-motion: reduce) {
   .invitation-loading-mark { animation: none; }
+  .invitation-loading-logo, .app-loading-logo { animation: none; }
 }
 .app-loading, .app-error {
   min-height: 70vh;
@@ -34,3 +59,29 @@
 .app-error h1 { margin: 8px 0; color: var(--brand-dark); font-family: var(--font-display); }
 .app-error p { color: var(--muted); }
 .app-error pre { overflow: auto; margin-top: 20px; padding: 14px; color: #842b35; border-radius: 10px; background: #fff0f1; font-size: .72rem; text-align: left; white-space: pre-wrap; }
+
+/* Builder Page Full-Screen Loading & Seamless Background */
+body.builder-page {
+  background: #fbfaf7;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+body.builder-page #root {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+body.builder-page .app-loading,
+body.builder-page .app-error,
+.builder-loading-shell {
+  min-height: 100vh;
+  min-height: 100svh;
+  height: 100%;
+  width: 100%;
+  background: #fbfaf7;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { mediaUrl } from "../lib/api.js";
+import TemplateFooter from '../components/TemplateFooter.jsx';
 const A = "/assets/images/templates/aurelia-grande/",
   M = [
     "Januari",
@@ -435,7 +436,7 @@ export default function AureliaGrandeTemplate({
               <AgIcon name="ag-zoom" />
               <span>Lihat Foto Sampul</span>
             </button>
-            <button onClick={() => { setEntered(true); setPanel("help"); }}>
+            <button className="ag-enter-ballroom-btn" onClick={() => { setEntered(true); setPanel("help"); }}>
               Masuk ke Ballroom <b>→</b>
             </button>
           </div>
@@ -1679,6 +1680,7 @@ function Panel({ eyebrow, title, children }) {
       <span>{eyebrow}</span>
       <h2>{title}</h2>
       {children}
+      <TemplateFooter className="ag-template-footer" />
     </article>
   );
 }

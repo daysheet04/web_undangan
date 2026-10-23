@@ -137,7 +137,7 @@ a { color: inherit; }
 .affiliate-dashboard-filter-panel > div:first-child > span, .affiliate-dashboard-chart-card header > div:first-child > span, .affiliate-dashboard-detail-panel header span { color: #aa793d; font-size: .55rem; font-weight: 850; letter-spacing: .12em; }
 .affiliate-dashboard-filter-panel h2, .affiliate-dashboard-chart-card h2, .affiliate-dashboard-detail-panel h2 { margin: 5px 0 4px; color: #173f36; font-family: Georgia, serif; font-size: 1.45rem; font-weight: 400; }
 .affiliate-dashboard-filter-panel p, .affiliate-dashboard-chart-card header p, .affiliate-dashboard-detail-panel header p { margin: 0; color: #7d8a85; font-size: .62rem; line-height: 1.55; }
-.affiliate-dashboard-filter-fields { display: grid; grid-template-columns: minmax(160px, .9fr) repeat(2, minmax(145px, 1fr)) auto; align-items: end; gap: 10px; }
+.affiliate-dashboard-filter-fields { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(2, minmax(120px, 1fr)) auto; align-items: end; gap: 10px; }
 .affiliate-dashboard-filter-fields > label { display: grid; gap: 6px; }
 .affiliate-dashboard-filter-fields > label > span { color: #687771; font-size: .55rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .affiliate-dashboard-filter-fields input { width: 100%; min-width: 0; min-height: 45px; padding: 0 12px; color: #27473f; border: 1px solid #d9dfda; border-radius: 12px; outline: none; background: #fff; font: inherit; font-size: .66rem; }
@@ -145,6 +145,12 @@ a { color: inherit; }
 .affiliate-dashboard-filter-fields input:disabled { color: #9aa49f; background: #eef1ed; cursor: not-allowed; }
 .affiliate-dashboard-filter-fields > button { min-height: 45px; padding: 0 14px; color: #47645b; border: 1px solid #d8dfda; border-radius: 11px; background: #fff; font-size: .6rem; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .affiliate-dashboard-filter-fields > button:disabled { opacity: .45; cursor: not-allowed; }
+.affiliate-download-report-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 16px; color: #fff !important; border: 1px solid #17493d !important; border-radius: 11px !important; background: linear-gradient(135deg, #17493d, #0d362b) !important; font-size: .65rem !important; font-weight: 800 !important; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 6px rgba(13, 54, 43, .2); transition: all .18s ease; }
+.affiliate-download-report-btn:hover { background: linear-gradient(135deg, #1f6151, #13493b) !important; box-shadow: 0 4px 10px rgba(13, 54, 43, .3); transform: translateY(-1px); }
+.affiliate-download-report-btn:active { transform: translateY(0); }
+.affiliate-download-report-btn:disabled { opacity: .55 !important; cursor: not-allowed; transform: none !important; }
+.affiliate-order-filter-actions .affiliate-download-report-btn { min-height: 38px; padding: 0 13px; font-size: .61rem !important; border-radius: 9px !important; }
+.affiliate-filter-btn-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .affiliate-dashboard-filter-panel > small { grid-column: 1 / -1; color: #89958f; font-size: .56rem; }
 .affiliate-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
 .affiliate-stat-grid button { display: grid; gap: 7px; min-width: 0; padding: 21px; color: #17352f; border: 1px solid #dfe4df; border-radius: 17px; outline: none; background: #fff; font: inherit; text-align: left; cursor: pointer; transition: transform .18s, border-color .18s, box-shadow .18s; }

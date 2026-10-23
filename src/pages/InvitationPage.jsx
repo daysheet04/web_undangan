@@ -3,6 +3,7 @@ import { ErrorState } from '../components/Layout.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { useInvitationRealtime } from '../lib/realtime.js';
+import TemplateFooter from '../components/TemplateFooter.jsx';
 const LunaraAzureTemplate = lazy(() => import('../templates/LunaraAzureTemplate.jsx'));
 const AureliaGrandeTemplate = lazy(() => import('../templates/AureliaGrandeTemplate.jsx'));
 const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.jsx'));
@@ -25,8 +26,9 @@ const timeRange=(start,end)=>`${String(start||'').slice(0,5)}${end?` – ${Strin
 const attendance=(v)=>({attending:'Hadir',not_attending:'Tidak Hadir',unsure:'Masih Ragu'}[v]||'Masih Ragu');
 
 export default function InvitationPage({slug,templateCode,preview=false}){
-  useBodyClass(preview?'embed-preview':'');
   const query=useMemo(()=>new URLSearchParams(window.location.search),[]), token=query.get('token');
+  const isCoverOnly = query.get('cover_only') === '1';
+  useBodyClass(preview ? (isCoverOnly ? 'embed-preview is-cover-only' : 'embed-preview') : '');
   const path=preview?(token?`/api/editor/${token}`:`/api/templates/${templateCode}`):`/api/invitations/${slug}${window.location.search}`;
   const state=useRemote(path,[path]);
   const [submittedGreetings,setSubmittedGreetings]=useState([]);
@@ -51,7 +53,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   },[resolvedCode]);
   useDocumentTitle(runtime?.title||'Undangan Pernikahan — Daymoment');
   useHeadLinks(runtime?[runtime.font]:[]);
-  const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css]:[]);
+  const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
   useEffect(()=>{
     if(resolvedCode!=='puspa_jawi')return undefined;
     const href=`${A}${window.matchMedia('(max-width: 700px)').matches?'puspa-cover-washi-v2-mobile.webp':'puspa-cover-washi-v2.webp'}`;
@@ -72,12 +74,16 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   },[activeCode,state.data?.invitation?.cover_image]);
   useLegacyScripts(runtime?.script?['/assets/js/preview.js?v=20261015-9','/assets/js/greeting.js?v=20260927-1',runtime.script]:[],!state.loading&&!state.error&&templateStylesReady);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
-  // Keep a small, styled shell visible while the invitation payload and its
-  // template stylesheet are loading. Returning null here made a hard refresh
-  // look like a broken/unstyled page (the boot screen could disappear before
-  // the API response arrived).
+
+  if(state.error) {
+    const isDeactivated = state.error?.status === 403 || state.error?.data?.code === 'INVITATION_DEACTIVATED' || /dinonaktifkan/i.test(state.error?.message || '');
+    const isExpired = state.error?.status === 410 || state.error?.data?.code === 'INVITATION_EXPIRED' || /berakhir/i.test(state.error?.message || '');
+    if (isDeactivated || isExpired) {
+      return <InvitationDeactivatedScreen error={state.error} isExpired={isExpired} />;
+    }
+    return <ErrorState error={state.error}/>;
+  }
   if(state.loading||!templateStylesReady)return <InvitationLoading/>;
-  if(state.error)return <ErrorState error={state.error}/>;
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
   if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
   else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];const seen=new Set();greetings=[...submittedGreetings,...(state.data.greetings||[])].filter((item)=>item?.id&&!seen.has(item.id)&&seen.add(item.id));guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
@@ -85,9 +91,57 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   return <Suspense fallback={<InvitationLoading/>}><Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/></Suspense>;
 }
 
+function InvitationDeactivatedScreen({ error, isExpired = false }) {
+  useDocumentTitle(isExpired ? 'Masa Aktif Undangan Berakhir — Daymoment' : 'Undangan Dinonaktifkan — Daymoment');
+  useHeadLinks(['/assets/css/invitation-blocked.css?v=20261023-1']);
+  return (
+    <div className="invitation-blocked-screen">
+      <div className="invitation-blocked-card">
+        <a href="/" className="invitation-blocked-logo-link" aria-label="Daymoment Beranda">
+          <img className="invitation-blocked-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="136" height="48" />
+        </a>
+        <div className="invitation-blocked-icon-circle">
+          <span className="invitation-blocked-icon">{isExpired ? '⌛' : '⏸️'}</span>
+        </div>
+        <span className={`invitation-blocked-badge ${isExpired ? 'expired' : 'inactive'}`}>
+          {isExpired ? 'Masa Aktif Berakhir' : 'Undangan Dinonaktifkan'}
+        </span>
+        <h1 className="invitation-blocked-title">
+          {isExpired ? 'Masa Aktif Undangan Telah Berakhir' : 'Undangan Sedang Dinonaktifkan'}
+        </h1>
+        <p className="invitation-blocked-desc">
+          {isExpired
+            ? 'Website undangan pernikahan ini telah melewati batas masa aktif yang telah ditentukan. Terima kasih atas perhatian, doa restu, dan kasih hangat yang telah diberikan.'
+            : (error?.message || 'Akses website undangan ini sedang dinonaktifkan sementara oleh pemilik atau admin Daymoment.')}
+        </p>
+        <div className="invitation-blocked-info">
+          {isExpired ? (
+            <p>Untuk mengaktifkan kembali website undangan ini, pemilik undangan dapat menghubungi customer support Daymoment.</p>
+          ) : (
+            <p>Jika Anda adalah pemilik undangan ini dan ingin mengaktifkan kembali website atau memperpanjang masa aktifnya, silakan hubungi tim Daymoment.</p>
+          )}
+        </div>
+        <div className="invitation-blocked-actions">
+          <a
+            href="https://wa.me/6285183002235?text=Halo%20Admin%20Daymoment,%20saya%20ingin%20mengaktifkan%20kembali%20undangan%20saya"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="invitation-blocked-btn-wa"
+          >
+            <span>💬 Hubungi Admin via WhatsApp</span>
+          </a>
+          <a href="/" className="invitation-blocked-btn-home">
+            Kembali ke Beranda Daymoment
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InvitationLoading(){
   return <div className="invitation-loading" role="status" aria-label="Memuat undangan">
-    <span className="invitation-loading-mark" aria-hidden="true"/>
+    <img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" aria-hidden="true"/>
   </div>;
 }
 
@@ -301,12 +355,7 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
           <img className="closing-card-relief" src={`${A}puspa-closing-relief-v1.webp`} alt="" aria-hidden="true" loading="lazy" decoding="async" fetchPriority="low"/>
         </div>
       </section>
-      <footer className="template-footer jawi-footer jawi-footer-v2">
-        <div className="footer-batik-ribbon" aria-hidden="true"><i/><i/><i/></div>
-        <div className="template-brand-lockup"><img src="/assets/images/brand/daymoment-mark.svg" alt=""/><strong>Daymoment</strong></div>
-        <p>Merangkai momen, menjaga cerita.</p>
-        <small>© {new Date().getFullYear()} Daymoment</small>
-      </footer>
+      <TemplateFooter className="puspa-template-footer" />
     </div>
     </main>{i.has_music&&i.music_file&&<audio data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)}/>} {i.has_music&&<button className="jawi-music" type="button" data-music-controller aria-label="Kontrol musik" aria-pressed="false" title={i.music_title||'Musik undangan'}><Icon name="jawi-music"/></button>}
     {lightbox && lightbox.items[lightbox.index] && (

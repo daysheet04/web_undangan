@@ -770,7 +770,7 @@
 }
 @media (max-width: 900px) {
   .vv-redesign .vv-story { grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto; gap: 54px; padding: 88px 22px 145px; background: #f3ead9; }
-  .vv-redesign .vv-story::before { background-image: url('/assets/images/templates/verdant-vow/story/story-heirloom-bg-mobile-perf-v1.webp'); background-position: center top; background-size: 100% 100%; }
+  .vv-redesign .vv-story::before { background-image: url('/assets/images/templates/verdant-vow/story/story-heirloom-bg-mobile-perf-v1.webp'); background-position: center top; background-size: cover; background-repeat: no-repeat; }
   .vv-story-glass { justify-self: center; width: min(100%,560px); padding: 40px 30px 43px 36px; border-radius: 34px 10px 34px 10px; backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(135deg,rgba(255,253,245,.98),rgba(237,235,211,.96)); filter: none; }
   .vv-story-glass::before { left: 18px; }
   .vv-story .vv-after-heading { text-align: center; }
@@ -2403,8 +2403,10 @@
     padding: 0;
   }
   .vv-redesign .vv-closing-redesign::before {
-    background-image: url('/assets/images/templates/verdant-vow/closing/closing-pendopo-night-bg-mobile-perf-v1.webp');
-    background-size: 100% 100%;
+    background-image: url('/assets/images/templates/verdant-vow/closing/closing-pendopo-night-bg-mobile-perf-v2.webp');
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
   }
   .vv-redesign .vv-closing-redesign::after {
     background:
@@ -2867,7 +2869,7 @@
   .vv-redesign.vv-perf-low .vv-gallery::before { background-image: url('/assets/images/templates/verdant-vow/gallery/gallery-heirloom-bg-mobile-lite-v1.webp'); }
   .vv-redesign.vv-perf-low .vv-gift-redesign::before { background-image: url('/assets/images/templates/verdant-vow/gift/gift-heirloom-bg-mobile-lite-v1.webp'); }
   .vv-redesign.vv-perf-low .vv-rsvp-redesign::before { background-image: url('/assets/images/templates/verdant-vow/rsvp/rsvp-guestbook-bg-mobile-lite-v1.webp'); }
-  .vv-redesign.vv-perf-low .vv-closing-redesign::before { background-image: url('/assets/images/templates/verdant-vow/closing/closing-pendopo-night-bg-mobile-lite-v1.webp'); }
+  .vv-redesign.vv-perf-low .vv-closing-redesign::before { background-image: url('/assets/images/templates/verdant-vow/closing/closing-pendopo-night-bg-mobile-lite-v2.webp'); }
 
   .vv-redesign.vv-perf-low .vv-wedding-ornaments,
   .vv-redesign.vv-perf-low .vv-couple-ornaments,

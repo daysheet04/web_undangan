@@ -31,7 +31,7 @@ function demoInvitationByToken(token) {
     customer_name: order.customer_name,
     customer_email: order.customer_email,
     customer_phone: order.customer_phone,
-    is_active: Boolean(order.is_active),
+    is_active: order.is_active !== false && order.website_enabled !== false,
     active_until: order.active_until || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -93,6 +93,9 @@ editor.get('/editor/:token', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
     let invitation = demoInvitationByToken(c.req.param('token'));
     if (!invitation) return c.json({ ok: false, message: 'Akses editor tidak valid.' }, 404);
+    if (invitation.is_active === false) {
+      return c.json({ ok: false, message: 'Akses editor untuk undangan ini telah dinonaktifkan oleh admin.', code: 'INVITATION_DEACTIVATED' }, 403);
+    }
     invitation = await ensurePublishedActiveUntil(c.env, invitation);
     return c.json({
       ok: true,
@@ -426,6 +429,67 @@ editor.post('/invitation/invitees/batch', async (c) => {
     guests: resultGuests,
     skipped: duplicateCount,
   }, 201);
+});
+
+editor.patch('/invitation/invitees/:id', async (c) => {
+  const input = await c.req.json().catch(() => ({}));
+  const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
+  const guestId = Number(c.req.param('id'));
+  const guestName = cleanText(input.guest_name, 150);
+  const salutation = cleanText(input.salutation, 80) || 'Bapak/Ibu/Saudara/i';
+  const cleanPhone = normalizePhone(cleanText(input.phone || input.phone_number, 35));
+  if (!Number.isFinite(guestId) || guestId <= 0) return c.json({ ok: false, message: 'Data tamu tidak valid.' }, 422);
+  if (!guestName) return c.json({ ok: false, message: 'Nama tamu wajib diisi.' }, 422);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    return c.json({
+      ok: true,
+      message: 'Data tamu berhasil diperbarui.',
+      guest: {
+        id: guestId,
+        guest_name: guestName,
+        salutation,
+        phone_number: cleanPhone,
+        guest_token: cleanPhone ? `wa:${cleanPhone}:demo` : 'demo-token',
+      },
+    });
+  }
+
+  const db = database(c.env);
+  const { data: current, error: currentError } = await db
+    .from('invitation_guests')
+    .select('id,guest_name,salutation,guest_token')
+    .eq('id', guestId)
+    .eq('invitation_id', invitation.id)
+    .maybeSingle();
+  if (currentError) throw currentError;
+  if (!current) return c.json({ ok: false, message: 'Tamu tidak ditemukan.' }, 404);
+
+  const { data: otherGuests, error: listError } = await db
+    .from('invitation_guests')
+    .select('id,guest_name,guest_token')
+    .eq('invitation_id', invitation.id)
+    .neq('id', guestId);
+  if (listError) throw listError;
+  const nameKey = guestName.toLowerCase().trim();
+  const duplicateName = (otherGuests || []).some((guest) => String(guest.guest_name || '').toLowerCase().trim() === nameKey);
+  const duplicatePhone = cleanPhone && (otherGuests || []).some((guest) => guest.guest_token?.startsWith('wa:') && guest.guest_token.split(':')[1] === cleanPhone);
+  if (duplicateName || duplicatePhone) {
+    return c.json({ ok: false, message: duplicatePhone ? 'Nomor WhatsApp tersebut sudah dipakai tamu lain.' : `Tamu dengan nama "${guestName}" sudah ada di daftar.` }, 409);
+  }
+
+  const guestToken = cleanPhone
+    ? `wa:${cleanPhone}:${randomHex(8)}`
+    : current.guest_token?.startsWith('wa:') ? randomHex(20) : current.guest_token;
+  const { data: guest, error } = await db
+    .from('invitation_guests')
+    .update({ guest_name: guestName, salutation, guest_token: guestToken })
+    .eq('id', guestId)
+    .eq('invitation_id', invitation.id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return c.json({ ok: true, message: 'Data tamu berhasil diperbarui.', guest: { ...guest, phone_number: cleanPhone } });
 });
 
 editor.post('/invitation/invitees/delete', async (c) => {

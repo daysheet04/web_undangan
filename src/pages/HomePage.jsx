@@ -58,7 +58,11 @@ export default function HomePage() {
       {loading ? <Loading /> : error ? <ErrorState error={error} /> : <div className="template-grid">
         {!templates.length && <div className="template-empty"><span>01</span><h3>Template pertama sedang disiapkan</h3><p>Koleksi baru akan hadir di area ini.</p></div>}
         {templates.map((template, index) => <article className="template-card" key={template.id}>
-          <TemplateCover template={template} eager={index < 3} />
+          <TemplateCover
+            template={template}
+            eager={index < 3}
+            liveDesktop={template.code === 'puspa_jawi'}
+          />
           <div className="template-card-body"><div className="template-meta"><span>{template.category}</span><span>{template.package_count} paket</span></div><h3>{template.name}</h3><p>{template.description}</p>{template.starting_price && <p className="template-starting-price">Mulai {money(template.starting_price)}</p>}<div className="card-actions"><a className="button button-secondary" href={`/template/${template.code}`}>Lihat Preview</a><a className="button button-primary" href={`/order?template=${template.code}`}>Pilih Template</a></div></div>
         </article>)}
       </div>}

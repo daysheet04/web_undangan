@@ -11,6 +11,7 @@
     <meta name="theme-color" content="#f7f4ef" />
     <link rel="canonical" href="https://daymoment.biz.id/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/assets/images/brand/daymoment-logo.webp" as="image" type="image/webp" fetchpriority="high" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:locale" content="id_ID" />
@@ -88,45 +89,32 @@
         inset: 0;
         display: grid;
         place-items: center;
-        color: #102b4a;
         background: #fbfaf7;
-        font-family: Inter, "Segoe UI", Arial, sans-serif;
-        transition: opacity .24s ease, visibility .24s ease;
+        transition: opacity .2s ease, visibility .2s ease;
       }
-      #app-boot > div { display: grid; justify-items: center; gap: 12px; }
-      #app-boot span {
-        display: grid;
-        width: 46px;
-        height: 46px;
-        place-items: center;
-        border: 1px solid rgba(16, 43, 74, .2);
-        border-radius: 50%;
-        color: #c9a46a;
-        background: #fff;
-        box-shadow: 0 10px 30px rgba(16, 43, 74, .1);
-        font-family: Georgia, serif;
-        font-size: 1.35rem;
-      }
-      #app-boot strong { font-family: Georgia, serif; font-size: 1.05rem; letter-spacing: .02em; }
-      #app-boot i { width: 44px; height: 2px; overflow: hidden; border-radius: 99px; background: #e6e1d8; }
-      #app-boot i::after {
+      .app-boot-logo {
         display: block;
-        width: 55%;
-        height: 100%;
-        border-radius: inherit;
-        background: #c9a46a;
-        content: "";
-        animation: daymoment-boot 1s ease-in-out infinite alternate;
+        width: clamp(132px, 20vw, 184px);
+        height: auto;
+        filter: drop-shadow(0 12px 25px rgba(8, 52, 65, .13));
+        transform-origin: center;
+        animation: daymoment-loading-logo 1.45s cubic-bezier(.4, 0, .2, 1) infinite;
       }
       html.app-styles-ready #app-boot { visibility: hidden; opacity: 0; pointer-events: none; display: none; }
       html:not(.app-styles-ready) #root { visibility: hidden; }
-      @keyframes daymoment-boot { to { transform: translateX(82%); } }
-      @media (prefers-reduced-motion: reduce) { #app-boot, #app-boot i::after { transition: none; animation: none; } }
+      @keyframes daymoment-loading-logo {
+        0%, 100% { opacity: .62; transform: translateY(2px) scale(.975); }
+        50% { opacity: 1; transform: translateY(-3px) scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) { #app-boot, .app-boot-logo { transition: none; animation: none; } }
     </style>
     <title>Daymoment — Undangan Pernikahan Digital Elegan &amp; Personal</title>
   </head>
   <body>
-    <div id="app-boot" aria-hidden="true"><div><span>D</span><strong>Daymoment</strong><i></i></div></div>
+    <script>if (window.self !== window.top) { document.documentElement.classList.add('app-styles-ready'); }</script>
+    <div id="app-boot" aria-hidden="true">
+      <img class="app-boot-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="160" height="58" fetchpriority="high" />
+    </div>
     <div id="root"></div>
     <script>window.setTimeout(function () { document.documentElement.classList.add('app-styles-ready'); }, 8000);</script>
     <script type="module" src="/src/main.jsx"></script>

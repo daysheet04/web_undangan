@@ -199,6 +199,7 @@ export function Layout({ children, title, className = '' }) {
 export function Loading({ showLabel = false }) {
   return (
     <div className="app-loading" role="status" aria-live="polite" aria-label="Sedang memuat">
+      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" aria-hidden="true" />
       {showLabel && <p>Memuat Daymoment…</p>}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MAIN_APP_URL } from '../lib/urls.js';
 
 const DEFAULT_COVERS = {
@@ -20,21 +20,122 @@ export function templateCoverUrl(template) {
   return `${MAIN_APP_URL}/media/${source.replace(/^\/+/, '')}`;
 }
 
-export default function TemplateCover({ template, eager = false, className = '' }) {
+export function DesktopTemplatePreview({ template, eager, source, fallback, setSource, className = '' }) {
+  const containerRef = useRef(null);
+  const [scale, setScale] = useState(0.3);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateScale = () => {
+      const rect = el.getBoundingClientRect();
+      const width = rect.width || el.clientWidth;
+      if (width > 0) {
+        setScale(width / 1200);
+      }
+    };
+
+    updateScale();
+
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(updateScale);
+      ro.observe(el);
+    }
+    window.addEventListener('resize', updateScale);
+
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, []);
+
+  const iframeSrc = `/template/${template.code}?embed=1&cover_only=1`;
+
+  return (
+    <div
+      ref={containerRef}
+      className={`template-cover template-cover--desktop ${className}`.trim()}
+      style={{
+        '--preview-scale': scale,
+      }}
+    >
+      {/* Background / Fallback placeholder underneath */}
+      <img
+        src={source}
+        alt={`Sampul template ${template?.name || 'Daymoment'}`}
+        width="400"
+        height="300"
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        onError={() => source !== fallback && setSource(fallback)}
+        className="template-cover-fallback-img"
+        style={{
+          opacity: isLoaded && !hasError ? 0 : 1,
+        }}
+      />
+
+      {/* Scaled Desktop Live Template Preview */}
+      {!hasError && (
+        <div
+          className="template-cover-iframe-scaler"
+          style={{
+            transform: `scale(${scale})`,
+            opacity: isLoaded ? 1 : 0,
+          }}
+        >
+          <iframe
+            src={iframeSrc}
+            title={`Preview Desktop Template ${template?.name || 'Java Vibes'}`}
+            width="1200"
+            height="900"
+            scrolling="no"
+            loading={eager ? 'eager' : 'lazy'}
+            tabIndex={-1}
+            aria-hidden="true"
+            onLoad={() => setIsLoaded(true)}
+            onError={() => setHasError(true)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TemplateCover({ template, eager = false, className = '', liveDesktop = false }) {
   const fallback = defaultTemplateCover(template?.code);
   const [source, setSource] = useState(() => templateCoverUrl(template));
 
-  React.useEffect(() => setSource(templateCoverUrl(template)), [template?.code, template?.thumbnail, template?.thumbnail_url]);
+  useEffect(() => setSource(templateCoverUrl(template)), [template?.code, template?.thumbnail, template?.thumbnail_url]);
 
-  return <div className={`template-cover ${className}`.trim()}>
-    <img
-      src={source}
-      alt={`Sampul template ${template?.name || 'Daymoment'}`}
-      width="400"
-      height="300"
-      loading={eager ? 'eager' : 'lazy'}
-      decoding="async"
-      onError={() => source !== fallback && setSource(fallback)}
-    />
-  </div>;
+  if (liveDesktop) {
+    return (
+      <DesktopTemplatePreview
+        template={template}
+        eager={eager}
+        source={source}
+        fallback={fallback}
+        setSource={setSource}
+        className={className}
+      />
+    );
+  }
+
+  return (
+    <div className={`template-cover ${className}`.trim()}>
+      <img
+        src={source}
+        alt={`Sampul template ${template?.name || 'Daymoment'}`}
+        width="400"
+        height="300"
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        onError={() => source !== fallback && setSource(fallback)}
+      />
+    </div>
+  );
 }
+

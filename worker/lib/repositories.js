@@ -149,11 +149,19 @@ export async function invitationByToken(env, token) {
     if (!order) {
       const error = new Error('Akses editor tidak valid.');
       error.status = 404;
+      error.code = 'EDITOR_TOKEN_NOT_FOUND';
       throw error;
     }
     if (order.payment_status !== 'paid' || order.status === 'waiting_payment') {
       const error = new Error('Pembayaran harus diselesaikan sebelum membuka editor.');
       error.status = 402;
+      error.code = 'PAYMENT_REQUIRED';
+      throw error;
+    }
+    if (order.is_active === false || order.website_enabled === false) {
+      const error = new Error('Akses editor untuk undangan ini telah dinonaktifkan oleh admin.');
+      error.status = 403;
+      error.code = 'INVITATION_DEACTIVATED';
       throw error;
     }
     return {
@@ -191,23 +199,69 @@ export async function invitationByToken(env, token) {
   if (order.payment_status !== 'paid' || order.status === 'waiting_payment') {
     const error = new Error('Pembayaran harus diselesaikan sebelum membuka editor.');
     error.status = 402;
+    error.code = 'PAYMENT_REQUIRED';
     throw error;
   }
   const invitation = await one(db.from('invitations').select('*').eq('order_id', order.id), 'Data undangan tidak ditemukan.');
+  if (invitation.is_active === false) {
+    const error = new Error('Akses editor untuk undangan ini telah dinonaktifkan oleh admin.');
+    error.status = 403;
+    error.code = 'INVITATION_DEACTIVATED';
+    throw error;
+  }
   return mergeInvitationOrder(invitation, order);
 }
 
 export async function publishedInvitation(env, slug) {
   if (!hasRealSupabaseConfig(env)) {
-    const error = new Error('Undangan yang Anda cari belum tersedia.');
-    error.status = 404;
-    throw error;
+    const order = [...(demoState().orders.values?.() || [])].find((item) => item.slug === slug);
+    if (!order) {
+      const error = new Error('Undangan yang Anda cari tidak ditemukan.');
+      error.status = 404;
+      error.code = 'INVITATION_NOT_FOUND';
+      throw error;
+    }
+    if (order.is_active === false || order.website_enabled === false || order.website_active === false) {
+      const error = new Error('Undangan ini sedang dinonaktifkan oleh pemilik atau admin.');
+      error.status = 403;
+      error.code = 'INVITATION_DEACTIVATED';
+      throw error;
+    }
+    if (!order.published_at || order.status !== 'published') {
+      const error = new Error('Undangan yang Anda cari belum diterbitkan.');
+      error.status = 404;
+      error.code = 'INVITATION_NOT_PUBLISHED';
+      throw error;
+    }
+    if (order.active_until && new Date(order.active_until) <= new Date()) {
+      const error = new Error('Masa aktif undangan ini sudah berakhir.');
+      error.status = 410;
+      error.code = 'INVITATION_EXPIRED';
+      throw error;
+    }
+    return {
+      id: `demo-${order.order_code}`,
+      ...order,
+    };
   }
   const db = database(env);
-  const invitation = await one(db.from('invitations').select('*').eq('slug', slug).eq('is_active', true).not('published_at', 'is', null).not('active_until', 'is', null), 'Undangan yang Anda cari belum tersedia.');
+  const invitation = await one(db.from('invitations').select('*').eq('slug', slug), 'Undangan yang Anda cari tidak ditemukan.');
+  if (invitation.is_active === false) {
+    const error = new Error('Undangan ini sedang dinonaktifkan oleh pemilik atau admin.');
+    error.status = 403;
+    error.code = 'INVITATION_DEACTIVATED';
+    throw error;
+  }
+  if (!invitation.published_at || !invitation.active_until) {
+    const error = new Error('Undangan yang Anda cari belum diterbitkan.');
+    error.status = 404;
+    error.code = 'INVITATION_NOT_PUBLISHED';
+    throw error;
+  }
   if (invitation.active_until && new Date(invitation.active_until) <= new Date()) {
     const error = new Error('Masa aktif undangan ini sudah berakhir.');
-    error.status = 404;
+    error.status = 410;
+    error.code = 'INVITATION_EXPIRED';
     throw error;
   }
   const order = await one(db.from('order_details').select('*').eq('id', invitation.order_id).eq('status', 'published'), 'Undangan yang Anda cari belum tersedia.');

@@ -10,6 +10,16 @@ import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+const dateOnlyFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' });
+
+function toIsoDateString(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function statusLabel(status) {
   return { paid: 'Lunas', pending: 'Menunggu', failed: 'Gagal', expired: 'Kedaluwarsa', refunded: 'Dikembalikan' }[status] || status || '-';
@@ -50,6 +60,37 @@ function ReferralEditor({ order, working, onSave, invoiceOptions = [] }) {
     onSave(target, name, amount);
   };
   return <form className="referral-editor" onSubmit={save}>{invoiceOptions.length > 0 && <select className="referral-input referral-invoice-select" value={invoiceCode} onChange={selectInvoice} disabled={working}>{invoiceOptions.map((item) => <option value={item.order_code} key={item.order_code}>{item.order_code}</option>)}</select>}<input className="referral-input" value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama pembawa referral" aria-label="Nama pembawa referral" disabled={working} /><div className="referral-amount-field"><span>Rp</span><input className="referral-input" type="text" inputMode="numeric" value={formatRupiahInput(amount)} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} placeholder="Jumlah fee" aria-label="Jumlah fee referral" disabled={working} /></div><button className="referral-save" type="submit" disabled={working}>{working ? 'Menyimpan...' : 'Simpan'}</button></form>;
+}
+
+function dateInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function WebsiteAccessEditor({ order, working, onSave }) {
+  const [activeUntil, setActiveUntil] = useState(dateInputValue(order.active_until));
+  useEffect(() => setActiveUntil(dateInputValue(order.active_until)), [order.active_until]);
+  const published = order.status === 'published' && Boolean(order.published_at);
+  const expired = Boolean(order.active_until && new Date(order.active_until) <= new Date());
+  const enabled = order.website_enabled ?? order.website_active;
+  const effectiveActive = published && enabled && !expired;
+  const status = !published ? 'Belum terbit' : effectiveActive ? 'Aktif' : expired ? 'Kedaluwarsa' : 'Nonaktif';
+  const statusClass = effectiveActive ? 'active' : expired ? 'expired' : 'inactive';
+  const today = dateInputValue(new Date());
+  const selectedDateValid = Boolean(activeUntil && activeUntil >= today);
+
+  return <div className="website-access-editor">
+    <div className="website-access-status"><span className={`admin-pill ${statusClass}`}>{status}</span>{order.website_url && effectiveActive && <a href={order.website_url} target="_blank" rel="noreferrer">Lihat web</a>}</div>
+    {order.active_until && <small>{expired ? 'Berakhir ' : 'Aktif sampai '}{dateFormat.format(new Date(order.active_until))}</small>}
+    {published ? <div className="website-access-controls">
+      <label><span>Perpanjang sampai</span><input type="date" min={today} value={activeUntil} disabled={working} onChange={(event) => setActiveUntil(event.target.value)}/></label>
+      <div><button type="button" className="extend" disabled={working || !selectedDateValid} onClick={() => onSave(order, { active: true, active_until: activeUntil })}>{working ? 'Memproses...' : 'Perpanjang & aktifkan'}</button><button type="button" className={effectiveActive ? 'disable' : 'enable'} disabled={working || (!effectiveActive && expired)} title={!effectiveActive && expired ? 'Pilih tanggal baru lalu klik Perpanjang & aktifkan.' : ''} onClick={() => onSave(order, { active: !effectiveActive })}>{effectiveActive ? 'Nonaktifkan' : expired ? 'Isi tanggal baru' : 'Aktifkan kembali'}</button></div>
+    </div> : <small className="website-access-note">Kontrol tersedia setelah undangan dipublish.</small>}
+  </div>;
 }
 
 function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissionDrafts, setCommissionDrafts, working, onSavePackage, onReload }) {
@@ -164,66 +205,6 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
     <div className="admin-template-pricing-header"><div><strong>Harga dan komisi affiliate</strong><small>Persentase berlaku global untuk order baru · {template.name}</small></div><span className="admin-pill active">{template.package_count || template.packages?.length || 0} paket</span></div>
     <div className="admin-template-price-list">{(template.packages || []).map((packageItem) => { const key = `${template.code}:${packageItem.code}`; const currentValue = priceDrafts[key] ?? packageItem.price ?? 0; const currentCommission = commissionDrafts[key] ?? packageItem.affiliate_commission_default_percent ?? 0; const packageVisible = packageVisibility[packageItem.code] !== false; const visibilityWorking = catalogWorking === `package-visibility:${packageItem.code}`; return <div className={`admin-template-price-row admin-template-package-settings ${packageVisible ? '' : 'is-package-hidden'}`.trim()} key={key}><div className="admin-package-meta"><strong>{packageItem.name}</strong><small>{packageItem.tagline}</small><em>{packageVisible ? 'Tampil di katalog' : 'Sedang maintenance'}</em></div><label className="admin-package-setting-field"><small>Harga</small><div className="admin-price-editor"><span>Rp</span><input type="text" inputMode="numeric" value={formatRupiahInput(currentValue)} onChange={(event) => setPriceDrafts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, '') }))}/></div></label><label className="admin-package-setting-field"><small>Komisi affiliate</small><div className="admin-commission-editor"><input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={currentCommission} onChange={(event) => setCommissionDrafts((current) => ({ ...current, [key]: event.target.value }))}/><span>%</span></div></label><div className="admin-package-actions"><button className={`admin-package-visibility ${packageVisible ? 'is-visible' : 'is-hidden'}`} type="button" disabled={Boolean(catalogWorking)} onClick={() => togglePackageVisibility(packageItem)}>{visibilityWorking ? 'Menyimpan...' : packageVisible ? 'Hide' : 'Show'}</button><button className="admin-save-price" type="button" disabled={working === `package:${key}`} onClick={() => onSavePackage(template.code, packageItem.code)}>{working === `package:${key}` ? 'Menyimpan...' : 'Simpan'}</button></div></div>; })}</div>
   </article>;
-}
-
-function HomepageHeroEditor({ homepage, onReload }) {
-  const [preview, setPreview] = useState(homepage?.hero_image_url || '');
-  const [working, setWorking] = useState(false);
-
-  useEffect(() => {
-    setPreview(homepage?.hero_image_url || '');
-  }, [homepage?.hero_image_url]);
-
-  const uploadHero = async (event) => {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      window.showToast?.('Format gambar harus JPG, PNG, atau WEBP.', 'error');
-      input.value = '';
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      window.showToast?.('Ukuran gambar maksimal 4 MB.', 'error');
-      input.value = '';
-      return;
-    }
-
-    const form = new FormData();
-    form.append('file', file);
-    setWorking(true);
-    try {
-      const result = await post('/api/admin/homepage/hero-image', form);
-      setPreview(`${result.hero_image_url}?v=${Date.now()}`);
-      window.showToast?.(result.message);
-      await onReload();
-    } catch (failure) {
-      window.showToast?.(failure.message, 'error');
-    } finally {
-      input.value = '';
-      setWorking(false);
-    }
-  };
-
-  return <section className="admin-homepage-hero-editor">
-    <div className="admin-homepage-preview" aria-label="Preview gambar dalam ponsel">
-      <div className="admin-homepage-phone">
-        <span />
-        {preview ? <img src={preview} alt="Preview visual hero homepage" /> : <div className="admin-homepage-placeholder"><small>THE WEDDING OF</small><strong>A <i>&amp;</i> N</strong><em>Hari yang baik</em></div>}
-      </div>
-    </div>
-    <div className="admin-homepage-copy">
-      <span className="eyebrow">Tampilan beranda</span>
-      <h3>Visual di dalam ponsel</h3>
-      <p>Gambar ini tampil di mockup ponsel pada bagian paling atas homepage. Gunakan gambar potret agar komposisinya tetap cantik di desktop maupun mobile.</p>
-      <ul><li>Rasio yang disarankan 9:16</li><li>JPG, PNG, atau WEBP</li><li>Maksimal 4 MB</li></ul>
-      <label className={`admin-homepage-upload ${working ? 'is-loading' : ''}`}>
-        <input type="file" accept="image/jpeg,image/png,image/webp" disabled={working} onChange={uploadHero} />
-        <span>{working ? 'Mengunggah gambar...' : preview ? 'Ganti gambar hero' : 'Pilih gambar hero'}</span>
-        <small>{working ? 'Mohon tunggu' : 'Pilih file'}</small>
-      </label>
-    </div>
-  </section>;
 }
 
 function ReferralManagementPanel({ orders, working, onSave }) {
@@ -384,7 +365,136 @@ function affiliatePaginationItems(page, pageCount) {
   return [1, 'start-gap', page - 1, page, page + 1, 'end-gap', pageCount];
 }
 
-function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onResend, onReload }) {
+function ExtendWebsiteModal({ order, working, onClose, onSave }) {
+  const isExpired = !order.active_until || new Date(order.active_until) <= new Date();
+  const currentExpiry = order.active_until ? new Date(order.active_until) : null;
+
+  const baseTime = (currentExpiry && !Number.isNaN(currentExpiry.getTime()) && currentExpiry > new Date())
+    ? currentExpiry.getTime()
+    : Date.now();
+
+  const getPresetIso = (days) => {
+    const d = new Date(baseTime);
+    d.setDate(d.getDate() + days);
+    return toIsoDateString(d);
+  };
+
+  const todayIso = toIsoDateString(new Date());
+  const [targetDate, setTargetDate] = useState(() => getPresetIso(90));
+
+  const presets = [
+    { label: '+1 Bulan', days: 30 },
+    { label: '+3 Bulan', days: 90 },
+    { label: '+6 Bulan', days: 180 },
+    { label: '+1 Tahun', days: 365 },
+  ];
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!targetDate) return;
+    const ok = await onSave(order, { active: true, active_until: targetDate });
+    if (ok) onClose();
+  };
+
+  const selectedDateObj = targetDate ? new Date(`${targetDate}T23:59:59`) : null;
+  const daysFromNow = selectedDateObj ? Math.ceil((selectedDateObj.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+
+  return (
+    <div
+      className="admin-order-modal admin-extend-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Perpanjang masa aktif website ${order.order_code}`}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <form className="admin-extend-modal-card" onSubmit={handleSubmit}>
+        <header>
+          <div>
+            <span className="eyebrow">KONTROL AKSES WEBSITE</span>
+            <h2>Perpanjang Masa Aktif</h2>
+            <p>{order.customer_name} · <strong>{order.order_code}</strong></p>
+          </div>
+          <button type="button" className="close" onClick={onClose} aria-label="Tutup">×</button>
+        </header>
+
+        <div className="extend-modal-body">
+          <div className="extend-current-info">
+            <div className="current-info-item">
+              <span className="info-label">Status Website Saat Ini</span>
+              <div className="info-value">
+                <span className={`status-indicator ${order.website_active ? 'active' : isExpired ? 'expired' : 'inactive'}`} />
+                <strong>
+                  {order.website_active ? 'Website Aktif' : isExpired ? 'Kadaluarsa / Berakhir' : 'Nonaktif'}
+                </strong>
+              </div>
+            </div>
+            <div className="current-info-item">
+              <span className="info-label">Berakhir Pada</span>
+              <span className="info-value date">
+                {currentExpiry ? dateFormat.format(currentExpiry) : 'Belum ditentukan'}
+              </span>
+            </div>
+          </div>
+
+          <div className="extend-preset-section">
+            <label className="section-label">PILIH CEPAT DURASI PERPANJANGAN</label>
+            <div className="extend-preset-grid">
+              {presets.map((preset) => {
+                const presetDate = getPresetIso(preset.days);
+                const isSelected = targetDate === presetDate;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={`preset-pill ${isSelected ? 'is-active' : ''}`}
+                    onClick={() => setTargetDate(presetDate)}
+                  >
+                    <strong>{preset.label}</strong>
+                    <small>+{preset.days} hari</small>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="extend-custom-date">
+            <label htmlFor="custom-extend-date" className="section-label">ATAU PILIH TANGGAL BERAKHIR SPESIFIK</label>
+            <input
+              id="custom-extend-date"
+              type="date"
+              min={todayIso}
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="extend-preview-box">
+            <div className="preview-icon">📅</div>
+            <div className="preview-text">
+              <span>Website akan aktif sampai dengan:</span>
+              <strong>{selectedDateObj ? dateOnlyFormat.format(selectedDateObj) : '-'}</strong>
+              <small>({daysFromNow > 0 ? `${daysFromNow} hari ke depan` : 'Hari ini'}) &middot; Akses website otomatis aktif</small>
+            </div>
+          </div>
+        </div>
+
+        <footer>
+          <button type="button" onClick={onClose}>Batal</button>
+          <button
+            type="submit"
+            className="save-extend-btn"
+            disabled={working === `website:${order.order_code}` || !targetDate}
+          >
+            {working === `website:${order.order_code}` ? 'Menyimpan...' : 'Simpan & Perpanjang'}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onResend, onReload, onSaveWebsite }) {
   const complimentaryOrders = useMemo(() => orders.filter((order) => order.order_source === 'admin_free'), [orders]);
   const firstTemplate = templates[0];
   const [form, setForm] = useState({
@@ -402,6 +512,7 @@ function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onRese
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState(null);
+  const [extendingOrder, setExtendingOrder] = useState(null);
   const pageSize = 10;
 
   useEffect(() => {
@@ -488,14 +599,435 @@ function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onRese
     </section>
     <section className="admin-order-history-list admin-free-order-list">
       <div className="admin-section-heading"><div><span className="eyebrow">ARSIP PEMBERIAN</span><h2>Riwayat order gratis</h2></div><span className="admin-count">Maksimal 10 data per halaman</span></div>
-      <div className="admin-order-table-wrap"><table className="admin-order-history-table"><thead><tr><th>Invoice</th><th>Penerima</th><th>Template</th><th>Email akses</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody>{pageItems.length ? pageItems.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>Order gratis admin</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small><small>{order.customer_phone}</small></td><td><strong>{order.template_name || '-'}</strong><small>{order.package_name || '-'}</small><small>Harga customer: Gratis</small></td><td><span className={`admin-free-email-state ${order.editor_email_sent_at ? 'sent' : 'waiting'}`}>{order.editor_email_sent_at ? 'Sudah terkirim' : 'Belum terkirim'}</span>{order.editor_email_sent_at && <small>{dateFormat.format(new Date(order.editor_email_sent_at))}</small>}</td><td><span className={`admin-pill ${order.status === 'cancelled' ? 'failed' : 'paid'}`}>{orderStatusLabel(order.status)}</span></td><td><strong>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</strong></td><td><div className="admin-order-actions admin-free-order-actions"><button type="button" className="detail" onClick={() => setDetail(order)}>Detail</button>{order.editor_url && <a href={order.editor_url} target="_blank" rel="noreferrer">Editor</a>}<button type="button" className="email" disabled={working === `complimentary:email:${order.order_code}`} onClick={() => onResend(order.order_code)}>{working === `complimentary:email:${order.order_code}` ? 'Mengirim...' : 'Kirim email'}</button></div></td></tr>) : <tr><td className="admin-order-empty" colSpan="7">Belum ada order gratis yang cocok dengan filter.</td></tr>}</tbody></table></div>
+      <div className="admin-order-table-wrap"><table className="admin-order-history-table"><thead><tr><th>Invoice</th><th>Penerima</th><th>Template</th><th>Email akses</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody>{pageItems.length ? pageItems.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>Order gratis admin</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small><small>{order.customer_phone}</small></td><td><strong>{order.template_name || '-'}</strong><small>{order.package_name || '-'}</small><small>Harga customer: Gratis</small></td><td><span className={`admin-free-email-state ${order.editor_email_sent_at ? 'sent' : 'waiting'}`}>{order.editor_email_sent_at ? 'Sudah terkirim' : 'Belum terkirim'}</span>{order.editor_email_sent_at && <small>{dateFormat.format(new Date(order.editor_email_sent_at))}</small>}</td><td><span className={`admin-pill ${order.status === 'cancelled' ? 'failed' : 'paid'}`}>{orderStatusLabel(order.status)}</span></td><td><strong>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</strong></td><td><div className="admin-order-actions admin-free-order-actions"><button type="button" className="detail" onClick={() => setDetail(order)}>Detail</button>{order.editor_url && <a href={order.editor_url} target="_blank" rel="noreferrer">Editor</a>}<button type="button" className="email" disabled={working === `complimentary:email:${order.order_code}`} onClick={() => onResend(order.order_code)}>{working === `complimentary:email:${order.order_code}` ? 'Mengirim...' : 'Kirim email'}</button>{order.website_active ? <button type="button" className="web-btn-toggle deactivate" disabled={working === `website:${order.order_code}`} onClick={() => { if (window.confirm(`Nonaktifkan website undangan untuk ${order.customer_name} (${order.order_code})?`)) { onSaveWebsite?.(order, { active: false }); } }} title="Nonaktifkan website undangan">{working === `website:${order.order_code}` ? '...' : 'Nonaktifkan'}</button> : <button type="button" className="web-btn-toggle activate" disabled={working === `website:${order.order_code}`} onClick={() => onSaveWebsite?.(order, { active: true })} title="Aktifkan website undangan">{working === `website:${order.order_code}` ? '...' : 'Aktifkan'}</button>}<button type="button" className="web-btn-extend" disabled={working === `website:${order.order_code}`} onClick={() => setExtendingOrder(order)} title="Perpanjang masa aktif website">Perpanjang</button></div></td></tr>) : <tr><td className="admin-order-empty" colSpan="7">Belum ada order gratis yang cocok dengan filter.</td></tr>}</tbody></table></div>
       {filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman order gratis"><button type="button" className="direction" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === currentPage ? 'is-active' : ''} aria-current={item === currentPage ? 'page' : undefined} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>›</button></nav></div>}
     </section>
-    {detail && <div className="admin-order-modal" role="dialog" aria-modal="true" aria-label={`Detail order gratis ${detail.order_code}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><article className="admin-order-detail-card"><header><div><span className="eyebrow">ORDER GRATIS</span><h2>{detail.order_code}</h2><p>{detail.customer_name} · {detail.customer_email}</p></div><button type="button" className="close" onClick={() => setDetail(null)} aria-label="Tutup">×</button></header><div className="admin-order-detail-grid"><section><span>Penerima</span><dl><div><dt>Nama</dt><dd>{detail.customer_name}</dd></div><div><dt>Email</dt><dd>{detail.customer_email}</dd></div><div><dt>WhatsApp</dt><dd>{detail.customer_phone}</dd></div></dl></section><section><span>Produk</span><dl><div><dt>Template</dt><dd>{detail.template_name || '-'}</dd></div><div><dt>Paket</dt><dd>{detail.package_name || '-'}</dd></div><div><dt>Biaya</dt><dd>Gratis</dd></div></dl></section><section><span>Akses</span><dl><div><dt>Status</dt><dd>{orderStatusLabel(detail.status)}</dd></div><div><dt>Email editor</dt><dd>{detail.editor_email_sent_at ? `Terkirim ${dateFormat.format(new Date(detail.editor_email_sent_at))}` : 'Belum terkirim'}</dd></div><div><dt>Editor</dt><dd>{detail.editor_url ? <a href={detail.editor_url} target="_blank" rel="noreferrer">Buka editor</a> : '-'}</dd></div></dl></section><section><span>Catatan admin</span><p className="admin-free-order-note">{detail.complimentary_note || 'Tidak ada catatan internal.'}</p></section></div><footer><button type="button" onClick={() => setDetail(null)}>Tutup</button><button type="button" className="edit" disabled={working === `complimentary:email:${detail.order_code}`} onClick={() => onResend(detail.order_code)}>Kirim ulang email</button></footer></article></div>}
+    {detail && <div className="admin-order-modal" role="dialog" aria-modal="true" aria-label={`Detail order gratis ${detail.order_code}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><article className="admin-order-detail-card"><header><div><span className="eyebrow">ORDER GRATIS</span><h2>{detail.order_code}</h2><p>{detail.customer_name} · {detail.customer_email}</p></div><button type="button" className="close" onClick={() => setDetail(null)} aria-label="Tutup">×</button></header><div className="admin-order-detail-grid"><section><span>Penerima</span><dl><div><dt>Nama</dt><dd>{detail.customer_name}</dd></div><div><dt>Email</dt><dd>{detail.customer_email}</dd></div><div><dt>WhatsApp</dt><dd>{detail.customer_phone}</dd></div></dl></section><section><span>Produk</span><dl><div><dt>Template</dt><dd>{detail.template_name || '-'}</dd></div><div><dt>Paket</dt><dd>{detail.package_name || '-'}</dd></div><div><dt>Biaya</dt><dd>Gratis</dd></div></dl></section><section><span>Akses &amp; Website</span><dl><div><dt>Status order</dt><dd>{orderStatusLabel(detail.status)}</dd></div><div><dt>Status website</dt><dd><span className={`admin-pill ${detail.website_active ? 'paid' : (detail.active_until && new Date(detail.active_until) <= new Date()) ? 'expired' : 'waiting'}`}>{detail.website_active ? 'Aktif' : (detail.active_until && new Date(detail.active_until) <= new Date()) ? 'Kadaluarsa' : 'Nonaktif'}</span></dd></div><div><dt>Masa aktif</dt><dd>{detail.active_until ? dateFormat.format(new Date(detail.active_until)) : 'Belum diatur'}</dd></div><div><dt>Email editor</dt><dd>{detail.editor_email_sent_at ? `Terkirim ${dateFormat.format(new Date(detail.editor_email_sent_at))}` : 'Belum terkirim'}</dd></div><div><dt>Editor</dt><dd>{detail.editor_url ? <a href={detail.editor_url} target="_blank" rel="noreferrer">Buka editor</a> : '-'}</dd></div><div><dt>Website</dt><dd>{detail.website_url ? <a href={detail.website_url} target="_blank" rel="noreferrer">Buka website</a> : '-'}</dd></div></dl><div className="admin-order-modal-web-actions">{detail.website_active ? <button type="button" className="web-btn-toggle deactivate" disabled={working === `website:${detail.order_code}`} onClick={async () => { if (window.confirm(`Nonaktifkan website undangan untuk ${detail.customer_name} (${detail.order_code})?`)) { const ok = await onSaveWebsite?.(detail, { active: false }); if (ok) setDetail((prev) => ({ ...prev, website_active: false, website_enabled: false })); } }}>{working === `website:${detail.order_code}` ? 'Menyimpan...' : 'Nonaktifkan Website'}</button> : <button type="button" className="web-btn-toggle activate" disabled={working === `website:${detail.order_code}`} onClick={async () => { const ok = await onSaveWebsite?.(detail, { active: true }); if (ok) setDetail((prev) => ({ ...prev, website_active: true, website_enabled: true })); }}>{working === `website:${detail.order_code}` ? 'Menyimpan...' : 'Aktifkan Website'}</button>}<button type="button" className="web-btn-extend" disabled={working === `website:${detail.order_code}`} onClick={() => setExtendingOrder(detail)}>Perpanjang Masa Aktif</button></div></section><section><span>Catatan admin</span><p className="admin-free-order-note">{detail.complimentary_note || 'Tidak ada catatan internal.'}</p></section></div><footer><button type="button" onClick={() => setDetail(null)}>Tutup</button><button type="button" className="edit" disabled={working === `complimentary:email:${detail.order_code}`} onClick={() => onResend(detail.order_code)}>Kirim ulang email</button></footer></article></div>}
+    {extendingOrder && (
+      <ExtendWebsiteModal
+        order={extendingOrder}
+        working={working}
+        onClose={() => setExtendingOrder(null)}
+        onSave={async (ord, val) => {
+          const ok = await onSaveWebsite?.(ord, val);
+          if (ok && detail && detail.order_code === ord.order_code) {
+            setDetail((prev) => ({ ...prev, website_active: true, website_enabled: true, active_until: val.active_until }));
+          }
+          return ok;
+        }}
+      />
+    )}
   </>;
 }
 
-function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSave, onReload }) {
+function CustomerEditorPanel({ orders, working, onSaveWebsite, onReload }) {
+  const [query, setQuery] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'paid' | 'free'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [extendingOrder, setExtendingOrder] = useState(null);
+  const pageSize = 12;
+
+  // Filter only eligible customer orders:
+  // Must have editor url or token AND be paid (regular customer) OR admin_free
+  const eligibleOrders = useMemo(() => {
+    return (orders || []).filter((order) => {
+      const isPaid = order.payment_status === 'paid';
+      const isFree = order.order_source === 'admin_free';
+      if (!isPaid && !isFree) return false;
+      return Boolean(order.editor_url || order.editor_token);
+    });
+  }, [orders]);
+
+  const paidOrders = useMemo(() => eligibleOrders.filter((o) => o.order_source !== 'admin_free'), [eligibleOrders]);
+  const freeOrders = useMemo(() => eligibleOrders.filter((o) => o.order_source === 'admin_free'), [eligibleOrders]);
+  const totalCount = eligibleOrders.length;
+  const paidCount = paidOrders.length;
+  const freeCount = freeOrders.length;
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return eligibleOrders.filter((order) => {
+      if (sourceFilter === 'paid' && order.order_source === 'admin_free') return false;
+      if (sourceFilter === 'free' && order.order_source !== 'admin_free') return false;
+      const orderDate = orderDateValue(order);
+      if (startDate && orderDate < startDate) return false;
+      if (endDate && orderDate > endDate) return false;
+      if (!q) return true;
+      const haystack = `${order.customer_name || ''} ${order.customer_email || ''} ${order.customer_phone || ''} ${order.order_code || ''} ${order.template_name || ''} ${order.template_code || ''} ${order.package_name || ''} ${order.complimentary_note || ''}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [eligibleOrders, query, sourceFilter, startDate, endDate]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginationItems = affiliatePaginationItems(currentPage, pageCount);
+
+  useEffect(() => setPage(1), [query, sourceFilter, startDate, endDate]);
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
+
+  const copyEditorUrl = async (url) => {
+    if (!url) return;
+    const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(fullUrl);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = fullUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+      }
+      window.showToast?.('Link editor berhasil disalin!');
+    } catch {
+      window.prompt('Salin link editor berikut:', fullUrl);
+    }
+  };
+
+  const resetFilters = () => {
+    setQuery('');
+    setSourceFilter('all');
+    setStartDate('');
+    setEndDate('');
+    setPage(1);
+  };
+
+  return (
+    <section className="admin-editor-panel admin-editor-panel-dedicated">
+      <div className="admin-editor-stats-grid">
+        <div
+          className={`admin-editor-stat-box ${sourceFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setSourceFilter('all')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="editor-stat-icon all">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="20" height="20">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </div>
+          <div className="editor-stat-info">
+            <span className="editor-stat-label">Total Editor Aktif</span>
+            <strong className="editor-stat-value">{totalCount}</strong>
+            <small>Semua undangan siap edit</small>
+          </div>
+        </div>
+
+        <div
+          className={`admin-editor-stat-box ${sourceFilter === 'paid' ? 'active' : ''}`}
+          onClick={() => setSourceFilter('paid')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="editor-stat-icon paid">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="20" height="20">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
+          </div>
+          <div className="editor-stat-info">
+            <span className="editor-stat-label">Riwayat Pesanan (Lunas)</span>
+            <strong className="editor-stat-value">{paidCount}</strong>
+            <small>Pesanan berbayar yang lunas</small>
+          </div>
+        </div>
+
+        <div
+          className={`admin-editor-stat-box ${sourceFilter === 'free' ? 'active' : ''}`}
+          onClick={() => setSourceFilter('free')}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="editor-stat-icon free">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="20" height="20">
+              <path d="M20 12v8H4v-8M2 7h20v5H2zM12 7v13M12 7H7.5A2.5 2.5 0 1 1 10 4.5L12 7zm0 0h4.5A2.5 2.5 0 1 0 14 4.5L12 7z"/>
+            </svg>
+          </div>
+          <div className="editor-stat-info">
+            <span className="editor-stat-label">Order Gratis Admin</span>
+            <strong className="editor-stat-value">{freeCount}</strong>
+            <small>Hadiah / pemberian admin</small>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-editor-filter-card">
+        <div className="admin-editor-source-tabs">
+          <button
+            type="button"
+            className={`admin-editor-tab-btn ${sourceFilter === 'all' ? 'is-active' : ''}`}
+            onClick={() => setSourceFilter('all')}
+          >
+            Semua ({totalCount})
+          </button>
+          <button
+            type="button"
+            className={`admin-editor-tab-btn paid ${sourceFilter === 'paid' ? 'is-active' : ''}`}
+            onClick={() => setSourceFilter('paid')}
+          >
+            <span className="dot paid" />
+            Riwayat Pesanan Lunas ({paidCount})
+          </button>
+          <button
+            type="button"
+            className={`admin-editor-tab-btn free ${sourceFilter === 'free' ? 'is-active' : ''}`}
+            onClick={() => setSourceFilter('free')}
+          >
+            <span className="dot free" />
+            Order Gratis ({freeCount})
+          </button>
+        </div>
+
+        <div className="admin-editor-filter-inputs">
+          <label className="admin-editor-search-box">
+            <span>CARI CUSTOMER ATAU ORDER</span>
+            <div className="search-input-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Nama, email, WhatsApp, invoice, template, catatan..."
+              />
+            </div>
+          </label>
+
+          <label className="admin-editor-date-box">
+            <span>DARI TANGGAL</span>
+            <input type="date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} />
+          </label>
+
+          <label className="admin-editor-date-box">
+            <span>SAMPAI TANGGAL</span>
+            <input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} />
+          </label>
+
+          {(query || sourceFilter !== 'all' || startDate || endDate) && (
+            <button type="button" className="admin-editor-reset-btn" onClick={resetFilters}>
+              Reset filter
+            </button>
+          )}
+        </div>
+
+        <div className="admin-editor-filter-meta">
+          <span>Menampilkan <strong>{filtered.length}</strong> customer yang memenuhi syarat</span>
+          <span className="admin-editor-note-pill">Khusus order lunas &amp; gratis</span>
+        </div>
+      </div>
+
+      <div className="admin-editor-grid-enhanced">
+        {pageItems.length ? pageItems.map((order) => {
+          const isFree = order.order_source === 'admin_free';
+          const editorUrl = order.editor_url || (order.editor_token ? `/edit/${order.editor_token}` : null);
+          const dateStr = order.paid_at || order.created_at;
+          const displayDate = dateStr ? dateFormat.format(new Date(dateStr)) : '-';
+
+          return (
+            <div className={`admin-editor-card-enhanced ${isFree ? 'is-free' : 'is-paid'}`} key={order.id || order.order_code}>
+              <div className="editor-card-header">
+                <div className="editor-card-title-group">
+                  <h3 className="editor-card-name" title={order.customer_name}>{order.customer_name}</h3>
+                  <div className="editor-card-badges">
+                    {isFree ? (
+                      <span className="editor-source-tag free" title="Order gratis hadiah dari admin">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 12v8H4v-8M2 7h20v5H2zM12 7v13M12 7H7.5A2.5 2.5 0 1 1 10 4.5L12 7zm0 0h4.5A2.5 2.5 0 1 0 14 4.5L12 7z"/></svg>
+                        Order Gratis
+                      </span>
+                    ) : (
+                      <span className="editor-source-tag paid" title="Pesanan reguler dari website yang sudah lunas">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        Pesanan Lunas
+                      </span>
+                    )}
+
+                    {order.website_active ? (
+                      <span className="editor-status-tag live">Live</span>
+                    ) : (
+                      <span className="editor-status-tag draft">Draft</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="editor-card-meta-list">
+                <div className="editor-card-meta-item code">
+                  <span className="meta-icon">#</span>
+                  <strong>{order.order_code}</strong>
+                </div>
+                <div className="editor-card-meta-item template">
+                  <span className="meta-icon">🎨</span>
+                  <span>{order.template_name || order.template_code || '-'}</span>
+                  {order.package_name && <small className="meta-package">({order.package_name})</small>}
+                </div>
+                <div className="editor-card-meta-item date">
+                  <span className="meta-icon">📅</span>
+                  <small>{displayDate}</small>
+                </div>
+              </div>
+
+              <div className="editor-card-contacts">
+                {order.customer_email && (
+                  <a className="contact-link email" href={`mailto:${order.customer_email}`} title={order.customer_email}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    <span>{order.customer_email}</span>
+                  </a>
+                )}
+                {order.customer_phone && (
+                  <a className="contact-link phone" href={`https://wa.me/${String(order.customer_phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" title="Chat WhatsApp">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <span>{order.customer_phone}</span>
+                  </a>
+                )}
+              </div>
+
+              {order.complimentary_note && (
+                <div className="editor-card-admin-note">
+                  <span className="note-label">Catatan Admin:</span>
+                  <p>{order.complimentary_note}</p>
+                </div>
+              )}
+
+              <div className="editor-card-website-control">
+                <div className="website-control-meta">
+                  <div className="website-control-status">
+                    <span className={`status-indicator ${order.website_active ? 'active' : (order.active_until && new Date(order.active_until) <= new Date()) ? 'expired' : 'inactive'}`} />
+                    <strong>
+                      {order.website_active
+                        ? 'Website Aktif'
+                        : (order.active_until && new Date(order.active_until) <= new Date())
+                          ? 'Masa Aktif Berakhir'
+                          : 'Website Nonaktif'}
+                    </strong>
+                  </div>
+                  <span className="website-control-expiry">
+                    {order.active_until ? (
+                      <>s/d {dateOnlyFormat.format(new Date(order.active_until))}</>
+                    ) : (
+                      <span className="text-muted">Masa aktif belum diatur</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="website-control-actions">
+                  {order.website_active ? (
+                    <button
+                      type="button"
+                      className="web-btn-toggle deactivate"
+                      disabled={working === `website:${order.order_code}`}
+                      onClick={() => {
+                        if (window.confirm(`Nonaktifkan website undangan untuk ${order.customer_name} (${order.order_code})?`)) {
+                          onSaveWebsite?.(order, { active: false });
+                        }
+                      }}
+                      title="Nonaktifkan website undangan"
+                    >
+                      {working === `website:${order.order_code}` ? 'Menyimpan...' : 'Nonaktifkan'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="web-btn-toggle activate"
+                      disabled={working === `website:${order.order_code}`}
+                      onClick={() => onSaveWebsite?.(order, { active: true })}
+                      title="Aktifkan website undangan"
+                    >
+                      {working === `website:${order.order_code}` ? 'Menyimpan...' : 'Aktifkan'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="web-btn-extend"
+                    disabled={working === `website:${order.order_code}`}
+                    onClick={() => setExtendingOrder(order)}
+                    title="Perpanjang masa aktif website"
+                  >
+                    Perpanjang
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-card-footer">
+                <div className="editor-card-action-group">
+                  {editorUrl ? (
+                    <>
+                      <a className="editor-main-btn" href={editorUrl} target="_blank" rel="noreferrer">
+                        Buka editor
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                      </a>
+                      <button
+                        type="button"
+                        className="editor-copy-url-btn"
+                        onClick={() => copyEditorUrl(editorUrl)}
+                        title="Salin link editor untuk customer"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        Salin link
+                      </button>
+                    </>
+                  ) : (
+                    <span className="editor-disabled-note">Link belum tersedia</span>
+                  )}
+
+                  {order.website_url && (
+                    <a className="editor-web-btn" href={order.website_url} target="_blank" rel="noreferrer" title="Lihat website undangan terbit">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }) : (
+          <div className="admin-editor-empty-state">
+            <div className="empty-icon">🔍</div>
+            <h3>Tidak ada customer yang cocok</h3>
+            <p>Tidak ditemukan undangan dengan kata kunci atau filter saat ini. Hanya pesanan berstatus lunas dan order gratis yang ditampilkan di sini.</p>
+            <button type="button" className="empty-reset-btn" onClick={resetFilters}>
+              Tampilkan semua editor
+            </button>
+          </div>
+        )}
+      </div>
+
+      {filtered.length > pageSize && (
+        <div className="admin-affiliate-pagination">
+          <span>Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} dari {filtered.length} customer</span>
+          <nav aria-label="Halaman editor customer">
+            <button type="button" className="direction" disabled={currentPage === 1} onClick={() => setPage((v) => Math.max(1, v - 1))}>‹</button>
+            {paginationItems.map((item) => typeof item === 'number' ? (
+              <button type="button" className={item === currentPage ? 'is-active' : ''} aria-current={item === currentPage ? 'page' : undefined} key={item} onClick={() => setPage(item)}>{item}</button>
+            ) : (
+              <span className="ellipsis" key={item}>…</span>
+            ))}
+            <button type="button" className="direction" disabled={currentPage === pageCount} onClick={() => setPage((v) => Math.min(pageCount, v + 1))}>›</button>
+          </nav>
+        </div>
+      )}
+
+      {extendingOrder && (
+        <ExtendWebsiteModal
+          order={extendingOrder}
+          working={working}
+          onClose={() => setExtendingOrder(null)}
+          onSave={onSaveWebsite}
+        />
+      )}
+    </section>
+  );
+}
+
+function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSave, onSaveWebsite, onReload }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [affiliate, setAffiliate] = useState('all');
@@ -505,6 +1037,7 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [extendingOrder, setExtendingOrder] = useState(null);
   const pageSize = 10;
 
   const affiliateChoices = useMemo(() => {
@@ -626,11 +1159,25 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
     </section>
     <section className="admin-order-history-list">
       <div className="admin-section-heading"><div><span className="eyebrow">ARSIP TRANSAKSI</span><h2>Riwayat pesanan</h2></div><span className="admin-count">Maksimal 10 data per halaman</span></div>
-      <div className="admin-order-table-wrap"><table className="admin-order-history-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Template</th><th>Affiliate</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>{pageItems.length ? pageItems.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>{orderStatusLabel(order.status)}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small><small>{order.customer_phone}</small></td><td><strong>{order.template_name || '-'}</strong><small>{order.package_name || '-'} · {money(order.package_price)}</small></td><td>{order.affiliate_id ? <><strong>{order.affiliate_name || order.referral_name || 'Affiliate'}</strong><small>Kode referral: {order.affiliate_referral_code || '-'}</small><small>{order.affiliate_email || '-'}</small><small>Komisi: {money(order.affiliate_commission_amount)}</small></> : <span className="admin-order-direct">Pesanan langsung</span>}</td><td><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><small>{money(order.payment_amount || order.package_price)}</small></td><td><strong>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</strong>{order.paid_at && <small>Lunas {dateFormat.format(new Date(order.paid_at))}</small>}</td><td><div className="admin-order-actions"><button type="button" className="detail" onClick={() => setDetail(order)}>Detail</button><button type="button" className="edit" onClick={() => editOrder(order)}>Edit</button></div></td></tr>) : <tr><td className="admin-order-empty" colSpan="7">Tidak ada pesanan yang cocok dengan filter.</td></tr>}</tbody></table></div>
+      <div className="admin-order-table-wrap"><table className="admin-order-history-table"><thead><tr><th>Invoice</th><th>Customer</th><th>Template</th><th>Affiliate</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody>{pageItems.length ? pageItems.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>{orderStatusLabel(order.status)}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small><small>{order.customer_phone}</small></td><td><strong>{order.template_name || '-'}</strong><small>{order.package_name || '-'} · {money(order.package_price)}</small></td><td>{order.affiliate_id ? <><strong>{order.affiliate_name || order.referral_name || 'Affiliate'}</strong><small>Kode referral: {order.affiliate_referral_code || '-'}</small><small>{order.affiliate_email || '-'}</small><small>Komisi: {money(order.affiliate_commission_amount)}</small></> : <span className="admin-order-direct">Pesanan langsung</span>}</td><td><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><small>{money(order.payment_amount || order.package_price)}</small></td><td><strong>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</strong>{order.paid_at && <small>Lunas {dateFormat.format(new Date(order.paid_at))}</small>}</td><td><div className="admin-order-actions"><button type="button" className="detail" onClick={() => setDetail(order)}>Detail</button><button type="button" className="edit" onClick={() => editOrder(order)}>Edit</button>{order.website_active ? <button type="button" className="web-btn-toggle deactivate" disabled={working === `website:${order.order_code}`} onClick={() => { if (window.confirm(`Nonaktifkan website undangan untuk ${order.customer_name} (${order.order_code})?`)) { onSaveWebsite?.(order, { active: false }); } }} title="Nonaktifkan website undangan">{working === `website:${order.order_code}` ? '...' : 'Nonaktifkan'}</button> : <button type="button" className="web-btn-toggle activate" disabled={working === `website:${order.order_code}`} onClick={() => onSaveWebsite?.(order, { active: true })} title="Aktifkan website undangan">{working === `website:${order.order_code}` ? '...' : 'Aktifkan'}</button>}<button type="button" className="web-btn-extend" disabled={working === `website:${order.order_code}`} onClick={() => setExtendingOrder(order)} title="Perpanjang masa aktif website">Perpanjang</button></div></td></tr>) : <tr><td className="admin-order-empty" colSpan="7">Tidak ada pesanan yang cocok dengan filter.</td></tr>}</tbody></table></div>
       {filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman riwayat pesanan"><button type="button" className="direction" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === currentPage ? 'is-active' : ''} aria-current={item === currentPage ? 'page' : undefined} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>›</button></nav></div>}
     </section>
-    {detail && <div className="admin-order-modal" role="dialog" aria-modal="true" aria-label={`Detail pesanan ${detail.order_code}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><article className="admin-order-detail-card"><header><div><span className="eyebrow">DETAIL PESANAN</span><h2>{detail.order_code}</h2><p>{detail.customer_name} · {detail.customer_email}</p></div><button type="button" className="close" onClick={() => setDetail(null)} aria-label="Tutup">×</button></header><div className="admin-order-detail-grid"><section><span>Customer</span><dl><div><dt>Nama</dt><dd>{detail.customer_name}</dd></div><div><dt>Email</dt><dd>{detail.customer_email}</dd></div><div><dt>WhatsApp</dt><dd>{detail.customer_phone}</dd></div></dl></section><section><span>Produk</span><dl><div><dt>Template</dt><dd>{detail.template_name || '-'}</dd></div><div><dt>Paket</dt><dd>{detail.package_name || '-'}</dd></div><div><dt>Harga</dt><dd>{money(detail.package_price)}</dd></div></dl></section><section><span>Pembayaran</span><dl><div><dt>Status</dt><dd>{statusLabel(detail.payment_status)}</dd></div><div><dt>Nominal</dt><dd>{money(detail.payment_amount || detail.package_price)}</dd></div><div><dt>Gateway</dt><dd>{detail.gateway || '-'}</dd></div><div><dt>ID transaksi</dt><dd>{detail.transaction_id || detail.gateway_order_id || '-'}</dd></div></dl></section><section><span>Affiliate</span><dl><div><dt>Nama</dt><dd>{detail.affiliate_name || 'Pesanan langsung'}</dd></div><div><dt>Email</dt><dd>{detail.affiliate_email || '-'}</dd></div><div><dt>Kode referral</dt><dd>{detail.affiliate_referral_code || '-'}</dd></div><div><dt>Komisi</dt><dd>{Number(detail.affiliate_commission_percent || 0).toLocaleString('id-ID')}% · {money(detail.affiliate_commission_amount)}</dd></div></dl></section><section><span>Website</span><dl><div><dt>Status order</dt><dd>{orderStatusLabel(detail.status)}</dd></div><div><dt>URL</dt><dd>{detail.website_url ? <a href={detail.website_url} target="_blank" rel="noreferrer">Buka website</a> : '-'}</dd></div><div><dt>Editor</dt><dd>{detail.editor_url ? <a href={detail.editor_url} target="_blank" rel="noreferrer">Buka editor</a> : '-'}</dd></div></dl></section><section><span>Waktu</span><dl><div><dt>Dibuat</dt><dd>{detail.created_at ? dateFormat.format(new Date(detail.created_at)) : '-'}</dd></div><div><dt>Lunas</dt><dd>{detail.paid_at ? dateFormat.format(new Date(detail.paid_at)) : '-'}</dd></div><div><dt>Diperbarui</dt><dd>{detail.updated_at ? dateFormat.format(new Date(detail.updated_at)) : '-'}</dd></div></dl></section></div><footer><button type="button" onClick={() => setDetail(null)}>Tutup</button><button type="button" className="edit" onClick={() => { editOrder(detail); setDetail(null); }}>Edit pesanan</button></footer></article></div>}
+    {detail && <div className="admin-order-modal" role="dialog" aria-modal="true" aria-label={`Detail pesanan ${detail.order_code}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><article className="admin-order-detail-card"><header><div><span className="eyebrow">DETAIL PESANAN</span><h2>{detail.order_code}</h2><p>{detail.customer_name} · {detail.customer_email}</p></div><button type="button" className="close" onClick={() => setDetail(null)} aria-label="Tutup">×</button></header><div className="admin-order-detail-grid"><section><span>Customer</span><dl><div><dt>Nama</dt><dd>{detail.customer_name}</dd></div><div><dt>Email</dt><dd>{detail.customer_email}</dd></div><div><dt>WhatsApp</dt><dd>{detail.customer_phone}</dd></div></dl></section><section><span>Produk</span><dl><div><dt>Template</dt><dd>{detail.template_name || '-'}</dd></div><div><dt>Paket</dt><dd>{detail.package_name || '-'}</dd></div><div><dt>Harga</dt><dd>{money(detail.package_price)}</dd></div></dl></section><section><span>Pembayaran</span><dl><div><dt>Status</dt><dd>{statusLabel(detail.payment_status)}</dd></div><div><dt>Nominal</dt><dd>{money(detail.payment_amount || detail.package_price)}</dd></div><div><dt>Gateway</dt><dd>{detail.gateway || '-'}</dd></div><div><dt>ID transaksi</dt><dd>{detail.transaction_id || detail.gateway_order_id || '-'}</dd></div></dl></section><section><span>Affiliate</span><dl><div><dt>Nama</dt><dd>{detail.affiliate_name || 'Pesanan langsung'}</dd></div><div><dt>Email</dt><dd>{detail.affiliate_email || '-'}</dd></div><div><dt>Kode referral</dt><dd>{detail.affiliate_referral_code || '-'}</dd></div><div><dt>Komisi</dt><dd>{Number(detail.affiliate_commission_percent || 0).toLocaleString('id-ID')}% · {money(detail.affiliate_commission_amount)}</dd></div></dl></section><section><span>Website &amp; Masa Aktif</span><dl><div><dt>Status order</dt><dd>{orderStatusLabel(detail.status)}</dd></div><div><dt>Status website</dt><dd><span className={`admin-pill ${detail.website_active ? 'paid' : (detail.active_until && new Date(detail.active_until) <= new Date()) ? 'expired' : 'waiting'}`}>{detail.website_active ? 'Aktif' : (detail.active_until && new Date(detail.active_until) <= new Date()) ? 'Kadaluarsa' : 'Nonaktif'}</span></dd></div><div><dt>Masa aktif</dt><dd>{detail.active_until ? dateFormat.format(new Date(detail.active_until)) : 'Belum diatur'}</dd></div><div><dt>URL Website</dt><dd>{detail.website_url ? <a href={detail.website_url} target="_blank" rel="noreferrer">Buka website</a> : '-'}</dd></div><div><dt>Editor</dt><dd>{detail.editor_url ? <a href={detail.editor_url} target="_blank" rel="noreferrer">Buka editor</a> : '-'}</dd></div></dl><div className="admin-order-modal-web-actions">{detail.website_active ? <button type="button" className="web-btn-toggle deactivate" disabled={working === `website:${detail.order_code}`} onClick={async () => { if (window.confirm(`Nonaktifkan website undangan untuk ${detail.customer_name} (${detail.order_code})?`)) { const ok = await onSaveWebsite?.(detail, { active: false }); if (ok) setDetail((prev) => ({ ...prev, website_active: false, website_enabled: false })); } }}>{working === `website:${detail.order_code}` ? 'Menyimpan...' : 'Nonaktifkan Website'}</button> : <button type="button" className="web-btn-toggle activate" disabled={working === `website:${detail.order_code}`} onClick={async () => { const ok = await onSaveWebsite?.(detail, { active: true }); if (ok) setDetail((prev) => ({ ...prev, website_active: true, website_enabled: true })); }}>{working === `website:${detail.order_code}` ? 'Menyimpan...' : 'Aktifkan Website'}</button>}<button type="button" className="web-btn-extend" disabled={working === `website:${detail.order_code}`} onClick={() => setExtendingOrder(detail)}>Perpanjang Masa Aktif</button></div></section><section><span>Waktu</span><dl><div><dt>Dibuat</dt><dd>{detail.created_at ? dateFormat.format(new Date(detail.created_at)) : '-'}</dd></div><div><dt>Lunas</dt><dd>{detail.paid_at ? dateFormat.format(new Date(detail.paid_at)) : '-'}</dd></div><div><dt>Diperbarui</dt><dd>{detail.updated_at ? dateFormat.format(new Date(detail.updated_at)) : '-'}</dd></div></dl></section></div><footer><button type="button" onClick={() => setDetail(null)}>Tutup</button><button type="button" className="edit" onClick={() => { editOrder(detail); setDetail(null); }}>Edit pesanan</button></footer></article></div>}
     {editing && <div className="admin-order-modal" role="dialog" aria-modal="true" aria-label={`Edit pesanan ${editing.order_code}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}><form className="admin-order-edit-card" onSubmit={submitEdit}><header><div><span className="eyebrow">KOREKSI DATA</span><h2>Edit {editing.order_code}</h2><p>Perubahan hanya berlaku pada pesanan ini.</p></div><button type="button" className="close" onClick={() => setEditing(null)} aria-label="Tutup">×</button></header><div className="admin-order-edit-fields"><label><span>Nama customer</span><input required minLength="2" maxLength="120" value={editing.customer_name} onChange={(event) => setEditing({ ...editing, customer_name: event.target.value })}/></label><label><span>Email</span><input required type="email" maxLength="254" value={editing.customer_email} onChange={(event) => setEditing({ ...editing, customer_email: event.target.value })}/></label><label><span>Nomor WhatsApp</span><input required type="tel" maxLength="24" value={editing.customer_phone} onChange={(event) => setEditing({ ...editing, customer_phone: event.target.value })}/></label><AdminFilterDropdown label="Template" value={editing.template_code} options={templates.map((item) => ({ value: item.code, label: item.name, description: item.category || '' }))} onChange={(value) => updateProduct(value, '')}/><AdminFilterDropdown label="Paket" value={editing.package_code} options={selectedPackages.map((item) => ({ value: item.code, label: item.name, description: money(item.price) }))} onChange={(value) => updateProduct(editing.template_code, value)}/><AdminFilterDropdown label="Status order" value={editing.status} options={[{ value: 'waiting_payment', label: 'Menunggu pembayaran' }, { value: 'editing', label: 'Sedang diedit' }, { value: 'published', label: 'Sudah diterbitkan' }, { value: 'cancelled', label: 'Dibatalkan' }]} onChange={(value) => setEditing({ ...editing, status: value })}/><AdminFilterDropdown label="Status pembayaran" value={editing.payment_status} options={paymentStatusOptions} onChange={(value) => setEditing({ ...editing, payment_status: value })}/><label><span>Nominal pembayaran</span><div className="admin-order-money"><b>Rp</b><input required inputMode="numeric" value={formatRupiahInput(editing.payment_amount)} onChange={(event) => setEditing({ ...editing, payment_amount: event.target.value.replace(/\D/g, '') })}/></div></label><AdminFilterDropdown label="Affiliate" value={editing.affiliate_id} options={[{ value: 'none', label: 'Tanpa affiliate', description: 'Pesanan langsung' }, ...affiliateChoices.map((item) => ({ value: String(item.id), label: item.full_name || item.email, description: `${item.email || 'Email belum tersedia'}${item.referral_code ? ` · ${item.referral_code}` : ''}` }))]} onChange={updateAffiliate}/><label><span>Komisi affiliate (%)</span><input type="number" min="0" max="100" step="0.01" disabled={editing.affiliate_id === 'none'} value={editing.affiliate_commission_percent} onChange={(event) => setEditing({ ...editing, affiliate_commission_percent: event.target.value })}/></label><label><span>Nominal komisi</span><div className="admin-order-money"><b>Rp</b><input inputMode="numeric" disabled={editing.affiliate_id === 'none'} value={formatRupiahInput(editing.affiliate_commission_amount)} onChange={(event) => setEditing({ ...editing, affiliate_commission_amount: event.target.value.replace(/\D/g, '') })}/></div></label></div><div className="admin-order-edit-warning"><strong>Periksa sebelum menyimpan.</strong><span>Mengganti template, paket, status, atau affiliate dapat memengaruhi akses dan laporan pesanan ini. Komisi lama tidak dihitung ulang kecuali nilainya diubah di formulir.</span></div><footer><button type="button" onClick={() => setEditing(null)}>Batal</button><button type="submit" className="save" disabled={working === `order:${editing.order_code}`}>{working === `order:${editing.order_code}` ? 'Menyimpan...' : 'Simpan perubahan'}</button></footer></form></div>}
+    {extendingOrder && (
+      <ExtendWebsiteModal
+        order={extendingOrder}
+        working={working}
+        onClose={() => setExtendingOrder(null)}
+        onSave={async (ord, val) => {
+          const ok = await onSaveWebsite?.(ord, val);
+          if (ok && detail && detail.order_code === ord.order_code) {
+            setDetail((prev) => ({ ...prev, website_active: true, website_enabled: true, active_until: val.active_until }));
+          }
+          return ok;
+        }}
+      />
+    )}
   </>;
 }
 
@@ -857,7 +1404,7 @@ function ProUpgradeReviewPanel({ data, loading, error, working, onReload, onRevi
 function WithdrawalManagementPanel({ data, loading, error, working, onReload, onSaveSettings, onProcess }) {
   const [filters, setFilters] = useState({ query: '', status: 'all', dateFrom: '', dateTo: '' });
   const [page, setPage] = useState(1);
-  const [settings, setSettings] = useState({ fee_percent: '', sender_bank_name: '', sender_account_name: '', sender_account_number: '' });
+  const [settings, setSettings] = useState({ min_withdrawal_amount: '50000', fee_percent: '', sender_bank_name: '', sender_account_name: '', sender_account_number: '' });
   const [drafts, setDrafts] = useState({});
   const [preview, setPreview] = useState(null);
   const withdrawals = data?.withdrawals || [];
@@ -865,6 +1412,7 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   useEffect(() => {
     if (!data?.settings) return;
     setSettings({
+      min_withdrawal_amount: String(data.settings.min_withdrawal_amount ?? 50000),
       fee_percent: String(data.settings.fee_percent ?? 0),
       sender_bank_name: data.settings.sender_bank_name || '',
       sender_account_name: data.settings.sender_account_name || '',
@@ -934,8 +1482,15 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   if (error) return <div className="admin-affiliate-review-state is-error"><span>{error}</span><button type="button" onClick={onReload}>Coba lagi</button></div>;
   return <>
     <section className="admin-withdrawal-settings admin-panel">
-      <div className="admin-panel-heading"><div><span className="eyebrow">PENGATURAN PAYOUT</span><h2>Fee dan rekening pengirim</h2></div><span className="admin-panel-note">Ditampilkan kepada affiliate pada halaman penarikan</span></div>
-      <form onSubmit={submitSettings}><label><span>Fee penarikan (%)</span><input type="number" min="0" max="100" step="0.01" required value={settings.fee_percent} onChange={(event) => setSettings({ ...settings, fee_percent: event.target.value })}/></label><label><span>Bank pengirim</span><input required maxLength="80" value={settings.sender_bank_name} onChange={(event) => setSettings({ ...settings, sender_bank_name: event.target.value })} placeholder="Contoh: BCA"/></label><label><span>Nama pemilik rekening</span><input required maxLength="120" value={settings.sender_account_name} onChange={(event) => setSettings({ ...settings, sender_account_name: event.target.value })} placeholder="Daymoment"/></label><label><span>Nomor rekening</span><input required maxLength="80" value={settings.sender_account_number} onChange={(event) => setSettings({ ...settings, sender_account_number: event.target.value.replace(/\s/g, '') })} placeholder="Nomor rekening pengirim"/></label><button type="submit" disabled={working === 'settings'}>{working === 'settings' ? 'Menyimpan...' : 'Simpan pengaturan'}</button></form>
+      <div className="admin-panel-heading"><div><span className="eyebrow">PENGATURAN PAYOUT</span><h2>Fee, batas minimal, dan rekening pengirim</h2></div><span className="admin-panel-note">Ditampilkan kepada affiliate pada halaman penarikan</span></div>
+      <form onSubmit={submitSettings}>
+        <label><span>Minimal penarikan (Rp)</span><input type="number" min="10000" step="1000" required value={settings.min_withdrawal_amount} onChange={(event) => setSettings({ ...settings, min_withdrawal_amount: event.target.value })} placeholder="50000"/></label>
+        <label><span>Fee penarikan (%)</span><input type="number" min="0" max="100" step="0.01" required value={settings.fee_percent} onChange={(event) => setSettings({ ...settings, fee_percent: event.target.value })}/></label>
+        <label><span>Bank pengirim</span><input required maxLength="80" value={settings.sender_bank_name} onChange={(event) => setSettings({ ...settings, sender_bank_name: event.target.value })} placeholder="Contoh: BCA"/></label>
+        <label><span>Nama pemilik rekening</span><input required maxLength="120" value={settings.sender_account_name} onChange={(event) => setSettings({ ...settings, sender_account_name: event.target.value })} placeholder="Daymoment"/></label>
+        <label><span>Nomor rekening</span><input required maxLength="80" value={settings.sender_account_number} onChange={(event) => setSettings({ ...settings, sender_account_number: event.target.value.replace(/\s/g, '') })} placeholder="Nomor rekening pengirim"/></label>
+        <button type="submit" disabled={working === 'settings'}>{working === 'settings' ? 'Menyimpan...' : 'Simpan pengaturan'}</button>
+      </form>
     </section>
     <div className="admin-affiliate-review-summary admin-withdrawal-summary">
       <button
@@ -1576,6 +2131,21 @@ export default function AdminPage() {
     }
   };
 
+  const saveWebsiteAccess = async (order, values) => {
+    setWorking(`website:${order.order_code}`);
+    try {
+      const result = await patch(`/api/admin/orders/${encodeURIComponent(order.order_code)}/website`, values);
+      await reload();
+      window.showToast?.(result.message || 'Akses website customer berhasil diperbarui.');
+      return true;
+    } catch (failure) {
+      window.showToast?.(failure.message, 'error');
+      return false;
+    } finally {
+      setWorking('');
+    }
+  };
+
   const createComplimentaryOrder = async (values) => {
     setWorking('complimentary:create');
     try {
@@ -2095,7 +2665,38 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <OrderHistoryPanel orders={regularOrders} templates={templateCatalog} affiliateOptions={data?.affiliate_options || []} working={working} onSave={saveOrderHistory} onReload={reload}/>
+        <OrderHistoryPanel orders={regularOrders} templates={templateCatalog} affiliateOptions={data?.affiliate_options || []} working={working} onSave={saveOrderHistory} onSaveWebsite={saveWebsiteAccess} onReload={reload}/>
+      </section>
+    </AdminTemplate>;
+  }
+
+  if (activeView === 'editor') {
+    return <AdminTemplate sidebar={sidebarNavigation}>
+      <section className="admin-shell admin-view-editor">
+        <div className="admin-heading">
+          <div>
+            <span className="eyebrow">PUSAT PENJUALAN · AKSES CUSTOMER</span>
+            <div className="admin-heading-title-line">
+              <h1>Editor customer</h1>
+              <div className="admin-heading-tools">
+                <button
+                  type="button"
+                  className={`heading-tool-btn heading-refresh-btn ${headingRefreshing === 'editor' ? 'is-spinning' : ''}`}
+                  onClick={() => handleHeadingRefresh('editor', reload)}
+                  title="Muat ulang data editor customer"
+                  aria-label="Muat ulang editor customer"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                    <path d="M20 11a8.1 8.1 0 0 0-14.8-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8.1 8.1 0 0 0 14.8 4L21 14"/><path d="M21 20v-6h-6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p>Buka dan ubah isi undangan customer yang sudah lunas (riwayat pesanan) dan order gratis dari admin.</p>
+          </div>
+          {mobileStandaloneMenu}
+        </div>
+        <CustomerEditorPanel orders={orders} working={working} onSaveWebsite={saveWebsiteAccess} onReload={reload} />
       </section>
     </AdminTemplate>;
   }
@@ -2104,7 +2705,7 @@ export default function AdminPage() {
     return <AdminTemplate sidebar={sidebarNavigation}>
       <section className="admin-shell admin-view-free-orders">
         <div className="admin-heading"><div><span className="eyebrow">AKSES KHUSUS CUSTOMER</span><h1>Order gratis</h1><p>Buat undangan tanpa pembayaran dan kirim akses editornya langsung ke email penerima.</p></div>{mobileStandaloneMenu}</div>
-        <ComplimentaryOrdersPanel orders={orders} templates={templateCatalog} working={working} onCreate={createComplimentaryOrder} onResend={resendComplimentaryEmail} onReload={reload}/>
+        <ComplimentaryOrdersPanel orders={orders} templates={templateCatalog} working={working} onCreate={createComplimentaryOrder} onResend={resendComplimentaryEmail} onSaveWebsite={saveWebsiteAccess} onReload={reload}/>
       </section>
     </AdminTemplate>;
   }
@@ -2571,21 +3172,15 @@ export default function AdminPage() {
       </div>
 
       <section className="admin-settings-panel admin-panel">
-        <div className="admin-panel-heading"><div><span className="eyebrow">Tampilan homepage</span><h2>Visual utama beranda</h2></div><span className="admin-panel-note">Perubahan akan langsung dipakai di website utama</span></div>
-        <HomepageHeroEditor homepage={data.homepage} onReload={reload} />
         <div className="admin-panel-heading admin-catalog-heading"><div><span className="eyebrow">Katalog template</span><h2>Sampul dan informasi produk</h2></div><span className="admin-panel-note">Perubahan digunakan di website utama dan etalase affiliate</span></div>
         <div className="admin-template-pricing-grid">{templateCatalog.map((template) => <TemplateCatalogEditor key={template.code} template={template} priceDrafts={priceDrafts} setPriceDrafts={setPriceDrafts} commissionDrafts={commissionDrafts} setCommissionDrafts={setCommissionDrafts} working={working} onSavePackage={savePackageSettings} onReload={reload} />)}</div>
       </section>
-
-
-
-      <section className="admin-editor-panel"><div className="admin-panel-heading"><div><span className="eyebrow">Akses customer</span><h2>Panel editor</h2></div><span className="admin-panel-note">Khusus order lunas</span></div><label className="editor-search"><span>Cari customer atau order</span><input value={editorQuery} onChange={(event) => setEditorQuery(event.target.value)} placeholder="Nama, email, kode order, template..." /></label><div className="admin-editor-grid">{editorOrders.slice(0, 8).map((order) => <div className="admin-editor-card" key={order.id || order.order_code}><div><strong>{order.customer_name}</strong><small>{order.order_code} · {order.template_name || order.template_code}</small></div><a className="editor-access-button" href={order.editor_url} target="_blank" rel="noreferrer">Buka editor</a></div>)}</div>{!editorOrders.length && <div className="admin-empty">Tidak ada editor yang cocok dengan pencarian.</div>}</section>
 
       {detail && <section className="admin-detail-panel"><div className="admin-section-heading"><div><span className="eyebrow">Detail pilihan · {detail.items.length} data</span><h2>{detail.title}</h2></div><button className="admin-close" type="button" onClick={() => setActivePanel('')}>Tutup</button></div><div className="admin-detail-list">{detail.items.length ? detail.items.map((order) => <div className="admin-detail-row" key={order.id || order.order_code}><div><strong>{order.order_code}</strong><small>{order.customer_name} · {order.customer_email}</small></div><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><b>{order.payment_status === 'paid' ? money(order.payment_amount || order.package_price) : 'Belum lunas'}</b>{order.payment_status === 'pending' && whatsappUrl(order) && <a className="whatsapp-action" href={whatsappUrl(order)} target="_blank" rel="noreferrer">Follow-up WA</a>}</div>) : <div className="admin-empty">Tidak ada data untuk bagian ini.</div>}</div></section>}
 
       <div className="admin-section-heading"><div><span className="eyebrow">Operasional</span><h2>Order masuk</h2></div><span className="admin-count">{filteredOrders.length} order tersedia</span></div>
       <div className="admin-toolbar"><label className="admin-search"><span>Cari order atau nama pembawa</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kode, nama, email, nama pembawa..." /></label><label className="admin-date"><span>Dari tanggal</span><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label className="admin-date"><span>Sampai tanggal</span><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label><label className="admin-filter"><span>Filter</span><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">Semua status</option><option value="paid">Sudah lunas</option><option value="pending">Menunggu pembayaran</option><option value="website">Website nonaktif</option></select></label><button className="admin-reset" type="button" onClick={() => { setStartDate(''); setEndDate(''); setFilter('all'); setQuery(''); }}>Reset</button></div>
-      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Order</th><th>Pemesan</th><th>Produk</th><th>Pembayaran</th><th>Website</th><th>Dibawa oleh</th><th>Dibuat</th></tr></thead><tbody>{filteredOrders.length ? filteredOrders.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>{orderStatusLabel(order.status)}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small></td><td><strong>{order.template_name || order.template_code || '-'}</strong><small>{order.package_name || order.package_code || '-'} · {money(order.package_price)}</small></td><td><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><small>{order.payment_status === 'paid' ? money(order.payment_amount || order.package_price) : 'Belum ada pemasukan'}</small>{order.payment_status === 'pending' && whatsappUrl(order) && <a className="whatsapp-action" href={whatsappUrl(order)} target="_blank" rel="noreferrer">Follow-up WA</a>}</td><td><div className="website-cell"><span className={`admin-pill ${order.website_active === false ? 'inactive' : 'active'}`}>{order.website_active === false ? 'Nonaktif' : 'Aktif'}</span>{order.active_until && <small className={order.website_active === false ? 'expiry-ended' : ''}>{order.website_active === false ? 'Berakhir ' : 'Aktif sampai '}{dateFormat.format(new Date(order.active_until))}</small>}{order.website_url && order.website_active !== false && <a href={order.website_url} target="_blank" rel="noreferrer">Lihat web</a>}</div></td><td><ReferralEditor order={order} working={working === `referral:${order.order_code}`} onSave={saveReferral} /></td><td><small>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</small></td></tr>) : <tr><td colSpan="7" className="admin-empty">Belum ada order yang cocok dengan filter ini.</td></tr>}</tbody></table></div>
+      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Order</th><th>Pemesan</th><th>Produk</th><th>Pembayaran</th><th>Website</th><th>Dibawa oleh</th><th>Dibuat</th></tr></thead><tbody>{filteredOrders.length ? filteredOrders.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>{orderStatusLabel(order.status)}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small></td><td><strong>{order.template_name || order.template_code || '-'}</strong><small>{order.package_name || order.package_code || '-'} · {money(order.package_price)}</small></td><td><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><small>{order.payment_status === 'paid' ? money(order.payment_amount || order.package_price) : 'Belum ada pemasukan'}</small>{order.payment_status === 'pending' && whatsappUrl(order) && <a className="whatsapp-action" href={whatsappUrl(order)} target="_blank" rel="noreferrer">Follow-up WA</a>}</td><td><WebsiteAccessEditor order={order} working={working === `website:${order.order_code}`} onSave={saveWebsiteAccess}/></td><td><ReferralEditor order={order} working={working === `referral:${order.order_code}`} onSave={saveReferral} /></td><td><small>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</small></td></tr>) : <tr><td colSpan="7" className="admin-empty">Belum ada order yang cocok dengan filter ini.</td></tr>}</tbody></table></div>
     </section>
   </AdminTemplate>;
 }

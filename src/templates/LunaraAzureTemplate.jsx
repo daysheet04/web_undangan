@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { mediaUrl } from '../lib/api.js';
+import TemplateFooter from '../components/TemplateFooter.jsx';
 
 const ASSET = '/assets/images/templates/lunara-azure/';
 const LAYER_ASSET = `${ASSET}layers/`;
@@ -112,7 +113,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           <FlyingButterfly className="lunara-travelling-butterfly" />
           <FlyingButterfly className="lunara-crossing-butterfly lunara-crossing-butterfly-one" />
           <div className="lunara-hero-copy">
-            <span className="lunara-eyebrow" data-hero-step="eyebrow">A moonlit celebration</span>
+            <span className="lunara-eyebrow" data-hero-step="eyebrow">The Wedding of</span>
             <h2 data-hero-step="names"><span data-live="bride_nickname">{bride}</span><i>&amp;</i><span data-live="groom_nickname">{groom}</span></h2>
             <p data-hero-step="invitation">Kami mengundang Anda untuk menjadi bagian dari babak terindah perjalanan kami.</p>
             <time data-hero-step="date" data-date-field="reception_date">{idDate(eventDate)}</time>
@@ -218,7 +219,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
         <section className="lunara-section lunara-gallery" data-lunara-scene data-lunara-bg="lunara-gallery-zine-collage-v1">
           <SceneTransition />
           <MotionGarden className="section-garden garden-gallery" choreo="cascade" />
-          <SectionHeading eyebrow="Potongan waktu yang kami simpan" title="Moonlit Memories" />
+          <SectionHeading eyebrow="Kumpulan Momen Indah" title="Our Memories" />
           <div className={`lunara-gallery-deck gallery-count-${Math.min(photos.length || limit, 5)}`}>
             {photos.length ? photos.map((photo, index) => (
               <figure
@@ -271,7 +272,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
           </div>
         </section>
 
-        <footer className="template-footer lunara-footer"><div className="template-brand-lockup"><img src="/assets/images/brand/daymoment-mark.svg" alt="" /><strong>Daymoment</strong></div></footer>
+        <TemplateFooter className="lunara-template-footer" />
       </main>
 
       {i.has_music && i.music_file && <audio data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)} />}

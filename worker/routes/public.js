@@ -10,15 +10,23 @@ publicRoutes.get('/invitations/:slug', async (c) => {
   const edgeCache = globalThis.caches?.default;
   const cacheRequest = new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(slug)}`);
   const bypassCache = c.req.query('fresh') === '1' || c.req.header('Cache-Control')?.includes('no-cache');
+  const isLocalDev = Boolean(c.env.APP_URL && (c.env.APP_URL.includes('localhost') || c.env.APP_URL.includes('127.0.0.1')));
+  const cached = (!bypassCache && !isLocalDev && edgeCache) ? await edgeCache.match(cacheRequest) : null;
   let core;
-  const cached = (!bypassCache && edgeCache) ? await edgeCache.match(cacheRequest) : null;
   if (cached) {
     core = await cached.json();
+    if (core?.invitation?.is_active === false) {
+      if (edgeCache) c.executionCtx.waitUntil(edgeCache.delete(cacheRequest));
+      const error = new Error('Undangan ini sedang dinonaktifkan oleh pemilik atau admin.');
+      error.status = 403;
+      error.code = 'INVITATION_DEACTIVATED';
+      throw error;
+    }
   } else {
     const invitation = await publishedInvitation(c.env, slug);
     const extras = await invitationExtras(c.env, invitation.id);
     core = { invitation, ...extras };
-    if (edgeCache) {
+    if (edgeCache && !isLocalDev && invitation.is_active !== false) {
       const response = new Response(JSON.stringify(core), {
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60' },
       });
