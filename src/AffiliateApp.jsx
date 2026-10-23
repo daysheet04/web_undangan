@@ -20,7 +20,13 @@ function DashboardLink({ to, onClick, children, ...props }) {
 }
 
 function Brand() {
-  return <a className="affiliate-brand" href={MAIN_APP_URL} aria-label="Kembali ke Daymoment"><i className="affiliate-brand-mark">D</i><span><strong>Daymoment</strong><small>Affiliate Partner</small></span></a>;
+  return <a className="affiliate-brand" href={MAIN_APP_URL} aria-label="Kembali ke Daymoment">
+    <span className="affiliate-brand-logo" aria-hidden="true">
+      <img className="affiliate-brand-logo-color" src="/assets/images/brand/daymoment-logo.webp" alt="" />
+      <img className="affiliate-brand-logo-white" src="/assets/images/brand/daymoment-logo-white.webp" alt="" />
+    </span>
+    <small className="affiliate-brand-label">Affiliate Panel</small>
+  </a>;
 }
 
 function Field({ label, required, hint, ...props }) {

@@ -61,7 +61,6 @@ export default function HomePage() {
           <TemplateCover
             template={template}
             eager={index < 3}
-            liveDesktop={template.code === 'puspa_jawi'}
           />
           <div className="template-card-body"><div className="template-meta"><span>{template.category}</span><span>{template.package_count} paket</span></div><h3>{template.name}</h3><p>{template.description}</p>{template.starting_price && <p className="template-starting-price">Mulai {money(template.starting_price)}</p>}<div className="card-actions"><a className="button button-secondary" href={`/template/${template.code}`}>Lihat Preview</a><a className="button button-primary" href={`/order?template=${template.code}`}>Pilih Template</a></div></div>
         </article>)}

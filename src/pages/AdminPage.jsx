@@ -5,7 +5,8 @@ import { get, money, patch, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
 import AdminLogin from '../components/AdminLogin.jsx';
 import AdminTemplate from '../templates/AdminTemplate.jsx';
-import TemplateCover from '../components/TemplateCover.jsx';
+import TemplateCover, { templateCoverUrl } from '../components/TemplateCover.jsx';
+import AdminCoverAdjusterModal from '../components/AdminCoverAdjusterModal.jsx';
 import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
@@ -99,6 +100,8 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
   const [templateVisible, setTemplateVisible] = useState(template.is_active !== false);
   const [packageVisibility, setPackageVisibility] = useState(() => Object.fromEntries((template.packages || []).map((item) => [item.code, item.is_active !== false])));
   const [catalogWorking, setCatalogWorking] = useState('');
+  const [adjusterOpen, setAdjusterOpen] = useState(false);
+  const [adjusterImage, setAdjusterImage] = useState('');
 
   useEffect(() => {
     setDraft({ name: template.name || '', category: template.category || '', description: template.description || '' });
@@ -127,10 +130,23 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
     }
   };
 
-  const uploadCover = async (event) => {
+  const handleSelectCoverFile = (event) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setAdjusterImage(objectUrl);
+    setAdjusterOpen(true);
+    input.value = '';
+  };
+
+  const handleOpenAdjusterForCurrent = () => {
+    const currentSrc = templateCoverUrl({ ...template, ...cover });
+    setAdjusterImage(currentSrc);
+    setAdjusterOpen(true);
+  };
+
+  const handleSaveCroppedCover = async (file) => {
     const form = new FormData();
     form.append('file', file);
     setCatalogWorking('cover');
@@ -140,12 +156,12 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
         thumbnail: result.thumbnail,
         thumbnail_url: `${result.thumbnail_url}${result.thumbnail_url.includes('?') ? '&' : '?'}v=${Date.now()}`,
       });
-      window.showToast?.('Gambar sampul berhasil diganti.');
+      window.showToast?.('Gambar sampul berhasil disesuaikan dan disimpan.');
       onReload();
     } catch (failure) {
       window.showToast?.(failure.message, 'error');
+      throw failure;
     } finally {
-      input.value = '';
       setCatalogWorking('');
     }
   };
@@ -189,13 +205,31 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
       <TemplateCover template={{ ...template, ...cover }} eager />
       <div>
         <span className="eyebrow">Gambar sampul</span>
-        <p>JPG, PNG, atau WEBP. Maksimal 4 MB.</p>
-        <label className={`admin-cover-upload ${catalogWorking === 'cover' ? 'is-loading' : ''}`}>
-          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(catalogWorking)} onChange={uploadCover} />
-          {catalogWorking === 'cover' ? 'Mengunggah...' : 'Ganti sampul'}
-        </label>
+        <p>JPG, PNG, atau WEBP. Maksimal 4 MB. Frame kartu homepage rasio 4:3.</p>
+        <div className="admin-cover-buttons">
+          <label className={`admin-cover-upload ${catalogWorking === 'cover' ? 'is-loading' : ''}`}>
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={Boolean(catalogWorking)} onChange={handleSelectCoverFile} />
+            {catalogWorking === 'cover' ? 'Mengunggah...' : 'Ganti sampul'}
+          </label>
+          <button
+            type="button"
+            className="admin-btn-adjust-cover"
+            onClick={handleOpenAdjusterForCurrent}
+            disabled={Boolean(catalogWorking)}
+            title="Atur posisi geser dan zoom foto sampul yang aktif"
+          >
+            📐 Atur Posisi / Zoom
+          </button>
+        </div>
       </div>
     </div>
+    <AdminCoverAdjusterModal
+      isOpen={adjusterOpen}
+      onClose={() => setAdjusterOpen(false)}
+      template={template}
+      initialImageUrl={adjusterImage}
+      onSaveCover={handleSaveCroppedCover}
+    />
     <form className="admin-template-meta-form" onSubmit={saveDetails}>
       <label><span>Nama template</span><input maxLength="100" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required /></label>
       <label><span>Kategori</span><input maxLength="50" value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} required /></label>
@@ -2601,8 +2635,10 @@ export default function AdminPage() {
     <div className={`admin-sidebar-drawer ${mobileTabOpen ? 'is-open' : ''}`}>
       <div className="admin-drawer-head">
         <div className="admin-template-brand">
-          <span className="admin-template-mark">D</span>
-          <span><strong>Daymoment</strong><small>Admin workspace</small></span>
+          <span className="admin-template-brand-logo" aria-hidden="true">
+            <img className="admin-brand-logo-white" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" />
+          </span>
+          <small className="admin-template-brand-label">Admin Panel</small>
         </div>
         <button className="admin-drawer-close" type="button" onClick={() => setMobileTabOpen(false)} aria-label="Tutup menu">✕</button>
       </div>

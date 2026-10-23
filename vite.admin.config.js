@@ -12,8 +12,7 @@ export default defineConfig({
           return html
             .replace('/src/main.jsx', '/src/admin-main.jsx')
             .replace(/<meta name="description" content="[^"]*"\s*\/>/, '<meta name="description" content="Workspace privat untuk mengelola operasional Daymoment." />')
-            .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Admin — Private Workspace</title>')
-            .replace(/\s*<link rel="icon"[^>]+>/, '');
+            .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Admin — Private Workspace</title>');
         },
       },
     },

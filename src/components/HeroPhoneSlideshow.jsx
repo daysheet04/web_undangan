@@ -4,7 +4,7 @@ import { templateCoverUrl, defaultTemplateCover } from './TemplateCover.jsx';
 const FALLBACK_HERO_TEMPLATES = [
   {
     code: 'puspa_jawi',
-    name: 'Puspa Jawi',
+    name: 'Java Vibes',
     category: 'Javanese Botanical',
   },
   {

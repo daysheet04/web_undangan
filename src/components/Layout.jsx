@@ -1,16 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 
-export function Layout({ children, title, className = '' }) {
+export function Layout({ children, title, className = '', navigation = null }) {
   useBodyClass(className);
   useDocumentTitle(title);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState('beranda');
   const [isScrolled, setIsScrolled] = useState(false);
   const bodyClasses = String(className || '').split(/\s+/).filter(Boolean);
+  const scopedNavigation = Boolean(navigation?.scoped);
+  const homeHref = navigation?.homeHref || '/';
+  const templateTargetId = navigation?.templateTargetId || 'templates';
+  const templateHref = navigation?.templateHref || `/#${templateTargetId}`;
+  const templateLabel = navigation?.templateLabel || 'Template';
+  const stepsTargetId = navigation?.stepsTargetId || 'cara-kerja';
+  const stepsHref = navigation?.stepsHref || `/#${stepsTargetId}`;
+  const stepsLabel = navigation?.stepsLabel || 'Langkah Pemesanan';
+  const showSecondaryNavigation = navigation?.showSecondary !== false;
+  const showAffiliateNavigation = navigation?.showAffiliate !== false;
   const stylesReady = useHeadLinks([
     '/assets/css/app.css',
     ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css'] : []),
+    ...(bodyClasses.includes('affiliate-store-page') ? ['/assets/css/affiliate-store.css'] : []),
     ...(bodyClasses.includes('admin-page') ? ['/assets/css/admin.css', '/assets/css/admin-withdrawals.css', '/assets/css/admin-commissions.css', '/assets/css/admin-orders.css', '/assets/css/admin-free-orders.css'] : []),
   ]);
 
@@ -55,13 +66,13 @@ export function Layout({ children, title, className = '' }) {
       }
 
       const scrollPos = scrollY + 160;
-      const caraKerjaEl = document.getElementById('cara-kerja');
-      const templatesEl = document.getElementById('templates');
+      const caraKerjaEl = document.getElementById(stepsTargetId);
+      const templatesEl = document.getElementById(templateTargetId);
 
       if (caraKerjaEl && scrollPos >= caraKerjaEl.offsetTop) {
-        setActiveNav('cara-kerja');
+        setActiveNav(stepsTargetId);
       } else if (templatesEl && scrollPos >= templatesEl.offsetTop) {
-        setActiveNav('templates');
+        setActiveNav(templateTargetId);
       } else {
         setActiveNav('beranda');
       }
@@ -69,11 +80,26 @@ export function Layout({ children, title, className = '' }) {
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [stepsTargetId, templateTargetId]);
 
   const handleNavClick = (e, targetId) => {
     setMenuOpen(false);
     setActiveNav(targetId);
+    if (scopedNavigation) {
+      e.preventDefault();
+      if (targetId === 'beranda') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.history.replaceState(null, '', homeHref);
+        return;
+      }
+
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        window.history.replaceState(null, '', `${homeHref}#${targetId}`);
+      }
+      return;
+    }
     if (targetId === 'beranda') {
       if (window.location.pathname === '/' || window.location.pathname === '') {
         e.preventDefault();
@@ -96,37 +122,39 @@ export function Layout({ children, title, className = '' }) {
   return <>
     <header className="site-header-wrapper">
       <div className={`site-header-pill ${isScrolled ? 'is-scrolled' : ''} ${menuOpen ? 'menu-expanded' : ''}`}>
-        <a className="brand" href="/" aria-label="Daymoment, kembali ke beranda" onClick={(e) => handleNavClick(e, 'beranda')}>
+        <a className="brand" href={homeHref} aria-label="Daymoment, kembali ke beranda" onClick={(e) => handleNavClick(e, 'beranda')}>
           <img className="brand-logo brand-logo-wordmark" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="112" height="40" loading="eager" decoding="async" />
         </a>
 
         {/* Desktop Navigation */}
         <nav className="desktop-nav" aria-label="Navigasi desktop">
           <a
-            href="/"
+            href={homeHref}
             className={`desktop-nav-link ${activeNav === 'beranda' ? 'is-active' : ''}`}
             onClick={(e) => handleNavClick(e, 'beranda')}
           >
             Beranda
           </a>
+          {showSecondaryNavigation && <>
           <a
-            href="/#templates"
-            className={`desktop-nav-link ${activeNav === 'templates' ? 'is-active' : ''}`}
-            onClick={(e) => handleNavClick(e, 'templates')}
+            href={templateHref}
+            className={`desktop-nav-link ${activeNav === templateTargetId ? 'is-active' : ''}`}
+            onClick={(e) => handleNavClick(e, templateTargetId)}
           >
-            Template
+            {templateLabel}
           </a>
           <a
-            href="/#cara-kerja"
-            className={`desktop-nav-link ${activeNav === 'cara-kerja' ? 'is-active' : ''}`}
-            onClick={(e) => handleNavClick(e, 'cara-kerja')}
+            href={stepsHref}
+            className={`desktop-nav-link ${activeNav === stepsTargetId ? 'is-active' : ''}`}
+            onClick={(e) => handleNavClick(e, stepsTargetId)}
           >
-            Langkah Pemesanan
+            {stepsLabel}
           </a>
-          <a className="affiliate-nav-btn" href="/affiliate">
+          </>}
+          {showAffiliateNavigation && <a className="affiliate-nav-btn" href="/affiliate">
             <span>Affiliate</span>
             <span className="nav-arrow">↗</span>
-          </a>
+          </a>}
         </nav>
 
         {/* Mobile Hamburger Toggle Button (Dark rounded button matching reference) */}
@@ -152,34 +180,36 @@ export function Layout({ children, title, className = '' }) {
       >
         <nav className="mobile-nav-links-list" aria-label="Navigasi mobile">
           <a
-            href="/"
+            href={homeHref}
             className={`mobile-nav-link-item ${activeNav === 'beranda' ? 'is-active' : ''}`}
             onClick={(e) => handleNavClick(e, 'beranda')}
           >
             Beranda
           </a>
+          {showSecondaryNavigation && <>
           <a
-            href="/#templates"
-            className={`mobile-nav-link-item ${activeNav === 'templates' ? 'is-active' : ''}`}
-            onClick={(e) => handleNavClick(e, 'templates')}
+            href={templateHref}
+            className={`mobile-nav-link-item ${activeNav === templateTargetId ? 'is-active' : ''}`}
+            onClick={(e) => handleNavClick(e, templateTargetId)}
           >
-            Template
+            {templateLabel}
           </a>
           <a
-            href="/#cara-kerja"
-            className={`mobile-nav-link-item ${activeNav === 'cara-kerja' ? 'is-active' : ''}`}
-            onClick={(e) => handleNavClick(e, 'cara-kerja')}
+            href={stepsHref}
+            className={`mobile-nav-link-item ${activeNav === stepsTargetId ? 'is-active' : ''}`}
+            onClick={(e) => handleNavClick(e, stepsTargetId)}
           >
-            Langkah Pemesanan
+            {stepsLabel}
           </a>
-          <a
+          </>}
+          {showAffiliateNavigation && <a
             href="/affiliate"
             className="mobile-nav-cta-item"
             onClick={() => setMenuOpen(false)}
           >
             <span>Program Affiliate</span>
             <span className="cta-arrow">↗</span>
-          </a>
+          </a>}
         </nav>
       </div>
     </header>

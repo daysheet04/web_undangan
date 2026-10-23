@@ -33,7 +33,7 @@ app.use('*', async (c, next) => {
 
   // Public static assets that don't have hashes (images, fonts in /assets/images, /assets/css, /assets/js)
   // Use a shorter TTL + stale-while-revalidate for safer updates.
-  if (/^\/(assets|favicon\.svg|robots\.txt|sitemap\.xml)/.test(path) && !path.startsWith('/api')) {
+  if (/^\/(assets|favicon|apple-touch-icon|robots\.txt|sitemap\.xml)/.test(path) && !path.startsWith('/api')) {
     const isImmutableExt = /\.(webp|avif|woff2?|ttf|otf|png|jpg|jpeg|gif)$/i.test(path);
     if (isImmutableExt) {
       res.headers.set('cache-control', 'public, max-age=2592000, stale-while-revalidate=86400'); // 30d + 1d SWR

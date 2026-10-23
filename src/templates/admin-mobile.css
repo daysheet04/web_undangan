@@ -11,6 +11,38 @@ body.admin-page #root {
   padding-top: 0 !important;
 }
 
+/* Daymoment brand lockup: logo first, panel name underneath. */
+.admin-template-brand {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.admin-template-brand-logo {
+  display: block;
+  width: 96px;
+  line-height: 0;
+}
+
+.admin-template-brand-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.admin-brand-logo-color {
+  display: none !important;
+}
+
+.admin-brand-logo-white {
+  display: block !important;
+}
+
+.admin-template-brand-label {
+  margin-left: 2px;
+  letter-spacing: 0.14em !important;
+}
+
 /* Global Notification Button Reset: kill duplicate/ghost pseudo-element icon */
 .admin-notification-button:before,
 .admin-mobile-header-tools .admin-notification-button:before {
@@ -112,11 +144,24 @@ body.admin-page #root {
 
   .admin-template-brand {
     display: inline-flex !important;
-    align-items: center !important;
-    gap: 10px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1px !important;
     text-decoration: none !important;
     color: #fff !important;
     flex-shrink: 0 !important;
+  }
+
+  .admin-template-brand-logo {
+    width: 72px !important;
+  }
+
+  .admin-brand-logo-color {
+    display: none !important;
+  }
+
+  .admin-brand-logo-white {
+    display: block !important;
   }
 
   .admin-template-mark {
@@ -140,7 +185,8 @@ body.admin-page #root {
   }
 
   .admin-template-brand small {
-    font-size: 0.62rem !important;
+    margin-left: 1px !important;
+    font-size: 0.56rem !important;
     color: #9cb5a8 !important;
     display: block !important;
     line-height: 1.1 !important;
@@ -352,7 +398,11 @@ body.admin-page #root {
   }
 
   .admin-drawer-head .admin-template-brand {
-    gap: 10px !important;
+    gap: 4px !important;
+  }
+
+  .admin-drawer-head .admin-template-brand-logo {
+    width: 84px !important;
   }
 
   .admin-drawer-close {

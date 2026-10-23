@@ -12,13 +12,11 @@ export default defineConfig({
           return html
             .replace('/src/main.jsx', '/src/affiliate-main.jsx')
             .replace(/<meta name="description" content="[^"]*"\s*\/>/, '<meta name="description" content="Daftar dan masuk ke Program Affiliate Daymoment." />')
-            .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Affiliate — Partner Area</title>')
-            .replace(/\s*<link rel="icon"[^>]+>/, '');
+            .replace(/<title>[^<]*<\/title>/, '<title>Daymoment Affiliate — Partner Area</title>');
         },
       },
     },
   ],
-  publicDir: false,
   server: {
     host: '0.0.0.0',
     port: 8082,

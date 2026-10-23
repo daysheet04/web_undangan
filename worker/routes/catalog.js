@@ -32,7 +32,7 @@ catalog.get('/affiliate-catalog/:referralCode', async (c) => {
 
   const db = database(c.env);
   const { data: account, error: accountError } = await db.from('affiliate_accounts')
-    .select('id,full_name,referral_code,status')
+    .select('id,full_name,phone,referral_code,status')
     .ilike('referral_code', referralCode)
     .maybeSingle();
   if (accountError) throw accountError;
@@ -67,7 +67,7 @@ catalog.get('/affiliate-catalog/:referralCode', async (c) => {
   c.header('Cache-Control', 'private, no-store, max-age=0');
   return c.json({
     ok: true,
-    partner: { referral_code: account.referral_code, display_name: account.full_name },
+    partner: { referral_code: account.referral_code, display_name: account.full_name, phone: account.phone },
     templates,
   });
 });

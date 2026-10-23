@@ -5,7 +5,7 @@ const FALLBACK_TEMPLATES = [
   {
     id: 1,
     code: 'puspa_jawi',
-    name: 'Puspa Jawi',
+    name: 'Java Vibes',
     category: 'Javanese Botanical',
     description: 'Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.',
     thumbnail: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',

@@ -7,7 +7,11 @@ a { color: inherit; }
 .affiliate-auth-panel { display: grid; min-width: 0; grid-template-rows: auto 1fr auto; padding: 28px clamp(24px, 5vw, 76px); background: #fbfaf6; }
 .affiliate-auth-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .affiliate-auth-panel > header > a { color: #52665f; font-size: .76rem; font-weight: 700; text-decoration: none; }
-.affiliate-brand { display: inline-flex; align-items: center; gap: 10px; color: #17352f; text-decoration: none; }
+.affiliate-brand { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; color: #17352f; text-decoration: none; }
+.affiliate-brand-logo { display: block; width: 134px; line-height: 0; }
+.affiliate-brand-logo img { display: block; width: 100%; height: auto; }
+.affiliate-brand-logo-white { display: none !important; }
+.affiliate-brand-label { margin-left: 2px; }
 .affiliate-brand-mark { display: grid; width: 39px; height: 39px; flex: 0 0 auto; place-items: center; color: #fff; border-radius: 50%; background: linear-gradient(145deg, #c39a5e, #17493d); box-shadow: 0 7px 16px rgba(23,73,61,.16); font-family: Georgia, serif; font-size: 1.05rem; font-style: normal; }
 .affiliate-brand span { display: grid; line-height: 1.05; }
 .affiliate-brand strong { font-family: Georgia, serif; font-size: 1.05rem; letter-spacing: .04em; }
@@ -102,6 +106,9 @@ a { color: inherit; }
 .affiliate-dashboard-shell { display: grid; min-height: 100vh; grid-template-columns: 270px minmax(0, 1fr); background: #f2f4ef; }
 .affiliate-dashboard-sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; padding: 28px 20px 22px; color: #eaf1ed; background: #123a32; }
 .affiliate-dashboard-sidebar .affiliate-brand { padding: 0 8px 25px; color: #fff; }
+.affiliate-dashboard-sidebar .affiliate-brand-logo-color { display: none; }
+.affiliate-dashboard-sidebar .affiliate-brand-logo-white { display: block !important; }
+.affiliate-dashboard-sidebar .affiliate-brand-label { color: #9fb7af; }
 .affiliate-dashboard-sidebar .affiliate-brand-mark { color: #17352f; background: #e3c38c; }
 .affiliate-dashboard-sidebar .affiliate-brand small { color: #91aaa2; }
 .affiliate-dashboard-sidebar nav { display: grid; gap: 5px; margin-top: 20px; }

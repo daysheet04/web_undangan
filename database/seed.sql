@@ -1,5 +1,5 @@
 insert into public.templates (code,name,category,description,thumbnail,is_active)
-values ('puspa_jawi','Puspa Jawi','Javanese Botanical','Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.','/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',true)
+values ('puspa_jawi','Java Vibes','Javanese Botanical','Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.','/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',true)
 on conflict (code) do update set name=excluded.name,category=excluded.category,description=excluded.description,thumbnail=excluded.thumbnail,is_active=excluded.is_active;
 
 insert into public.template_packages (template_id,code,name,tagline,price,gallery_limit,has_music,has_gift,has_wishes,sort_order,is_active)

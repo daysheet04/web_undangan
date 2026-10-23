@@ -10,7 +10,7 @@ const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.
 
 const A='/assets/images/templates/puspa-jawi/';
 const TEMPLATE_RUNTIME={
-  puspa_jawi:{title:'Puspa Jawi — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261023-couple-bg-flip-v2',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
+  puspa_jawi:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261023-couple-bg-flip-v2',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261016-01',script:'/assets/js/templates/lunara-azure.js?v=20261012-11'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261019-01',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
   ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261019-01',script:null}
@@ -51,7 +51,8 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     if(resolvedCode!=='verdant_vow')return;
     import('../templates/VerdantVowExperience.jsx');
   },[resolvedCode]);
-  useDocumentTitle(runtime?.title||'Undangan Pernikahan — Daymoment');
+  const templateName = state.data?.invitation?.template_name || state.data?.template?.name || (activeCode === 'puspa_jawi' ? 'Java Vibes' : (runtime?.title ? runtime.title.replace(/\s*—\s*Daymoment.*$/, '') : 'Undangan Pernikahan'));
+  useDocumentTitle(`${templateName} — Daymoment`);
   useHeadLinks(runtime?[runtime.font]:[]);
   const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
   useEffect(()=>{
