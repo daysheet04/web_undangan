@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
-import { hasRealSupabaseConfig, invitationByToken, invitationExtras } from '../lib/repositories.js';
+import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras } from '../lib/repositories.js';
 
 const editor = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -31,7 +31,7 @@ function demoInvitationByToken(token) {
     customer_name: order.customer_name,
     customer_email: order.customer_email,
     customer_phone: order.customer_phone,
-    is_active: order.is_active !== false && order.website_enabled !== false,
+    is_active: Boolean(order.is_active && order.website_enabled !== false),
     active_until: order.active_until || null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -70,20 +70,21 @@ async function slugState(env, input, invitationId) {
   let message = null;
   if (!slug) message = 'URL undangan wajib diisi.';
   else if (RESERVED_SLUGS.has(slug)) message = 'URL tersebut dipakai oleh sistem.';
-  else if (hasRealSupabaseConfig(env)) {
-    const db = database(env);
-    const { count, error } = await db.from('invitations').select('id', { count: 'exact', head: true }).eq('slug', slug).neq('id', invitationId);
-    if (error) throw error;
-    if (count) message = 'URL tersebut sudah digunakan.';
+  else {
+    const conflict = await findActiveSlugConflict(env, slug, { excludeInvitationId: invitationId });
+    if (conflict) {
+      message = 'URL undangan ini sudah aktif digunakan oleh undangan lain. Silakan pilih URL lain.';
+    }
   }
   const suggestions = [];
-  if (message && hasRealSupabaseConfig(env)) {
+  if (message && slug) {
     const base = RESERVED_SLUGS.has(slug) ? `${slug}-kami` : (slug || 'undangan');
-    const db = database(env);
     for (let number = 2; suggestions.length < 3 && number < 20; number += 1) {
       const candidate = `${base.slice(0, 115)}-${number}`;
-      const { count } = await db.from('invitations').select('id', { count: 'exact', head: true }).eq('slug', candidate).neq('id', invitationId);
-      if (!count) suggestions.push(candidate);
+      const conflict = await findActiveSlugConflict(env, candidate, { excludeInvitationId: invitationId });
+      if (!conflict && !RESERVED_SLUGS.has(candidate)) {
+        suggestions.push(candidate);
+      }
     }
   }
   return { slug, available: !message, message, suggestions };
@@ -93,8 +94,8 @@ editor.get('/editor/:token', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
     let invitation = demoInvitationByToken(c.req.param('token'));
     if (!invitation) return c.json({ ok: false, message: 'Akses editor tidak valid.' }, 404);
-    if (invitation.is_active === false) {
-      return c.json({ ok: false, message: 'Akses editor untuk undangan ini telah dinonaktifkan oleh admin.', code: 'INVITATION_DEACTIVATED' }, 403);
+    if (invitation.order_status === 'cancelled') {
+      return c.json({ ok: false, message: 'Pesanan ini telah dibatalkan.', code: 'ORDER_CANCELLED' }, 403);
     }
     invitation = await ensurePublishedActiveUntil(c.env, invitation);
     return c.json({
@@ -182,11 +183,26 @@ editor.post('/invitation/upload', async (c) => {
     return c.json({ ok: true, message: 'Wajah pasangan 3D berhasil disimpan.', path: `/media/${path}`, media: { ...media, url: `/media/${path}` } });
   }
   if (kind === 'gallery') {
-    const { data: mediaRows } = await many(db.from('invitation_media').select('sort_order').eq('invitation_id', invitation.id).order('sort_order', { ascending: false }).limit(1));
-    const { data: media, error } = await db.from('invitation_media').insert({ invitation_id: invitation.id, file_path: path, sort_order: (mediaRows[0]?.sort_order ?? -1) + 1 }).select('*').single();
+    const replaceMediaId = form.get('media_id');
+    if (replaceMediaId) {
+      const { data: existingMedia } = await db.from('invitation_media').select('*').eq('id', Number(replaceMediaId)).eq('invitation_id', invitation.id).maybeSingle();
+      if (existingMedia) {
+        await db.from('invitation_media').update({ file_path: path }).eq('id', existingMedia.id);
+        if (existingMedia.file_path) {
+          try { await c.env.MEDIA.delete(existingMedia.file_path); } catch {}
+        }
+        await purgeInvitationCache(invitation.slug);
+        return c.json({ ok: true, message: 'Posisi foto galeri diperbarui.', path: `/media/${path}`, media: { ...existingMedia, file_path: path, url: `/media/${path}` } });
+      }
+    }
+    const { count, error } = await db.from('invitation_media').select('id', { count: 'exact', head: true }).eq('invitation_id', invitation.id);
     if (error) throw error;
+    if (count >= invitation.gallery_limit) return c.json({ ok: false, message: `Paket ${invitation.package_name} maksimal ${invitation.gallery_limit} foto galeri.` }, 422);
+    const { data: mediaRows } = await many(db.from('invitation_media').select('sort_order').eq('invitation_id', invitation.id).order('sort_order', { ascending: false }).limit(1));
+    const { data: media, error: insertError } = await db.from('invitation_media').insert({ invitation_id: invitation.id, file_path: path, sort_order: (mediaRows[0]?.sort_order ?? -1) + 1 }).select('*').single();
+    if (insertError) throw insertError;
     await purgeInvitationCache(invitation.slug);
-    return c.json({ ok: true, message: 'Foto galeri ditambahkan.', media: { ...media, url: `/media/${path}` } });
+    return c.json({ ok: true, message: 'Foto galeri ditambahkan.', path: `/media/${path}`, media: { ...media, url: `/media/${path}` } });
   }
   const field = { cover: 'cover_image', groom: 'groom_photo', bride: 'bride_photo', music: 'music_file' }[kind];
   const oldPath = invitation[field];

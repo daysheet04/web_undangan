@@ -11,9 +11,9 @@ const invitationDateLabel=(value)=>value?new Intl.DateTimeFormat('id-ID',{timeZo
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-1','/assets/css/invitation-blocked.css?v=20261023-1']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
-  useLegacyScripts(['/assets/js/builder.js','/assets/js/builder-invitee-edit.js?v=20261023-1'],!state.loading&&!state.error);
+  useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
   const [pdfWorking,setPdfWorking]=useState(false);
   useEffect(()=>{
@@ -31,9 +31,9 @@ export default function BuilderPage({token}){
   },[showPaymentSuccess,state.loading,state.error]);
   if(state.loading)return <BuilderLoading/>;
   if(state.error) {
-    const isDeactivated = state.error?.status === 403 || state.error?.data?.code === 'INVITATION_DEACTIVATED' || /dinonaktifkan/i.test(state.error?.message || '');
-    if (isDeactivated) {
-      return <BuilderDeactivatedScreen error={state.error} />;
+    const isCancelled = state.error?.status === 403 && (state.error?.data?.code === 'ORDER_CANCELLED' || /dibatalkan/i.test(state.error?.message || ''));
+    if (isCancelled) {
+      return <BuilderCancelledScreen error={state.error} />;
     }
     return <ErrorState error={state.error}/>;
   }
@@ -77,7 +77,7 @@ export default function BuilderPage({token}){
     {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang dapat digunakan.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
     <div className="builder-topbar"><div><a href="/" className="builder-brand" aria-label="Daymoment, kembali ke beranda"><img className="brand-logo builder-brand-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="128" height="46"/></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div></div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
-    <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
+    <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div><nav className="builder-step-pills" aria-label="Navigasi langkah editor"><button type="button" className="btn-step-pill active" data-step-target="0">1. Pengantin</button><button type="button" className="btn-step-pill" data-step-target="1">2. Orang Tua</button><button type="button" className="btn-step-pill" data-step-target="2">3. Acara</button><button type="button" className="btn-step-pill" data-step-target="3">4. Lokasi</button><button type="button" className="btn-step-pill" data-step-target="4">5. Cerita &amp; Foto</button>{(hasGift||hasMusic)&&<button type="button" className="btn-step-pill" data-step-target="5">6. {hasGift?'Hadiah & Musik':'Musik'}</button>}<button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'6':'5'}>Daftar Tamu</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'7':'6'}>URL Undangan</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'8':'7'}>Publish</button></nav>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
       <form id="invitationForm" autoComplete="off">
         <section className="form-step active" data-step="0" data-title="Data Pengantin"><Intro icon="♡" title="Kenalkan kedua mempelai" copy="Nama panggilan akan menjadi nama utama pada cover undangan."/><Card title="Mempelai pria"><div className="field-grid"><TextField full label="Nama lengkap" name="groom_full_name" maxLength="150" required value={i.groom_full_name} placeholder="Contoh: Andi Pratama"/><TextField label="Nama panggilan" name="groom_nickname" maxLength="80" required value={i.groom_nickname} placeholder="Andi"/></div></Card><Card title="Mempelai wanita"><div className="field-grid"><TextField full label="Nama lengkap" name="bride_full_name" maxLength="150" required value={i.bride_full_name} placeholder="Contoh: Nisa Maharani"/><TextField label="Nama panggilan" name="bride_nickname" maxLength="80" required value={i.bride_nickname} placeholder="Nisa"/></div></Card></section>
         <section className="form-step" data-step="1" data-title="Data Orang Tua"><Intro icon="⌂" title="Nama orang tua" copy="Lengkapi nama ayah dan ibu dari masing-masing mempelai."/><Card title="Orang tua mempelai pria"><div className="field-grid"><TextField label="Nama ayah" name="groom_father" required value={i.groom_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="groom_mother" required value={i.groom_mother} placeholder="Ibu ..."/></div></Card><Card title="Orang tua mempelai wanita"><div className="field-grid"><TextField label="Nama ayah" name="bride_father" required value={i.bride_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="bride_mother" required value={i.bride_mother} placeholder="Ibu ..."/></div></Card></section>
@@ -166,7 +166,7 @@ export default function BuilderPage({token}){
             </div>
           </div>
         )}
-        <UploadCard title="Foto cover" help="JPG, PNG, atau WEBP · otomatis dikompres"><label className="cover-upload"><input type="file" id="coverInput" accept="image/jpeg,image/png,image/webp"/><img id="coverThumb" src={mediaUrl(i.cover_image)} alt="Preview foto cover"/><span><b>Ganti foto cover</b><small>Gambar akan dipotong menyesuaikan desain.</small></span></label></UploadCard><UploadCard title="Foto masing-masing mempelai" help="Dipakai pada profil pria dan wanita di undangan."><div className="couple-photo-editor"><ProfileUpload id="brideInput" thumb="brideThumb" src={mediaUrl(i.bride_photo)} label="Foto wanita"/><ProfileUpload id="groomInput" thumb="groomThumb" src={mediaUrl(i.groom_photo)} label="Foto pria"/></div></UploadCard><div className="form-section-card upload-section"><div className="upload-heading"><div><h2>Galeri</h2><p>Maksimal {galleryLimit} foto sesuai paket {i.package_name}; gambar otomatis dikompres</p></div><span id="galleryCount">{galleryMedia.length}/{galleryLimit}</span></div><div className="gallery-editor" id="galleryEditor">{galleryMedia.map(photo=><figure data-media-id={photo.id} key={photo.id}><img src={mediaUrl(photo.file_path)} alt="Foto galeri" loading="lazy" decoding="async"/><button type="button" data-delete-photo={photo.id}>×</button></figure>)}<label className="gallery-add" id="galleryAdd"><input type="file" id="galleryInput" accept="image/jpeg,image/png,image/webp"/><span>＋</span><small>Tambah foto</small></label></div></div></section>
+        <UploadCard title="Foto cover" help="JPG, PNG, atau WEBP · otomatis dikompres"><label className="cover-upload"><input type="file" id="coverInput" accept="image/jpeg,image/png,image/webp"/><img id="coverThumb" src={mediaUrl(i.cover_image)} alt="Preview foto cover"/><span><b>Ganti foto cover</b><small>Gambar akan dipotong menyesuaikan desain.</small></span></label><div className="photo-adjust-bar"><button type="button" className="button button-secondary button-small" id="btnAdjustCover" data-adjust-target="cover">📐 Atur Posisi / Zoom</button></div></UploadCard><UploadCard title="Foto masing-masing mempelai" help="Dipakai pada profil pria dan wanita di undangan."><div className="couple-photo-editor"><ProfileUpload id="brideInput" thumb="brideThumb" src={mediaUrl(i.bride_photo)} label="Foto wanita" kind="bride"/><ProfileUpload id="groomInput" thumb="groomThumb" src={mediaUrl(i.groom_photo)} label="Foto pria" kind="groom"/></div></UploadCard><div className="form-section-card upload-section"><div className="upload-heading"><div><h2>Galeri</h2><p>Maksimal {galleryLimit} foto sesuai paket {i.package_name}; gambar otomatis dikompres</p></div><span id="galleryCount">{galleryMedia.length}/{galleryLimit}</span></div><div className="gallery-editor" id="galleryEditor">{galleryMedia.map(photo=><figure data-media-id={photo.id} key={photo.id}><img src={mediaUrl(photo.file_path)} alt="Foto galeri" loading="lazy" decoding="async"/><button type="button" className="btn-adjust-gallery" data-adjust-photo={photo.id} title="Atur posisi & zoom foto">📐</button><button type="button" data-delete-photo={photo.id} title="Hapus foto">×</button></figure>)}<label className="gallery-add" id="galleryAdd"><input type="file" id="galleryInput" accept="image/jpeg,image/png,image/webp"/><span>＋</span><small>Tambah foto</small></label></div></div></section>
         {(hasGift||hasMusic)&&<section className="form-step" data-step="5" data-title={hasGift?'Hadiah dan Musik':'Musik'}><Intro icon="♪" title={hasGift?'Amplop digital dan musik':'Musik undangan'} copy={hasGift?'Tambahkan beberapa rekening atau e-wallet, lalu unggah musik latar undangan.':'Unggah musik latar untuk menemani tamu membuka undangan.'}/>{hasGift&&<Card><div className="upload-heading"><div><h2>Rekening hadiah</h2><p>Bisa bank maupun e-wallet, maksimal sepuluh.</p></div><button type="button" className="button button-secondary button-small" id="addGiftAccount">+ Tambah</button></div><div className="gift-account-editor" id="giftAccountEditor">{giftAccounts.map(account=><GiftRow key={account.id} account={account}/>)}</div><div className="empty-editor-note" id="giftEmpty" hidden={giftAccounts.length>0}>Belum ada rekening. Klik “Tambah” untuk membuat amplop digital.</div><button type="button" className="button button-primary" id="saveGiftAccounts">Simpan rekening</button></Card>}{hasMusic&&<UploadCard title="Musik undangan" help="MP3, M4A, OGG, atau WAV · maksimal 12 MB."><label className="music-upload-card"><input type="file" id="musicInput" accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,.mp3,.m4a,.ogg,.wav"/><span className="music-upload-icon">♪</span><span><b id="musicTitle">{i.music_title||'Pilih musik dari perangkat'}</b><small>Musik diputar melalui tombol musik pada undangan.</small></span></label></UploadCard>}</section>}
         <section className="form-step" data-step="6" data-title="Daftar Tamu">
           <Intro icon="⌁" title="Buat link untuk setiap tamu" copy={personalLinksAvailable?'Nama tamu akan langsung tampil pada cover ketika link pribadinya dibuka.':'Simpan nama tamu sekarang. Link personal akan tersedia setelah undangan dipublish dan aktif.'}/>
@@ -225,7 +225,7 @@ export default function BuilderPage({token}){
           </Card>
         </section>
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
-        <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover, profil mempelai, jadwal acara, serta peta arah dan panduan transportasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
+        <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover elegan, profil mempelai, rangkaian acara, keluarga yang turut mengundang, serta petunjuk lokasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
       </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
       <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{i.template_name}</small></div><button type="button" data-refresh-preview>↻</button></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${i.template_code}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
@@ -242,11 +242,95 @@ export default function BuilderPage({token}){
         <footer><button type="button" className="button button-secondary" data-close-invitee-edit>Batal</button><button type="submit" className="button button-primary" id="saveInviteeEdit">Simpan perubahan</button></footer>
       </form>
     </dialog>
+    <dialog className="photo-adjuster-dialog" id="photoAdjusterDialog">
+      <form method="dialog" onSubmit={(e)=>e.preventDefault()}>
+        <header>
+          <div>
+            <span className="eyebrow">PENGATURAN BINGKAI FOTO</span>
+            <h2 id="adjusterPhotoTitle">Atur Posisi &amp; Zoom Foto</h2>
+            <p>Geser foto dan atur zoom agar wajah atau pose pas di dalam bingkai template.</p>
+          </div>
+          <button type="button" className="btn-close-dialog" data-close-adjuster aria-label="Tutup dialog">×</button>
+        </header>
+        <div className="photo-adjuster-body">
+          <div className="adjuster-stage-wrap">
+            <div className="adjuster-stage" id="adjusterStage">
+              <canvas id="adjusterCanvas" className="adjuster-canvas-layer"/>
+              <div className="adjuster-frame-mask" id="adjusterMask">
+                <div className="adjuster-grid-guide"/>
+              </div>
+            </div>
+            <span className="adjuster-stage-hint">
+              💡 <b>Drag/geser langsung</b> foto dengan mouse atau jari.<br/>Putar <b>roda mouse</b> untuk zoom in/out.
+            </span>
+          </div>
+          <div className="adjuster-controls-col">
+            <div className="adjuster-control-card">
+              <div className="adjuster-control-header">
+                <label htmlFor="adjusterZoomSlider">🔍 Perbesaran (Zoom)</label>
+                <span className="val-badge" id="adjusterZoomVal">100%</span>
+              </div>
+              <div className="adjuster-slider-row">
+                <button type="button" className="btn-step" id="adjusterZoomOut" title="Perkecil zoom">－</button>
+                <input type="range" id="adjusterZoomSlider" min="50" max="300" defaultValue="100" step="1"/>
+                <button type="button" className="btn-step" id="adjusterZoomIn" title="Perbesar zoom">＋</button>
+              </div>
+            </div>
+
+            <div className="adjuster-control-card">
+              <div className="adjuster-control-header">
+                <label htmlFor="adjusterXSlider">↔ Geser Horizontal (Kiri / Kanan)</label>
+                <span className="val-badge" id="adjusterXVal">0px</span>
+              </div>
+              <div className="adjuster-slider-row">
+                <button type="button" className="btn-step" id="adjusterLeftBtn" title="Geser ke kiri">◄</button>
+                <input type="range" id="adjusterXSlider" min="-100" max="100" defaultValue="0" step="1"/>
+                <button type="button" className="btn-step" id="adjusterRightBtn" title="Geser ke kanan">►</button>
+              </div>
+            </div>
+
+            <div className="adjuster-control-card">
+              <div className="adjuster-control-header">
+                <label htmlFor="adjusterYSlider">↕ Geser Vertikal (Atas / Bawah)</label>
+                <span className="val-badge" id="adjusterYVal">0px</span>
+              </div>
+              <div className="adjuster-slider-row">
+                <button type="button" className="btn-step" id="adjusterUpBtn" title="Geser ke atas">▲</button>
+                <input type="range" id="adjusterYSlider" min="-100" max="100" defaultValue="0" step="1"/>
+                <button type="button" className="btn-step" id="adjusterDownBtn" title="Geser ke bawah">▼</button>
+              </div>
+            </div>
+
+            <div className="adjuster-control-card">
+              <div className="adjuster-control-header">
+                <label>Tindakan Cepat &amp; Bentuk Bingkai</label>
+                <div className="adjuster-shape-toggle">
+                  <span>Bingkai:</span>
+                  <button type="button" className="active" id="adjusterShapeArch">🏛️ Lengkung</button>
+                  <button type="button" id="adjusterShapeRect">⬛ Kotak</button>
+                </div>
+              </div>
+              <div className="adjuster-presets-bar">
+                <button type="button" id="adjusterResetBtn">↺ Reset Posisi</button>
+                <button type="button" id="adjusterFillBtn">📐 Penuhi Bingkai</button>
+                <button type="button" id="adjusterFitBtn">🔍 Pas Seluruh Foto</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer>
+          <button type="button" className="button button-secondary" id="adjusterChangeFileBtn" title="Pilih file foto dari perangkat">📁 Pilih Foto Lain</button>
+          <button type="button" className="button button-secondary" data-close-adjuster>Batal</button>
+          <button type="button" className="button button-primary" id="adjusterSaveBtn">✓ Terapkan &amp; Simpan Foto</button>
+        </footer>
+      </form>
+    </dialog>
     <div className="toast-region" id="toastRegion"/>
   </div>;
 }
 
 function InviteeRow({guest,linkAvailable,appUrl,slug,coupleNames}){
+  const couple = (coupleNames || '').trim() || 'Kedua Mempelai';
   const url=linkAvailable?`${String(appUrl||location.origin).replace(/\/$/,'')}/${slug}?to=${encodeURIComponent(guest.guest_name)}`:'';
   const rawPhone = guest.phone_number || (guest.guest_token?.startsWith('wa:') ? guest.guest_token.split(':')[1] : '');
   const cleanPhone = (() => {
@@ -274,8 +358,7 @@ function InviteeRow({guest,linkAvailable,appUrl,slug,coupleNames}){
   }
   const waMessage = `💌 *WEDDING INVITATION*
 💍 *${couple}* 💍
-
-✨ ───────────────────────── ✨
+──────────────────────────
 
 Kepada Yth.
 *${guestTitle}*
@@ -290,10 +373,9 @@ Merupakan suatu kehormatan dan kebahagiaan yang mendalam bagi kami sekeluarga ap
 Terima kasih atas segala perhatian, doa tulus, dan kasih hangat yang senantiasa menyertai. Sampai jumpa di hari bahagia kami! 💐🙏✨
 
 ──────────────────────────
-
 _Hormat kami yang berbahagia,_
 *${couple}*`;
-  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
+  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMessage)}` : `https://wa.me/?text=${encodeURIComponent(waMessage)}`;
 
   return (
     <article className="invitee-row" data-guest-id={guest.id} data-guest-name={guest.guest_name} data-guest-phone={cleanPhone} data-guest-salutation={guest.salutation}>
@@ -312,7 +394,8 @@ _Hormat kami yang berbahagia,_
       {linkAvailable ? (
         <div className="invitee-link">
           <input readOnly value={url} />
-          <button type="button" data-copy-invitee>Salin</button>
+          <button type="button" data-copy-invitee title="Salin link undangan saja">Salin Link</button>
+          <button type="button" className="btn-copy-msg" data-copy-message title="Salin seluruh teks pesan undangan lengkap">📋 Salin Pesan</button>
           <a href={waUrl} target="_blank" rel="noopener noreferrer" className="btn-direct-wa" title="Kirim undangan via WhatsApp">
             Bagikan WA
           </a>
@@ -322,6 +405,7 @@ _Hormat kami yang berbahagia,_
       ) : (
         <div className="invitee-link invitee-link-locked">
           <span>Link tersedia setelah undangan dipublish dan aktif.</span>
+          <button type="button" className="btn-copy-msg" data-copy-message title="Salin draft pesan undangan">📋 Salin Pesan</button>
           <button type="button" data-edit-invitee>Edit</button>
           <button type="button" data-delete-invitee>Hapus</button>
         </div>
@@ -334,7 +418,12 @@ function Intro({icon,title,copy}){return <div className="step-intro"><span class
 function Card({title,children}){return <div className="form-section-card">{title&&<h2>{title}</h2>}{children}</div>}
 function EventFields({title,prefix,invitation}){return <Card title={title}><div className="field-grid"><TextField full type="date" label={`Tanggal ${prefix==='akad'?'akad':'resepsi'}`} name={`${prefix}_date`} required value={invitation[`${prefix}_date`]}/><TextField type="time" label="Jam mulai" name={`${prefix}_start_time`} required value={String(invitation[`${prefix}_start_time`]||'').slice(0,5)}/><TextField type="time" label="Jam selesai" name={`${prefix}_end_time`} required value={String(invitation[`${prefix}_end_time`]||'').slice(0,5)}/></div></Card>}
 function UploadCard({title,help,children}){return <div className="form-section-card upload-section"><div className="upload-heading"><div><h2>{title}</h2><p>{help}</p></div></div>{children}</div>}
-function ProfileUpload({id,thumb,src,label}){return <label className="cover-upload compact-upload"><input type="file" id={id} accept="image/jpeg,image/png,image/webp"/><img id={thumb} src={src} alt={`Preview ${label}`}/><span><b>{label}</b><small>Klik untuk pilih foto.</small></span></label>}
+function ProfileUpload({id,thumb,src,label,kind}){
+  return <div className="profile-upload-card">
+    <label className="cover-upload compact-upload"><input type="file" id={id} accept="image/jpeg,image/png,image/webp"/><img id={thumb} src={src} alt={`Preview ${label}`}/><span><b>{label}</b><small>Klik untuk pilih foto.</small></span></label>
+    <button type="button" className="button button-secondary button-small" id={`btnAdjust_${id}`} data-adjust-target={kind}>📐 Atur Posisi / Zoom</button>
+  </div>;
+}
 function GiftRow({account}){return <div className="gift-account-row" data-gift-row><label className="field"><span>Bank / e-wallet</span><select data-gift-field="provider" defaultValue={account.provider}>{providers.map(v=><option key={v}>{v}</option>)}</select></label><label className="field"><span>Nomor rekening / akun</span><input data-gift-field="account_number" maxLength="100" defaultValue={account.account_number}/></label><label className="field"><span>Nama pemilik</span><input data-gift-field="account_name" maxLength="150" defaultValue={account.account_name}/></label><label className="field"><span>Label opsional</span><input data-gift-field="label" maxLength="100" defaultValue={account.label||''}/></label><button type="button" className="remove-editor-row" data-remove-gift>Hapus</button></div>}
 
 function BuilderLoading(){
@@ -345,8 +434,8 @@ function BuilderLoading(){
   );
 }
 
-function BuilderDeactivatedScreen({ error }) {
-  useDocumentTitle('Akses Editor Dinonaktifkan — Daymoment');
+function BuilderCancelledScreen({ error }) {
+  useDocumentTitle('Pesanan Dibatalkan — Daymoment');
   return (
     <div className="builder-blocked-screen">
       <div className="builder-blocked-card">
@@ -354,26 +443,26 @@ function BuilderDeactivatedScreen({ error }) {
           <img src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="130" height="46" />
         </a>
         <div className="builder-blocked-icon-wrap">
-          <span className="builder-blocked-icon">🔒</span>
+          <span className="builder-blocked-icon">✕</span>
         </div>
-        <span className="builder-blocked-badge">Akses Editor Dinonaktifkan</span>
-        <h1 className="builder-blocked-title">Akses Editor Dinonaktifkan</h1>
+        <span className="builder-blocked-badge">Pesanan Dibatalkan</span>
+        <h1 className="builder-blocked-title">Pesanan Dibatalkan</h1>
         <p className="builder-blocked-desc">
-          {error?.message || 'Undangan ini telah dinonaktifkan oleh admin Daymoment. Selama status ini nonaktif, form editor, daftar tamu, galeri foto, dan live preview tidak dapat diakses.'}
+          {error?.message || 'Pesanan undangan ini telah dibatalkan oleh admin atau sistem.'}
         </p>
         <div className="builder-blocked-box">
           <div className="builder-blocked-box-item">
-            <strong>Mengapa akses ditutup?</strong>
-            <p>Admin Daymoment telah menonaktifkan status website atau pesanan ini.</p>
+            <strong>Status Pesanan</strong>
+            <p>Pesanan ini telah dibatalkan sehingga editor tidak dapat digunakan lagi.</p>
           </div>
           <div className="builder-blocked-box-item">
-            <strong>Bagaimana cara mengaktifkan kembali?</strong>
-            <p>Hubungi admin Daymoment untuk memperpanjang masa aktif atau mengaktifkan kembali akses undangan ini.</p>
+            <strong>Butuh bantuan?</strong>
+            <p>Hubungi admin Daymoment jika ada pertanyaan atau memerlukan bantuan lebih lanjut terkait pesanan Anda.</p>
           </div>
         </div>
         <div className="builder-blocked-actions">
           <a
-            href="https://wa.me/6285183002235?text=Halo%20Admin%20Daymoment,%20saya%20ingin%20mengaktifkan%20kembali%20akses%20editor%20undangan%20saya"
+            href="https://wa.me/6285183002235?text=Halo%20Admin%20Daymoment,%20saya%20ingin%20menanyakan%20status%20pesanan%20saya"
             target="_blank"
             rel="noopener noreferrer"
             className="builder-blocked-btn-wa"

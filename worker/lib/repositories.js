@@ -1,4 +1,5 @@
 import { database, many, one } from './database.js';
+import { cleanText } from './helpers.js';
 
 const FALLBACK_TEMPLATES = [
   {
@@ -158,10 +159,10 @@ export async function invitationByToken(env, token) {
       error.code = 'PAYMENT_REQUIRED';
       throw error;
     }
-    if (order.is_active === false || order.website_enabled === false) {
-      const error = new Error('Akses editor untuk undangan ini telah dinonaktifkan oleh admin.');
+    if (order.status === 'cancelled') {
+      const error = new Error('Pesanan ini telah dibatalkan.');
       error.status = 403;
-      error.code = 'INVITATION_DEACTIVATED';
+      error.code = 'ORDER_CANCELLED';
       throw error;
     }
     return {
@@ -202,25 +203,98 @@ export async function invitationByToken(env, token) {
     error.code = 'PAYMENT_REQUIRED';
     throw error;
   }
-  const invitation = await one(db.from('invitations').select('*').eq('order_id', order.id), 'Data undangan tidak ditemukan.');
-  if (invitation.is_active === false) {
-    const error = new Error('Akses editor untuk undangan ini telah dinonaktifkan oleh admin.');
+  if (order.status === 'cancelled') {
+    const error = new Error('Pesanan ini telah dibatalkan.');
     error.status = 403;
-    error.code = 'INVITATION_DEACTIVATED';
+    error.code = 'ORDER_CANCELLED';
     throw error;
   }
+  const invitation = await one(db.from('invitations').select('*').eq('order_id', order.id), 'Data undangan tidak ditemukan.');
   return mergeInvitationOrder(invitation, order);
 }
 
-export async function publishedInvitation(env, slug) {
+export async function findActiveSlugConflict(env, rawSlug, { excludeInvitationId, excludeOrderId } = {}) {
+  const slug = cleanText(rawSlug, 120).toLowerCase().trim();
+  if (!slug) return null;
+  const now = new Date();
+
   if (!hasRealSupabaseConfig(env)) {
-    const order = [...(demoState().orders.values?.() || [])].find((item) => item.slug === slug);
-    if (!order) {
+    const allOrders = [...(demoState().orders.values?.() || [])];
+    const conflict = allOrders.find((order) => {
+      if (order.slug !== slug) return false;
+      if (excludeOrderId && (order.id === excludeOrderId || order.order_code === excludeOrderId)) return false;
+      const invId = `demo-${order.order_code}`;
+      if (excludeInvitationId && (invId === excludeInvitationId || order.id === excludeInvitationId)) return false;
+
+      const isPublished = Boolean(order.published_at && order.status === 'published');
+      const isEnabled = order.is_active === true && order.website_enabled !== false;
+      const notExpired = !order.active_until || new Date(order.active_until) > now;
+      return isPublished && isEnabled && notExpired;
+    });
+    if (!conflict) return null;
+    return {
+      id: conflict.id,
+      order_id: conflict.id,
+      order_code: conflict.order_code,
+      customer_name: conflict.customer_name,
+      slug: conflict.slug,
+      active_until: conflict.active_until,
+    };
+  }
+
+  const db = database(env);
+  let query = db
+    .from('invitations')
+    .select('id,slug,is_active,published_at,active_until,order_id,orders!inner(id,order_code,customer_name,status)')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .not('published_at', 'is', null)
+    .eq('orders.status', 'published');
+
+  if (excludeInvitationId) {
+    query = query.neq('id', excludeInvitationId);
+  }
+  if (excludeOrderId) {
+    query = query.neq('order_id', excludeOrderId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  if (!data || !data.length) return null;
+
+  const active = data.find((item) => {
+    if (!item.active_until) return true;
+    return new Date(item.active_until) > now;
+  });
+
+  if (!active) return null;
+  return {
+    id: active.id,
+    order_id: active.order_id,
+    order_code: active.orders?.order_code,
+    customer_name: active.orders?.customer_name,
+    slug: active.slug,
+    active_until: active.active_until,
+  };
+}
+
+export async function publishedInvitation(env, slug) {
+  const now = new Date();
+  if (!hasRealSupabaseConfig(env)) {
+    const matchingOrders = [...(demoState().orders.values?.() || [])].filter((item) => item.slug === slug);
+    if (!matchingOrders.length) {
       const error = new Error('Undangan yang Anda cari tidak ditemukan.');
       error.status = 404;
       error.code = 'INVITATION_NOT_FOUND';
       throw error;
     }
+    const activeOrder = matchingOrders.find((order) => {
+      const isPublished = Boolean(order.published_at && order.status === 'published');
+      const isEnabled = order.is_active === true && order.website_enabled !== false;
+      const notExpired = !order.active_until || new Date(order.active_until) > now;
+      return isPublished && isEnabled && notExpired;
+    });
+    const order = activeOrder || matchingOrders[0];
     if (order.is_active === false || order.website_enabled === false || order.website_active === false) {
       const error = new Error('Undangan ini sedang dinonaktifkan oleh pemilik atau admin.');
       error.status = 403;
@@ -233,7 +307,7 @@ export async function publishedInvitation(env, slug) {
       error.code = 'INVITATION_NOT_PUBLISHED';
       throw error;
     }
-    if (order.active_until && new Date(order.active_until) <= new Date()) {
+    if (order.active_until && new Date(order.active_until) <= now) {
       const error = new Error('Masa aktif undangan ini sudah berakhir.');
       error.status = 410;
       error.code = 'INVITATION_EXPIRED';
@@ -245,7 +319,21 @@ export async function publishedInvitation(env, slug) {
     };
   }
   const db = database(env);
-  const invitation = await one(db.from('invitations').select('*').eq('slug', slug), 'Undangan yang Anda cari tidak ditemukan.');
+  const { data: invitations, error: invError } = await db
+    .from('invitations')
+    .select('*')
+    .eq('slug', slug)
+    .order('is_active', { ascending: false })
+    .order('published_at', { ascending: false, nullsFirst: false });
+  if (invError) throw invError;
+  if (!invitations || !invitations.length) {
+    const error = new Error('Undangan yang Anda cari tidak ditemukan.');
+    error.status = 404;
+    error.code = 'INVITATION_NOT_FOUND';
+    throw error;
+  }
+  const activeInvitation = invitations.find((i) => i.is_active && i.published_at && (!i.active_until || new Date(i.active_until) > now));
+  const invitation = activeInvitation || invitations[0];
   if (invitation.is_active === false) {
     const error = new Error('Undangan ini sedang dinonaktifkan oleh pemilik atau admin.');
     error.status = 403;
@@ -258,7 +346,7 @@ export async function publishedInvitation(env, slug) {
     error.code = 'INVITATION_NOT_PUBLISHED';
     throw error;
   }
-  if (invitation.active_until && new Date(invitation.active_until) <= new Date()) {
+  if (invitation.active_until && new Date(invitation.active_until) <= now) {
     const error = new Error('Masa aktif undangan ini sudah berakhir.');
     error.status = 410;
     error.code = 'INVITATION_EXPIRED';

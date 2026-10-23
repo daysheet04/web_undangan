@@ -1,0 +1,502 @@
+/* ============================================================
+   DAYMOMENT BUILDER - PHOTO POSITION & ZOOM ADJUSTER (MODAL)
+   Universal across all templates (Cover, Groom, Bride, Gallery)
+   ============================================================ */
+
+.photo-adjust-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.profile-upload-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.gallery-editor figure .btn-adjust-gallery {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(18, 33, 26, 0.85);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1;
+  transition: transform 0.18s ease, background 0.18s ease;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+}
+
+.gallery-editor figure .btn-adjust-gallery:hover {
+  background: #175438;
+  transform: scale(1.12);
+  border-color: #82c8a0;
+}
+
+.gallery-editor figure .btn-adjust-gallery:active {
+  transform: scale(0.95);
+}
+
+/* Modal Dialog */
+.photo-adjuster-dialog {
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(92vh, 880px);
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 32px 90px rgba(10, 26, 20, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  color: #122820;
+  overflow: hidden;
+}
+
+.photo-adjuster-dialog::backdrop {
+  background: rgba(8, 22, 17, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.photo-adjuster-dialog form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: min(92vh, 880px);
+  margin: 0;
+}
+
+/* Header */
+.photo-adjuster-dialog header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 26px 16px;
+  border-bottom: 1px solid #e7edea;
+  background: #fbfdfc;
+}
+
+.photo-adjuster-dialog header span.eyebrow {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: #a46d29;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.photo-adjuster-dialog header h2 {
+  margin: 0;
+  color: #122820;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.photo-adjuster-dialog header p {
+  margin: 4px 0 0;
+  color: #63776e;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.photo-adjuster-dialog header button.btn-close-dialog {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dce4e0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #556960;
+  cursor: pointer;
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.photo-adjuster-dialog header button.btn-close-dialog:hover {
+  background: #f0f5f2;
+  color: #122820;
+  border-color: #b7ccc1;
+}
+
+/* Main Body Layout */
+.photo-adjuster-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 390px) 1fr;
+  gap: 20px;
+  padding: 22px 26px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  background: #f7faf8;
+}
+
+/* Stage Area (Left) */
+.adjuster-stage-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.adjuster-stage {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 3 / 4;
+  background: radial-gradient(circle at 50% 45%, #1f2d26 0%, #0d1712 100%);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), 0 12px 30px rgba(0, 0, 0, 0.18);
+  user-select: none;
+  touch-action: none;
+}
+
+.adjuster-canvas-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  display: block;
+}
+
+.adjuster-canvas-layer:active,
+.adjuster-stage.is-dragging .adjuster-canvas-layer {
+  cursor: grabbing;
+}
+
+/* Frame Cutout Overlay */
+.adjuster-frame-mask {
+  position: absolute;
+  inset: 16px;
+  border-radius: 46% 46% 16px 16px;
+  box-shadow: 0 0 0 9999px rgba(9, 18, 14, 0.72);
+  border: 2px solid rgba(218, 183, 114, 0.85);
+  pointer-events: none;
+  transition: border-radius 0.25s ease;
+}
+
+.adjuster-frame-mask.is-rect {
+  border-radius: 16px;
+}
+
+/* Rule of Thirds Grid */
+.adjuster-grid-guide {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+
+.adjuster-grid-guide:before,
+.adjuster-grid-guide:after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.adjuster-grid-guide:before {
+  top: 33.33%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  box-shadow: 0 calc(33.33vh / 1.5) 0 0 rgba(255, 255, 255, 0.35);
+}
+
+.adjuster-grid-guide:after {
+  left: 33.33%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  box-shadow: calc(33.33vw / 2) 0 0 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Stage Helper Badges */
+.adjuster-stage-hint {
+  font-size: 0.74rem;
+  color: #657b70;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.adjuster-stage-hint b {
+  color: #174833;
+}
+
+/* Controls Column (Right) */
+.adjuster-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+/* Control Card */
+.adjuster-control-card {
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid #e1e9e4;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(18, 40, 32, 0.04);
+}
+
+.adjuster-control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.adjuster-control-header label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #19382b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.adjuster-control-header span.val-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #175438;
+  background: #edf6f1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Slider Row with Step Buttons */
+.adjuster-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.adjuster-slider-row input[type="range"] {
+  flex: 1 1 auto;
+  accent-color: #175438;
+  height: 6px;
+  border-radius: 3px;
+  background: #dce7e1;
+  cursor: pointer;
+}
+
+.adjuster-slider-row button.btn-step {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid #d3e0d8;
+  border-radius: 8px;
+  background: #f7faf8;
+  color: #274738;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.adjuster-slider-row button.btn-step:hover {
+  background: #175438;
+  color: #ffffff;
+  border-color: #175438;
+}
+
+/* Quick Tools Row */
+.adjuster-presets-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.adjuster-presets-bar button {
+  font-size: 0.74rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #d2ded7;
+  background: #ffffff;
+  color: #244637;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.adjuster-presets-bar button:hover {
+  background: #eef6f2;
+  border-color: #9fccb3;
+  color: #123d29;
+}
+
+/* Frame Shape Toggle */
+.adjuster-shape-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #4a6156;
+}
+
+.adjuster-shape-toggle span {
+  font-weight: 600;
+}
+
+.adjuster-shape-toggle button {
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d3ded8;
+  background: #fbfdfc;
+  color: #2e4d3f;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.adjuster-shape-toggle button.active {
+  background: #175438;
+  color: #ffffff;
+  border-color: #175438;
+  font-weight: 700;
+}
+
+/* Footer */
+.photo-adjuster-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 26px;
+  border-top: 1px solid #e7edea;
+  background: #ffffff;
+}
+
+.photo-adjuster-dialog footer .button {
+  min-height: 42px;
+  padding-inline: 20px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+/* Loading State during save */
+.photo-adjuster-dialog.is-saving .photo-adjuster-body,
+.photo-adjuster-dialog.is-saving footer {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .photo-adjuster-body {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .adjuster-stage {
+    max-width: 270px;
+  }
+
+  .photo-adjuster-dialog header {
+    padding: 16px 18px 12px;
+  }
+
+  .photo-adjuster-dialog footer {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    padding: 12px 18px;
+  }
+
+  .photo-adjust-bar {
+    flex-wrap: wrap;
+  }
+}
+
+/* Step navigation pills */
+.builder-step-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 0 2px;
+  margin-top: 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.builder-step-pills::-webkit-scrollbar {
+  display: none;
+}
+.btn-step-pill {
+  flex: 0 0 auto;
+  padding: 4px 11px;
+  border: 1px solid #dbe3df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4a5e55;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-step-pill:hover {
+  background: #f0f5f2;
+  border-color: #276947;
+  color: #17422d;
+}
+.btn-step-pill.active {
+  background: #17422d;
+  border-color: #17422d;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(23, 66, 45, 0.2);
+}
+
+/* Invitee link action buttons enhancements */
+.invitee-link {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.invitee-link input {
+  flex: 1 1 200px !important;
+  min-width: 140px !important;
+}
+
+.btn-copy-msg {
+  background: #fbf5eb !important;
+  color: #925f1d !important;
+  border-color: #ebd3af !important;
+  font-weight: 700 !important;
+}
+
+.btn-copy-msg:hover {
+  background: #f5e8d3 !important;
+  border-color: #925f1d !important;
+  color: #71460f !important;
+}
+
+

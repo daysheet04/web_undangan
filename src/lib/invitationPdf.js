@@ -31,6 +31,31 @@ const THEMES = {
 
 const safeText = (value, fallback = '-') => String(value || '').trim() || fallback;
 
+let sofiaFontPromise;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return window.btoa(binary);
+}
+
+async function registerSofiaFont(pdf) {
+  try {
+    sofiaFontPromise ||= fetch('/assets/fonts/Sofia-Regular.ttf').then(async (response) => {
+      if (!response.ok) throw new Error('Font Sofia tidak tersedia.');
+      return bytesToBase64(new Uint8Array(await response.arrayBuffer()));
+    });
+    pdf.addFileToVFS('Sofia-Regular.ttf', await sofiaFontPromise);
+    pdf.addFont('Sofia-Regular.ttf', 'Sofia', 'normal');
+    return 'Sofia';
+  } catch {
+    return 'times';
+  }
+}
+
 function formatDate(value) {
   if (!value) return 'Tanggal menyusul';
   const date = new Date(`${value}T00:00:00+07:00`);
@@ -74,37 +99,92 @@ function drawSprig(pdf, x, y, direction, color) {
   }
 }
 
-function drawDecoration(pdf, theme, pageWidth, pageHeight) {
+function mixColor(first, second, firstWeight = 0.5) {
+  return first.map((value, index) => Math.round((value * firstWeight) + (second[index] * (1 - firstWeight))));
+}
+
+function drawClassicFloralBand(pdf, theme, pageWidth, y, height) {
+  const petal = mixColor(theme.soft, theme.paper, 0.72);
+  const leaf = mixColor(theme.accent, theme.paper, 0.62);
+  pdf.setFillColor(...petal);
+  pdf.rect(8, y, pageWidth - 16, height, 'F');
   pdf.setDrawColor(...theme.accent);
-  pdf.setLineWidth(0.55);
-  pdf.roundedRect(11, 11, pageWidth - 22, pageHeight - 22, 2, 2, 'S');
+  pdf.setLineWidth(0.45);
+  pdf.line(8, y + 1.2, pageWidth - 8, y + 1.2);
+  pdf.line(8, y + height - 1.2, pageWidth - 8, y + height - 1.2);
+
+  for (let x = 17; x <= pageWidth - 17; x += 18) {
+    const centerY = y + height / 2;
+    pdf.setFillColor(...leaf);
+    pdf.ellipse(x - 4.2, centerY, 3.6, 1.35, 'F');
+    pdf.ellipse(x + 4.2, centerY, 3.6, 1.35, 'F');
+    pdf.setFillColor(...theme.paper);
+    pdf.ellipse(x, centerY - 3.1, 1.7, 3.1, 'F');
+    pdf.ellipse(x, centerY + 3.1, 1.7, 3.1, 'F');
+    pdf.setFillColor(...theme.accent);
+    pdf.circle(x, centerY, 1.25, 'F');
+  }
+}
+
+function drawPaperPattern(pdf, theme, pageWidth, pageHeight) {
+  const pattern = mixColor(theme.soft, theme.paper, 0.48);
+  pdf.setDrawColor(...pattern);
+  pdf.setLineWidth(0.18);
+  let row = 0;
+  for (let y = 39; y < pageHeight - 31; y += 25) {
+    const offset = row % 2 ? 14 : 0;
+    for (let x = 20 + offset; x < pageWidth - 15; x += 28) {
+      pdf.lines([[3.2, 3.2], [-3.2, 3.2], [-3.2, -3.2], [3.2, -3.2]], x, y - 3.2, [1, 1], 'S', true);
+      pdf.circle(x, y, 0.65, 'S');
+    }
+    row += 1;
+  }
+}
+
+function drawOrnateDivider(pdf, theme, centerX, y, width = 58) {
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.38);
+  pdf.line(centerX - width / 2, y, centerX - 7, y);
+  pdf.line(centerX + 7, y, centerX + width / 2, y);
+  pdf.lines([[3, 3], [-3, 3], [-3, -3], [3, -3]], centerX, y - 3, [1, 1], 'S', true);
+  pdf.circle(centerX - 10, y, 0.75, 'F');
+  pdf.circle(centerX + 10, y, 0.75, 'F');
+}
+
+function drawDecoration(pdf, theme, pageWidth, pageHeight) {
+  drawPaperPattern(pdf, theme, pageWidth, pageHeight);
+  drawClassicFloralBand(pdf, theme, pageWidth, 7, 19);
+  drawClassicFloralBand(pdf, theme, pageWidth, pageHeight - 22, 15);
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.7);
+  pdf.roundedRect(8, 7, pageWidth - 16, pageHeight - 14, 2, 2, 'S');
   pdf.setDrawColor(...theme.soft);
-  pdf.setLineWidth(0.25);
-  pdf.roundedRect(14, 14, pageWidth - 28, pageHeight - 28, 1.5, 1.5, 'S');
+  pdf.setLineWidth(0.4);
+  pdf.roundedRect(11, 29, pageWidth - 22, pageHeight - 58, 1.5, 1.5, 'S');
 
   if (theme.style === 'jawi') {
-    drawDiamondRow(pdf, pageWidth / 2, 23, theme.accent);
-    drawDiamondRow(pdf, pageWidth / 2, pageHeight - 23, theme.accent);
+    drawDiamondRow(pdf, pageWidth / 2, 16.5, theme.accent);
+    drawDiamondRow(pdf, pageWidth / 2, pageHeight - 16.5, theme.accent);
   } else if (theme.style === 'moon') {
     pdf.setDrawColor(...theme.accent);
     pdf.setLineWidth(0.45);
-    pdf.circle(21, 22, 6, 'S');
+    pdf.circle(21, 16.5, 5, 'S');
     pdf.setFillColor(...theme.paper);
-    pdf.circle(23.5, 20, 5.4, 'F');
-    pdf.circle(pageWidth - 21, pageHeight - 22, 2.1, 'S');
+    pdf.circle(23.2, 14.7, 4.5, 'F');
+    pdf.circle(pageWidth - 21, pageHeight - 16.5, 2.1, 'S');
   } else if (theme.style === 'botanical') {
-    drawSprig(pdf, 15, 16, 1, theme.accent);
-    drawSprig(pdf, pageWidth - 15, pageHeight - 16, -1, theme.accent);
+    drawSprig(pdf, 11, 8, 1, theme.accent);
+    drawSprig(pdf, pageWidth - 11, pageHeight - 25, -1, theme.accent);
   } else {
     pdf.setDrawColor(...theme.accent);
     pdf.setLineWidth(0.4);
-    pdf.line(18, 18, 40, 18);
-    pdf.line(18, 18, 18, 40);
-    pdf.line(pageWidth - 18, pageHeight - 18, pageWidth - 40, pageHeight - 18);
-    pdf.line(pageWidth - 18, pageHeight - 18, pageWidth - 18, pageHeight - 40);
+    pdf.line(13, 31, 35, 31);
+    pdf.line(13, 31, 13, 49);
+    pdf.line(pageWidth - 13, pageHeight - 31, pageWidth - 35, pageHeight - 31);
+    pdf.line(pageWidth - 13, pageHeight - 31, pageWidth - 13, pageHeight - 49);
     pdf.setFillColor(...theme.accent);
-    pdf.circle(18, 18, 1.2, 'F');
-    pdf.circle(pageWidth - 18, pageHeight - 18, 1.2, 'F');
+    pdf.circle(13, 31, 1.2, 'F');
+    pdf.circle(pageWidth - 13, pageHeight - 31, 1.2, 'F');
   }
 }
 
@@ -143,42 +223,54 @@ function drawPageBase(pdf, theme, pageWidth, pageHeight, pageNumber, templateNam
   pdf.setFillColor(...theme.paper);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   drawDecoration(pdf, theme, pageWidth, pageHeight);
+  pdf.setFillColor(...mixColor(theme.paper, [255, 255, 255], 0.9));
+  pdf.roundedRect(14, pageHeight - 18, pageWidth - 28, 10, 2.5, 2.5, 'F');
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(6.3);
-  pdf.text(`DAYMOMENT · ${safeText(templateName, 'WEDDING INVITATION').toUpperCase()}`, 19, pageHeight - 18);
-  pdf.text(`${pageNumber} / 4`, pageWidth - 19, pageHeight - 18, { align: 'right' });
+  pdf.setFontSize(7.3);
+  pdf.text(`DAYMOMENT | ${safeText(templateName, 'WEDDING INVITATION').toUpperCase()}`, 19, pageHeight - 11.5);
+  pdf.text(`${pageNumber} / 4`, pageWidth - 19, pageHeight - 11.5, { align: 'right' });
 }
 
-function drawSectionHeading(pdf, theme, title, subtitle, y = 37) {
+function drawSectionHeading(pdf, theme, title, subtitle, y = 37, decorativeFont = 'times') {
   const centerX = pdf.internal.pageSize.getWidth() / 2;
+  pdf.setFillColor(...mixColor(theme.paper, [255, 255, 255], 0.88));
+  pdf.setDrawColor(...theme.soft);
+  pdf.setLineWidth(0.35);
+  pdf.roundedRect(27, y - 12, pdf.internal.pageSize.getWidth() - 54, subtitle ? 31 : 22, 4, 4, 'FD');
   pdf.setTextColor(...theme.accent);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.2);
-  centeredTrackedText(pdf, title.toUpperCase(), centerX, y, 1.5);
+  pdf.setFont(decorativeFont, decorativeFont === 'Sofia' ? 'normal' : 'italic');
+  pdf.setFontSize(18);
+  pdf.text(title, centerX, y, { align: 'center' });
+  drawOrnateDivider(pdf, theme, centerX, y + 5, 52);
   if (subtitle) {
     pdf.setTextColor(...theme.ink);
     pdf.setFont('times', 'italic');
-    pdf.setFontSize(9);
-    centeredWrappedText(pdf, subtitle, y + 11, 144, 4.5, 2);
+    pdf.setFontSize(10.5);
+    centeredWrappedText(pdf, subtitle, y + 13, 150, 5.2, 2);
   }
 }
 
 function drawEvent(pdf, theme, title, data, x, y, width) {
-  pdf.setFillColor(...theme.soft);
-  pdf.roundedRect(x, y, width, 48, 2.5, 2.5, 'F');
+  pdf.setFillColor(...mixColor(theme.soft, theme.paper, 0.76));
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.45);
+  pdf.roundedRect(x, y, width, 48, 3, 3, 'FD');
+  pdf.setDrawColor(...theme.soft);
+  pdf.roundedRect(x + 3, y + 3, width - 6, 42, 2, 2, 'S');
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.5);
+  pdf.setFontSize(8.5);
   centeredTrackedText(pdf, title.toUpperCase(), x + width / 2, y + 10, 1.1);
+  drawOrnateDivider(pdf, theme, x + width / 2, y + 15, 44);
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(12);
+  pdf.setFontSize(13.5);
   const dateLines = pdf.splitTextToSize(formatDate(data.date), width - 18).slice(0, 2);
-  pdf.text(dateLines, x + width / 2, y + 23, { align: 'center', lineHeightFactor: 1.08 });
+  pdf.text(dateLines, x + width / 2, y + 27, { align: 'center', lineHeightFactor: 1.05 });
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.5);
-  pdf.text(formatTime(data.start, data.end), x + width / 2, y + 39, { align: 'center' });
+  pdf.setFontSize(9.5);
+  pdf.text(formatTime(data.start, data.end), x + width / 2, y + 41, { align: 'center' });
 }
 
 function drawRouteMap(pdf, theme, invitation, x, y, width, height) {
@@ -222,12 +314,12 @@ function drawRouteMap(pdf, theme, invitation, x, y, width, height) {
 
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.5);
+  pdf.setFontSize(7.5);
   pdf.text(hasLandmark ? 'PATOKAN' : 'MULAI', startX, startY + 9, { align: 'center' });
   pdf.text('LOKASI', endX, endY + 10, { align: 'center' });
   pdf.setTextColor(...theme.ink);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.2);
+  pdf.setFontSize(8.2);
   const landmarkLines = pdf.splitTextToSize(hasLandmark ? safeText(invitation.nearest_landmark) : 'Lokasi tamu saat membuka Maps', 52).slice(0, 2);
   const venueLines = pdf.splitTextToSize(safeText(invitation.venue_name, 'Lokasi acara'), 52).slice(0, 2);
   pdf.text(landmarkLines, startX, startY + 14, { align: 'center', lineHeightFactor: 1.15 });
@@ -235,16 +327,20 @@ function drawRouteMap(pdf, theme, invitation, x, y, width, height) {
 }
 
 function drawTravelCard(pdf, theme, title, text, x, y, width, height) {
-  pdf.setFillColor(...theme.soft);
-  pdf.roundedRect(x, y, width, height, 3, 3, 'F');
+  pdf.setFillColor(...mixColor(theme.soft, theme.paper, 0.76));
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.4);
+  pdf.roundedRect(x, y, width, height, 3, 3, 'FD');
+  pdf.setDrawColor(...theme.soft);
+  pdf.roundedRect(x + 3, y + 3, width - 6, height - 6, 2, 2, 'S');
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7);
+  pdf.setFontSize(8);
   pdf.text(title.toUpperCase(), x + 7, y + 11);
   pdf.setTextColor(...theme.ink);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.6);
-  const lines = pdf.splitTextToSize(safeText(text, 'Belum ada informasi tambahan.'), width - 14).slice(0, 8);
+  pdf.setFontSize(8.4);
+  const lines = pdf.splitTextToSize(safeText(text, 'Belum ada informasi tambahan.'), width - 14).slice(0, 7);
   pdf.text(lines, x + 7, y + 22, { lineHeightFactor: 1.3 });
 }
 
@@ -252,6 +348,7 @@ export async function createInvitationPdf({ invitation, templateCode, templateNa
   const [{ jsPDF }, qrModule] = await Promise.all([import('jspdf'), import('qrcode')]);
   const QRCode = qrModule.default || qrModule;
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  const decorativeFont = await registerSofiaFont(pdf);
   const theme = THEMES[templateCode] || THEMES.puspa_jawi;
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -264,131 +361,163 @@ export async function createInvitationPdf({ invitation, templateCode, templateNa
   const destination = [invitation.venue_name, invitation.venue_address].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
   const suppliedMapsUrl = /^https?:\/\//i.test(String(invitation.maps_url || '')) ? String(invitation.maps_url).trim() : '';
   const mapsUrl = suppliedMapsUrl || `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination || 'Lokasi acara')}`;
+  const groomFamily = `Keluarga Bapak ${safeText(invitation.groom_father, '...')} & Ibu ${safeText(invitation.groom_mother, '...')}`;
+  const brideFamily = `Keluarga Bapak ${safeText(invitation.bride_father, '...')} & Ibu ${safeText(invitation.bride_mother, '...')}`;
 
   // Halaman 1: cover
   drawPageBase(pdf, theme, pageWidth, pageHeight, 1, templateName);
+  pdf.setFillColor(...mixColor(theme.paper, [255, 255, 255], 0.88));
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.55);
+  pdf.roundedRect(19, 33, pageWidth - 38, 230, 5, 5, 'FD');
+  pdf.setDrawColor(...theme.soft);
+  pdf.roundedRect(23, 37, pageWidth - 46, 222, 4, 4, 'S');
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.2);
-  centeredTrackedText(pdf, 'UNDANGAN PERNIKAHAN', centerX, 39, 1.8);
+  pdf.setFontSize(9.5);
+  centeredTrackedText(pdf, 'UNDANGAN PERNIKAHAN', centerX, 48, 1.8);
+  drawOrnateDivider(pdf, theme, centerX, 55, 68);
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'italic');
-  pdf.setFontSize(10);
-  pdf.text('The wedding of', centerX, 65, { align: 'center' });
-  fitCenteredText(pdf, groomName, 111, { maxWidth: 154, maxSize: 34, minSize: 18, color: theme.ink });
+  pdf.setFontSize(11.2);
+  centeredWrappedText(pdf, 'Hamparan kasih Ilahi Rabbi terbentang seraya kami menengadahkan jemari, memohon limpahan rahmat dan karunia-Nya. Dengan penuh rasa syukur, kami mengundang Bapak/Ibu/Saudara/i untuk menyaksikan bersatunya putra-putri kami dalam ikatan suci pernikahan.', 67, 158, 6.1, 6);
+  pdf.setFont('times', 'bold');
+  pdf.setFontSize(10.5);
+  pdf.text('Pernikahan putra-putri kami', centerX, 108, { align: 'center' });
+  fitCenteredText(pdf, groomName, 130, { maxWidth: 155, maxSize: 38, minSize: 22, font: decorativeFont, style: decorativeFont === 'Sofia' ? 'normal' : 'italic', color: theme.ink });
   pdf.setTextColor(...theme.accent);
-  pdf.setFont('times', 'italic');
-  pdf.setFontSize(18);
-  pdf.text('&', centerX, 128, { align: 'center' });
-  fitCenteredText(pdf, brideName, 151, { maxWidth: 154, maxSize: 34, minSize: 18, color: theme.ink });
-  pdf.setDrawColor(...theme.accent);
-  pdf.setLineWidth(0.3);
-  pdf.line(72, 174, 97, 174);
-  pdf.circle(centerX, 174, 1.1, 'S');
-  pdf.line(113, 174, 138, 174);
+  pdf.setFont(decorativeFont, decorativeFont === 'Sofia' ? 'normal' : 'italic');
+  pdf.setFontSize(21);
+  pdf.text('&', centerX, 146, { align: 'center' });
+  fitCenteredText(pdf, brideName, 164, { maxWidth: 155, maxSize: 38, minSize: 22, font: decorativeFont, style: decorativeFont === 'Sofia' ? 'normal' : 'italic', color: theme.ink });
+  drawOrnateDivider(pdf, theme, centerX, 176, 62);
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(13);
-  pdf.text(formatDate(mainDate), centerX, 193, { align: 'center' });
+  pdf.setFontSize(10.5);
+  pdf.text('Insya Allah akan diselenggarakan pada', centerX, 188, { align: 'center' });
+  pdf.setFontSize(15);
+  pdf.text(formatDate(mainDate), centerX, 201, { align: 'center' });
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.3);
+  pdf.setFontSize(10.2);
   pdf.setTextColor(82, 91, 87);
-  centeredWrappedText(pdf, invitation.venue_name || 'Lokasi acara', 207, 142, 4.6, 2);
+  centeredWrappedText(pdf, invitation.venue_name || 'Lokasi acara', 213, 150, 5.4, 2);
   pdf.setFont('times', 'italic');
-  pdf.setFontSize(9);
+  pdf.setFontSize(10.8);
   pdf.setTextColor(...theme.ink);
-  centeredWrappedText(pdf, 'Dengan penuh kebahagiaan, kami mengundang Anda untuk hadir dan memberikan doa restu.', 235, 137, 4.8, 3);
+  centeredWrappedText(pdf, 'Tiada kebahagiaan yang lebih sempurna bagi kami selain kehadiran serta doa restu Bapak/Ibu/Saudara/i pada hari bahagia tersebut.', 235, 153, 5.8, 4);
 
   // Halaman 2: profil mempelai
   pdf.addPage('a4', 'portrait');
   drawPageBase(pdf, theme, pageWidth, pageHeight, 2, templateName);
-  drawSectionHeading(pdf, theme, 'Mempelai', 'Dua hati yang dipertemukan dalam satu ikatan.', 38);
-  pdf.setFillColor(...theme.soft);
-  pdf.roundedRect(24, 65, pageWidth - 48, 72, 3, 3, 'F');
-  pdf.setTextColor(...theme.accent);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7);
-  centeredTrackedText(pdf, 'MEMPELAI PRIA', centerX, 79, 1.2);
-  fitCenteredText(pdf, groomFullName, 99, { maxWidth: 142, maxSize: 20, minSize: 12, color: theme.ink });
-  pdf.setTextColor(82, 91, 87);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.4);
-  pdf.text('Putra dari', centerX, 110, { align: 'center' });
+  drawSectionHeading(pdf, theme, 'Kedua Mempelai', 'Dua hati yang dipertemukan dalam kasih, disatukan dalam ikatan suci.', 42, decorativeFont);
   pdf.setTextColor(...theme.ink);
-  pdf.setFont('times', 'bold');
-  pdf.setFontSize(10.3);
-  centeredWrappedText(pdf, `${safeText(invitation.groom_father, 'Bapak ...')} & ${safeText(invitation.groom_mother, 'Ibu ...')}`, 120, 137, 4.8, 2);
+  pdf.setFont('times', 'normal');
+  pdf.setFontSize(10.8);
+  centeredWrappedText(pdf, 'Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud menyelenggarakan pernikahan putra-putri kami:', 69, 158, 5.7, 4);
 
+  pdf.setFillColor(...mixColor(theme.soft, theme.paper, 0.78));
   pdf.setDrawColor(...theme.accent);
-  pdf.setLineWidth(0.3);
-  pdf.line(75, 148, 97, 148);
-  pdf.circle(centerX, 148, 1.2, 'S');
-  pdf.line(113, 148, 135, 148);
-
-  pdf.setFillColor(...theme.soft);
-  pdf.roundedRect(24, 159, pageWidth - 48, 72, 3, 3, 'F');
+  pdf.setLineWidth(0.5);
+  pdf.roundedRect(23, 96, pageWidth - 46, 51, 4, 4, 'FD');
+  pdf.setDrawColor(...theme.soft);
+  pdf.roundedRect(27, 100, pageWidth - 54, 43, 3, 3, 'S');
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7);
-  centeredTrackedText(pdf, 'MEMPELAI WANITA', centerX, 173, 1.2);
-  fitCenteredText(pdf, brideFullName, 193, { maxWidth: 142, maxSize: 20, minSize: 12, color: theme.ink });
+  pdf.setFontSize(8.5);
+  centeredTrackedText(pdf, 'MEMPELAI PRIA', centerX, 106, 1.2);
+  fitCenteredText(pdf, groomFullName, 122, { maxWidth: 142, maxSize: 23, minSize: 14, font: decorativeFont, style: decorativeFont === 'Sofia' ? 'normal' : 'italic', color: theme.ink });
   pdf.setTextColor(82, 91, 87);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.4);
-  pdf.text('Putri dari', centerX, 204, { align: 'center' });
+  pdf.setFontSize(9.5);
+  pdf.text('Putra dari', centerX, 131, { align: 'center' });
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(10.3);
-  centeredWrappedText(pdf, `${safeText(invitation.bride_father, 'Bapak ...')} & ${safeText(invitation.bride_mother, 'Ibu ...')}`, 214, 137, 4.8, 2);
-  pdf.setFont('times', 'italic');
-  pdf.setFontSize(9.2);
+  pdf.setFontSize(10.8);
+  centeredWrappedText(pdf, `${safeText(invitation.groom_father, 'Bapak ...')} & ${safeText(invitation.groom_mother, 'Ibu ...')}`, 140, 140, 4.8, 1);
+
+  pdf.setFillColor(...mixColor(theme.soft, theme.paper, 0.78));
+  pdf.setDrawColor(...theme.accent);
+  pdf.setLineWidth(0.5);
+  pdf.roundedRect(23, 154, pageWidth - 46, 51, 4, 4, 'FD');
+  pdf.setDrawColor(...theme.soft);
+  pdf.roundedRect(27, 158, pageWidth - 54, 43, 3, 3, 'S');
+  pdf.setTextColor(...theme.accent);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.5);
+  centeredTrackedText(pdf, 'MEMPELAI WANITA', centerX, 164, 1.2);
+  fitCenteredText(pdf, brideFullName, 180, { maxWidth: 142, maxSize: 23, minSize: 14, font: decorativeFont, style: decorativeFont === 'Sofia' ? 'normal' : 'italic', color: theme.ink });
+  pdf.setTextColor(82, 91, 87);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9.5);
+  pdf.text('Putri dari', centerX, 189, { align: 'center' });
   pdf.setTextColor(...theme.ink);
-  centeredWrappedText(pdf, 'Dengan memohon rahmat dan ridho Tuhan Yang Maha Esa, kami bermaksud melangsungkan pernikahan kami.', 250, 142, 4.8, 3);
+  pdf.setFont('times', 'bold');
+  pdf.setFontSize(10.8);
+  centeredWrappedText(pdf, `${safeText(invitation.bride_father, 'Bapak ...')} & ${safeText(invitation.bride_mother, 'Ibu ...')}`, 198, 140, 4.8, 1);
+  pdf.setFont('times', 'italic');
+  pdf.setFontSize(10.8);
+  pdf.setTextColor(...theme.ink);
+  centeredWrappedText(pdf, 'Untuk melaksanakan sunnah Rasul-Nya dalam membentuk keluarga yang sakinah, mawaddah, dan warahmah, dengan segala kerendahan hati kami memohon doa restu Bapak/Ibu/Saudara/i.', 217, 157, 5.6, 4);
+  pdf.setTextColor(...theme.accent);
+  pdf.setFont(decorativeFont, decorativeFont === 'Sofia' ? 'normal' : 'italic');
+  pdf.setFontSize(16);
+  pdf.text('Turut Mengundang', centerX, 244, { align: 'center' });
+  drawOrnateDivider(pdf, theme, centerX, 249, 48);
+  fitCenteredText(pdf, groomFamily, 257, { maxWidth: 162, maxSize: 9.5, minSize: 8, font: 'helvetica', style: 'bold', color: theme.ink });
+  fitCenteredText(pdf, brideFamily, 264, { maxWidth: 162, maxSize: 9.5, minSize: 8, font: 'helvetica', style: 'bold', color: theme.ink });
 
   // Halaman 3: rangkaian acara dan alamat
   pdf.addPage('a4', 'portrait');
   drawPageBase(pdf, theme, pageWidth, pageHeight, 3, templateName);
-  drawSectionHeading(pdf, theme, 'Rangkaian Acara', 'Kami berharap dapat berbagi hari bahagia ini bersama Anda.', 36);
+  drawSectionHeading(pdf, theme, 'Rangkaian Acara', 'Dengan penuh hormat dan sukacita, kami mengundang Anda untuk hadir.', 41, decorativeFont);
+  pdf.setTextColor(...theme.ink);
+  pdf.setFont('times', 'normal');
+  pdf.setFontSize(10.8);
+  centeredWrappedText(pdf, 'Insya Allah akad nikah dan resepsi pernikahan putra-putri kami akan dilaksanakan pada:', 69, 158, 5.6, 3);
   drawEvent(pdf, theme, 'Akad Nikah', {
     date: invitation.akad_date,
     start: invitation.akad_start_time,
     end: invitation.akad_end_time,
-  }, 25, 61, pageWidth - 50);
+  }, 25, 86, pageWidth - 50);
   drawEvent(pdf, theme, 'Resepsi', {
     date: invitation.reception_date,
     start: invitation.reception_start_time,
     end: invitation.reception_end_time,
-  }, 25, 118, pageWidth - 50);
+  }, 25, 140, pageWidth - 50);
 
   pdf.setTextColor(...theme.accent);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.5);
-  centeredTrackedText(pdf, 'LOKASI ACARA', centerX, 184, 1.2);
+  pdf.setFontSize(8.5);
+  centeredTrackedText(pdf, 'BERTEMPAT DI', centerX, 198, 1.2);
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(13);
-  let y = centeredWrappedText(pdf, invitation.venue_name || 'Lokasi acara', 197, 150, 5.3, 2);
+  pdf.setFontSize(14);
+  let y = centeredWrappedText(pdf, invitation.venue_name || 'Lokasi acara', 210, 150, 5.5, 2);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(9.8);
   pdf.setTextColor(82, 91, 87);
-  y = centeredWrappedText(pdf, invitation.venue_address || 'Alamat akan diinformasikan kemudian.', y + 3, 145, 4.6, 4);
+  y = centeredWrappedText(pdf, invitation.venue_address || 'Alamat akan diinformasikan kemudian.', y + 3, 154, 5.1, 2);
 
   pdf.setTextColor(...theme.ink);
   pdf.setFont('times', 'italic');
-  pdf.setFontSize(8.8);
-  centeredWrappedText(pdf, 'Atas kehadiran dan doa restu Bapak/Ibu/Saudara/i, kami mengucapkan terima kasih.', Math.max(y + 12, 238), 142, 4.7, 3);
-  pdf.setFont('times', 'bold');
-  pdf.setFontSize(12);
-  fitCenteredText(pdf, `${groomName} & ${brideName}`, 263, { maxWidth: 145, maxSize: 13, minSize: 9, color: theme.ink });
+  pdf.setFontSize(10.4);
+  centeredWrappedText(pdf, 'Suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir pada acara tersebut serta memberikan doa restu kepada kedua mempelai.', Math.max(y + 7, 231), 158, 5.3, 4);
+  pdf.setFont('times', 'normal');
+  pdf.setFontSize(10.2);
+  pdf.text("Wassalamu'alaikum Warahmatullahi Wabarakatuh", centerX, 253, { align: 'center' });
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.5);
+  pdf.text('KAMI YANG BERBAHAGIA', centerX, 259, { align: 'center' });
+  fitCenteredText(pdf, `${groomName} & ${brideName}`, 267, { maxWidth: 150, maxSize: 16, minSize: 11, font: decorativeFont, style: decorativeFont === 'Sofia' ? 'normal' : 'italic', color: theme.ink });
 
   // Halaman 4: skema arah, petunjuk perjalanan, dan Google Maps
   pdf.addPage('a4', 'portrait');
   drawPageBase(pdf, theme, pageWidth, pageHeight, 4, templateName);
-  drawSectionHeading(pdf, theme, 'Petunjuk Lokasi', 'Gunakan patokan berikut atau pindai Google Maps untuk navigasi langsung.', 36);
+  drawSectionHeading(pdf, theme, 'Petunjuk Lokasi', 'Gunakan patokan berikut atau pindai Google Maps untuk navigasi langsung.', 36, decorativeFont);
   drawRouteMap(pdf, theme, invitation, 22, 61, pageWidth - 44, 87);
   pdf.setTextColor(105, 115, 110);
   pdf.setFont('helvetica', 'italic');
-  pdf.setFontSize(6.5);
+  pdf.setFontSize(7.5);
   pdf.text('Skema arah sederhana - bukan peta berskala', centerX, 155, { align: 'center' });
 
   drawTravelCard(
@@ -418,17 +547,17 @@ export async function createInvitationPdf({ invitation, templateCode, templateNa
       pdf.addImage(qrData, 'PNG', 68, 236, 25, 25, undefined, 'FAST');
       pdf.setTextColor(...theme.ink);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
+      pdf.setFontSize(9);
       pdf.text('PINDAI GOOGLE MAPS', 99, 244);
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7.2);
+      pdf.setFontSize(8);
       pdf.setTextColor(82, 91, 87);
       pdf.text('Buka lokasi dan mulai navigasi', 99, 250);
       pdf.setDrawColor(...theme.accent);
       pdf.roundedRect(97, 254, 42, 8, 2, 2, 'S');
       pdf.setTextColor(...theme.accent);
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(6.4);
+      pdf.setFontSize(7);
       pdf.text('BUKA PETA', 118, 259.2, { align: 'center' });
       pdf.link(97, 254, 42, 8, { url: mapsUrl });
     } catch {

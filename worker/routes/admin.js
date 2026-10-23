@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { database } from '../lib/database.js';
 import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
-import { allTemplates, demoTemplates, hasRealSupabaseConfig } from '../lib/repositories.js';
+import { allTemplates, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -1451,6 +1451,19 @@ admin.patch('/admin/orders/:code', async (c) => {
       affiliate_commission_amount: affiliate ? commissionAmount : 0,
       updated_at: new Date().toISOString(),
     });
+    if (input.slug !== undefined) {
+      const cleanSlug = cleanText(input.slug, 120).toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+      if (cleanSlug) {
+        if (order.status === 'published' && (order.is_active || order.website_active)) {
+          const conflict = await findActiveSlugConflict(c.env, cleanSlug, { excludeOrderId: order.id });
+          if (conflict) {
+            return c.json({ ok: false, message: `Slug "${cleanSlug}" sudah aktif digunakan oleh pesanan lain (${conflict.order_code} - ${conflict.customer_name}).` }, 422);
+          }
+        }
+        order.slug = cleanSlug;
+        order.website_url = publicAppUrl(c.env, `/${cleanSlug}`);
+      }
+    }
     return c.json({ ok: true, order: demoOrders(c.env).find((item) => item.order_code === order.order_code), message: 'Data pesanan berhasil diperbarui.' });
   }
 
@@ -1499,6 +1512,20 @@ admin.patch('/admin/orders/:code', async (c) => {
   }).eq('id', currentOrder.id);
   if (updateError) throw updateError;
 
+  if (input.slug !== undefined) {
+    const cleanSlug = cleanText(input.slug, 120).toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-');
+    if (cleanSlug) {
+      const { data: currentInv } = await db.from('invitations').select('id,is_active,published_at').eq('order_id', currentOrder.id).maybeSingle();
+      if (currentInv && currentInv.is_active && currentInv.published_at) {
+        const conflict = await findActiveSlugConflict(c.env, cleanSlug, { excludeInvitationId: currentInv.id, excludeOrderId: currentOrder.id });
+        if (conflict) {
+          return c.json({ ok: false, message: `Slug "${cleanSlug}" sudah aktif digunakan oleh pesanan lain (${conflict.order_code} - ${conflict.customer_name}).` }, 422);
+        }
+      }
+      await db.from('invitations').update({ slug: cleanSlug }).eq('order_id', currentOrder.id);
+    }
+  }
+
   const updatedOrder = (await adminOrders(c.env)).find((item) => item.order_code === currentOrder.order_code);
   return c.json({ ok: true, order: updatedOrder, message: 'Data pesanan berhasil diperbarui.' });
 });
@@ -1518,6 +1545,16 @@ admin.patch('/admin/orders/:code/website', async (c) => {
     if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
     const currentEnabled = Boolean(order.website_enabled ?? order.is_active ?? order.website_active);
     const active = hasActiveChange ? input.active : currentEnabled;
+    if (active && order.slug) {
+      const conflict = await findActiveSlugConflict(c.env, order.slug, { excludeOrderId: order.id });
+      if (conflict) {
+        return c.json({
+          ok: false,
+          code: 'SLUG_IN_USE',
+          message: `Tidak dapat mengaktifkan website karena slug "${order.slug}" saat ini sedang aktif digunakan oleh pesanan lain (${conflict.order_code} - ${conflict.customer_name}). Silakan ubah slug undangan ini terlebih dahulu sebelum mengaktifkannya.`
+        }, 409);
+      }
+    }
     const currentActiveUntil = order.active_until ? new Date(order.active_until) : null;
     const isCurrentExpired = !currentActiveUntil || currentActiveUntil <= new Date();
     const nextActiveUntil = requestedActiveUntil?.toISOString()
@@ -1540,11 +1577,24 @@ admin.patch('/admin/orders/:code/website', async (c) => {
   const { data: order, error: orderError } = await db.from('orders').select('id,status,customer_name').eq('order_code', c.req.param('code')).maybeSingle();
   if (orderError) throw orderError;
   if (!order) return c.json({ ok: false, message: 'Order tidak ditemukan.' }, 404);
-  const { data: invitation, error: invitationReadError } = await db.from('invitations').select('published_at,active_until,is_active,slug').eq('order_id', order.id).maybeSingle();
+  const { data: invitation, error: invitationReadError } = await db.from('invitations').select('id,published_at,active_until,is_active,slug').eq('order_id', order.id).maybeSingle();
   if (invitationReadError) throw invitationReadError;
   if (!invitation) return c.json({ ok: false, message: 'Data undangan tidak ditemukan.' }, 404);
   const currentEnabled = invitation.is_active === true;
   const active = hasActiveChange ? input.active : currentEnabled;
+  if (active && invitation.slug) {
+    const conflict = await findActiveSlugConflict(c.env, invitation.slug, {
+      excludeInvitationId: invitation.id,
+      excludeOrderId: order.id,
+    });
+    if (conflict) {
+      return c.json({
+        ok: false,
+        code: 'SLUG_IN_USE',
+        message: `Tidak dapat mengaktifkan website karena slug "${invitation.slug}" saat ini sedang aktif digunakan oleh pesanan lain (${conflict.order_code} - ${conflict.customer_name}). Silakan ubah slug undangan ini terlebih dahulu sebelum mengaktifkannya.`
+      }, 409);
+    }
+  }
   const currentActiveUntil = invitation.active_until ? new Date(invitation.active_until) : null;
   const isCurrentExpired = !currentActiveUntil || currentActiveUntil <= new Date();
   const nextActiveUntil = requestedActiveUntil?.toISOString()
@@ -1553,6 +1603,17 @@ admin.patch('/admin/orders/:code/website', async (c) => {
 
   if (active && (!invitation.published_at || order.status !== 'published')) {
     const slugToUse = invitation.slug || ((cleanText(order.customer_name || 'undangan').toLowerCase().replace(/[^a-z0-9]/g, '') || 'undangan') + '-' + randomHex(3));
+    const conflict = await findActiveSlugConflict(c.env, slugToUse, {
+      excludeInvitationId: invitation.id,
+      excludeOrderId: order.id,
+    });
+    if (conflict) {
+      return c.json({
+        ok: false,
+        code: 'SLUG_IN_USE',
+        message: `Tidak dapat mengaktifkan website karena slug "${slugToUse}" saat ini sedang aktif digunakan oleh pesanan lain (${conflict.order_code} - ${conflict.customer_name}). Silakan ubah slug undangan ini terlebih dahulu sebelum mengaktifkannya.`
+      }, 409);
+    }
     const publishedAt = new Date().toISOString();
     await db.from('orders').update({ status: 'published' }).eq('id', order.id);
     const update = {

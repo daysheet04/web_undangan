@@ -1377,6 +1377,142 @@ function BallroomWorld({
             (-a * Math.PI) / 3;
         }
       }
+
+    // Lightweight kondangan guests. All body parts share a handful of
+    // low-poly geometries and are drawn with instancing, so seven people add
+    // only a few draw calls instead of loading separate character models.
+    const npcGuestData = [
+      { x: -8.2, z: -13.5, rotation: 0.28, scale: 0.73, outfit: 0x243852, lower: 0x172638, skin: 0xc98d68, hair: 0x241713, accent: 0xd9b96e, accessory: "peci", dress: false, phase: 0.2, walk: { type: "patrol", x: 3.1, z: 0.25, speed: 0.34, gait: 5.1 } },
+      { x: 8.7, z: -13.1, rotation: -0.32, scale: 0.7, outfit: 0x8f5661, lower: 0x6f3d4a, skin: 0xe2ad88, hair: 0x40241c, accent: 0xe5c38e, accessory: "flower", dress: true, phase: 1.1, walk: { type: "orbit", radiusX: 2.15, radiusZ: 1.35, speed: -0.22, gait: 4.7 } },
+      { x: -10.7, z: -1.6, rotation: 1.28, scale: 0.76, outfit: 0x264d46, lower: 0x18352f, skin: 0xb97855, hair: 0x1d1512, accent: 0xd9bd79, accessory: "peci", dress: false, phase: 2.4, walk: { type: "patrol", x: 0.2, z: 3.1, speed: 0.31, gait: 5.35 } },
+      { x: 10.5, z: 1.2, rotation: -1.22, scale: 0.71, outfit: 0xa16d72, lower: 0x815057, skin: 0xd59a75, hair: 0x2c1a17, accent: 0xf0d4aa, accessory: "flower", dress: true, phase: 3.2, walk: { type: "patrol", x: -0.15, z: -2.8, speed: 0.27, gait: 4.8 } },
+      { x: -9.1, z: 10.8, rotation: 0.62, scale: 0.74, outfit: 0x3b4168, lower: 0x282d4d, skin: 0xe0a77d, hair: 0x31201a, accent: 0xd3ae62, accessory: "peci", dress: false, phase: 4.1, walk: { type: "orbit", radiusX: 2.05, radiusZ: 1.45, speed: 0.2, gait: 5.25 } },
+      { x: 9.2, z: 11.2, rotation: -0.55, scale: 0.69, outfit: 0x866642, lower: 0x674b31, skin: 0xb97857, hair: 0x17120f, accent: 0xe4bc79, accessory: "flower", dress: true, phase: 5.3, walk: { type: "orbit", radiusX: 1.9, radiusZ: 1.5, speed: -0.19, gait: 4.65 } },
+      { x: 4.8, z: 17.2, rotation: 2.72, scale: 0.72, outfit: 0x62456b, lower: 0x44304c, skin: 0xd69a73, hair: 0x2a1915, accent: 0xdcb878, accessory: "flower", dress: true, phase: 6.1, walk: { type: "patrol", x: -1.7, z: 0.18, speed: 0.25, gait: 4.95 } },
+    ].slice(0, mobileDevice ? 5 : 7);
+    const npcCount = npcGuestData.length;
+    const npcMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82 });
+    const npcAccentMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.68, metalness: 0.08 });
+    const npcMeshes = {
+      torso: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.28, 0.42, 1.04, 8), npcMaterial, npcCount),
+      lower: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.38, 0.9, 8), npcMaterial, npcCount),
+      head: new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 10, 8), npcMaterial, npcCount),
+      hair: new THREE.InstancedMesh(new THREE.SphereGeometry(0.285, 9, 7), npcMaterial, npcCount),
+      eyes: new THREE.InstancedMesh(new THREE.SphereGeometry(0.038, 7, 5), npcMaterial, npcCount * 2),
+      noses: new THREE.InstancedMesh(new THREE.ConeGeometry(0.038, 0.09, 6), npcMaterial, npcCount),
+      mouths: new THREE.InstancedMesh(new THREE.SphereGeometry(0.065, 8, 5), npcMaterial, npcCount),
+      collars: new THREE.InstancedMesh(new THREE.BoxGeometry(0.15, 0.34, 0.035), npcAccentMaterial, npcCount * 2),
+      waistbands: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.32, 0.35, 0.075, 8), npcAccentMaterial, npcCount),
+      arms: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.075, 0.095, 0.88, 6), npcMaterial, npcCount * 2),
+      legs: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.115, 0.9, 6), npcMaterial, npcCount * 2),
+    };
+    const peciGuests = npcGuestData.map((guest, index) => ({ guest, index })).filter(({ guest }) => guest.accessory === "peci");
+    const flowerGuests = npcGuestData.map((guest, index) => ({ guest, index })).filter(({ guest }) => guest.accessory === "flower");
+    const npcAccessories = {
+      peci: new THREE.InstancedMesh(new THREE.CylinderGeometry(0.255, 0.295, 0.25, 8), npcAccentMaterial, peciGuests.length),
+      flower: new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.13, 1), npcAccentMaterial, flowerGuests.length),
+    };
+    [...Object.values(npcMeshes), ...Object.values(npcAccessories)].forEach((mesh) => {
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+    });
+    npcGuestData.forEach((guest, index) => {
+      npcMeshes.torso.setColorAt(index, new THREE.Color(guest.outfit));
+      npcMeshes.lower.setColorAt(index, new THREE.Color(guest.lower));
+      npcMeshes.head.setColorAt(index, new THREE.Color(guest.skin));
+      npcMeshes.hair.setColorAt(index, new THREE.Color(guest.hair));
+      npcMeshes.eyes.setColorAt(index * 2, new THREE.Color(0x171311));
+      npcMeshes.eyes.setColorAt(index * 2 + 1, new THREE.Color(0x171311));
+      npcMeshes.noses.setColorAt(index, new THREE.Color(guest.skin).multiplyScalar(0.82));
+      npcMeshes.mouths.setColorAt(index, new THREE.Color(guest.dress ? 0x7a3442 : 0x55302c));
+      npcMeshes.collars.setColorAt(index * 2, new THREE.Color(guest.accent));
+      npcMeshes.collars.setColorAt(index * 2 + 1, new THREE.Color(guest.accent));
+      npcMeshes.waistbands.setColorAt(index, new THREE.Color(guest.accent).multiplyScalar(0.82));
+      npcMeshes.arms.setColorAt(index * 2, new THREE.Color(guest.outfit));
+      npcMeshes.arms.setColorAt(index * 2 + 1, new THREE.Color(guest.outfit));
+      npcMeshes.legs.setColorAt(index * 2, new THREE.Color(guest.lower));
+      npcMeshes.legs.setColorAt(index * 2 + 1, new THREE.Color(guest.lower));
+    });
+    peciGuests.forEach((_, index) => npcAccessories.peci.setColorAt(index, new THREE.Color(0x151616)));
+    flowerGuests.forEach(({ guest }, index) => npcAccessories.flower.setColorAt(index, new THREE.Color(guest.accent)));
+    const npcRootMatrix = new THREE.Matrix4();
+    const npcLocalMatrix = new THREE.Matrix4();
+    const npcFinalMatrix = new THREE.Matrix4();
+    const npcRootPosition = new THREE.Vector3();
+    const npcLocalPosition = new THREE.Vector3();
+    const npcRootQuaternion = new THREE.Quaternion();
+    const npcLocalQuaternion = new THREE.Quaternion();
+    const npcRootScale = new THREE.Vector3();
+    const npcLocalScale = new THREE.Vector3();
+    const npcRootEuler = new THREE.Euler();
+    const npcLocalEuler = new THREE.Euler();
+    const setNpcPart = (mesh, instance, guest, localPosition, localScale, localRotation = [0, 0, 0], sway = 0) => {
+      npcRootPosition.set(guest.renderX ?? guest.x, guest.renderY || 0, guest.renderZ ?? guest.z);
+      npcRootEuler.set(0, guest.renderRotation ?? guest.rotation, 0);
+      npcRootQuaternion.setFromEuler(npcRootEuler);
+      npcRootScale.setScalar(guest.scale);
+      npcRootMatrix.compose(npcRootPosition, npcRootQuaternion, npcRootScale);
+      npcLocalPosition.set(...localPosition);
+      npcLocalEuler.set(...localRotation);
+      npcLocalQuaternion.setFromEuler(npcLocalEuler);
+      npcLocalScale.set(...localScale);
+      npcLocalMatrix.compose(npcLocalPosition, npcLocalQuaternion, npcLocalScale);
+      npcFinalMatrix.multiplyMatrices(npcRootMatrix, npcLocalMatrix);
+      mesh.setMatrixAt(instance, npcFinalMatrix);
+    };
+    const updateNpcGuests = (time = 0) => {
+      npcGuestData.forEach((guest, index) => {
+        const sway = time * 0.72;
+        let walkCycle = 0;
+        if (guest.walk.type === "orbit") {
+          const angle = time * guest.walk.speed + guest.phase;
+          const velocityX = -Math.sin(angle) * guest.walk.radiusX * guest.walk.speed;
+          const velocityZ = Math.cos(angle) * guest.walk.radiusZ * guest.walk.speed;
+          const stride = time * guest.walk.gait + guest.phase * 1.7;
+          guest.renderX = guest.x + Math.cos(angle) * guest.walk.radiusX;
+          guest.renderZ = guest.z + Math.sin(angle) * guest.walk.radiusZ;
+          guest.renderRotation = Math.atan2(velocityX, velocityZ);
+          walkCycle = Math.sin(stride) * 0.46;
+          guest.renderY = Math.abs(Math.sin(stride)) * 0.03;
+        } else {
+          const travel = time * guest.walk.speed + guest.phase;
+          const travelAmount = Math.sin(travel);
+          const directionSign = Math.cos(travel) >= 0 ? 1 : -1;
+          const movementStrength = Math.abs(Math.cos(travel));
+          const stride = time * guest.walk.gait + guest.phase * 1.7;
+          guest.renderX = guest.x + guest.walk.x * travelAmount;
+          guest.renderZ = guest.z + guest.walk.z * travelAmount;
+          guest.renderRotation = Math.atan2(guest.walk.x * directionSign, guest.walk.z * directionSign);
+          walkCycle = Math.sin(stride) * 0.52 * movementStrength;
+          guest.renderY = Math.abs(Math.sin(stride)) * 0.035 * movementStrength;
+        }
+        const armSwing = walkCycle;
+        setNpcPart(npcMeshes.torso, index, guest, [0, 1.52, 0], [1, 1, 1], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.lower, index, guest, [0, guest.dress ? 0.72 : 0.79, 0], guest.dress ? [1.48, 1.55, 1.48] : [0.78, 0.94, 0.78], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.head, index, guest, [0, 2.25, 0.01], [1, 1, 1], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.hair, index, guest, [0, 2.39, -0.035], [1.03, 0.62, 1.02], [-0.1, 0, 0], sway);
+        setNpcPart(npcMeshes.eyes, index * 2, guest, [-0.092, 2.32, 0.265], [1, 0.85, 0.5], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.eyes, index * 2 + 1, guest, [0.092, 2.32, 0.265], [1, 0.85, 0.5], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.noses, index, guest, [0, 2.245, 0.29], [1, 1, 1], [Math.PI / 2, 0, 0], sway);
+        setNpcPart(npcMeshes.mouths, index, guest, [0, 2.16, 0.267], [1, 0.24, 0.42], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.collars, index * 2, guest, [-0.105, 1.86, 0.305], [1, 1, 1], [0, 0, -0.38], sway);
+        setNpcPart(npcMeshes.collars, index * 2 + 1, guest, [0.105, 1.86, 0.305], [1, 1, 1], [0, 0, 0.38], sway);
+        setNpcPart(npcMeshes.waistbands, index, guest, [0, 1.08, 0], guest.dress ? [1.18, 1, 1.18] : [0.95, 1, 0.95], [0, 0, 0], sway);
+        setNpcPart(npcMeshes.arms, index * 2, guest, [-0.42, 1.46, 0], [1, 1, 1], [armSwing, 0, -0.12], sway);
+        setNpcPart(npcMeshes.arms, index * 2 + 1, guest, [0.42, 1.46, 0], [1, 1, 1], [-armSwing, 0, 0.12], sway);
+        setNpcPart(npcMeshes.legs, index * 2, guest, [-0.16, 0.43, 0], [1, 1, 1], [-walkCycle, 0, 0], sway);
+        setNpcPart(npcMeshes.legs, index * 2 + 1, guest, [0.16, 0.43, 0], [1, 1, 1], [walkCycle, 0, 0], sway);
+      });
+      peciGuests.forEach(({ guest }, index) => setNpcPart(npcAccessories.peci, index, guest, [0, 2.58, -0.01], [1, 1, 1], [0, 0, 0], time * 0.72));
+      flowerGuests.forEach(({ guest }, index) => setNpcPart(npcAccessories.flower, index, guest, [-0.2, 1.76, 0.38], [1, 1, 0.55], [0, 0, 0], time * 0.72));
+      [...Object.values(npcMeshes), ...Object.values(npcAccessories)].forEach((mesh) => {
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+    };
+    updateNpcGuests(0);
+    const animateNpcGuests = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const keys = {},
       velocity = new THREE.Vector3(),
       direction = new THREE.Vector3(),
@@ -1491,6 +1627,7 @@ function BallroomWorld({
       });
       // Keep the couple alive without making the cutout look floaty or shaky.
       const t = clock.elapsedTime;
+      if (animateNpcGuests) updateNpcGuests(t);
       const podiumAngle = t * 0.62;
       podiumDove.position.set(
         Math.cos(podiumAngle) * 5.1,
