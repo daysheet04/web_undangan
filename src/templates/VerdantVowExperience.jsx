@@ -359,7 +359,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         delete el.dataset.vvRevealSeen;
       });
     };
-  }, [opened, cinematicDone, journeyMounted, replayId, photos.length, greetings.length]);
+  }, [opened, cinematicDone, replayId, photos.length, greetings.length]);
 
   // Unified section phase coordinator with cached offsets (Zero reflow during active touch scroll)
   useEffect(() => {
