@@ -1728,6 +1728,28 @@ export default function AdminPage() {
       return {};
     }
   });
+  const [readItemIds, setReadItemIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('daymoment_admin_read_item_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const isItemUnread = useCallback((item) => {
+    if (!item || !item.id) return false;
+    const uniqueKey = `${item.type}-${item.id}`;
+    if (readItemIds.includes(uniqueKey) || readItemIds.includes(String(item.id))) {
+      return false;
+    }
+    const cat = item.type === 'order' ? 'orders' : item.type === 'feedback' ? 'feedbacks' : item.type === 'withdrawal' ? 'withdrawals' : 'affiliates';
+    const marker = readMarkers[cat];
+    if (marker && new Date(item.created_at || 0).getTime() <= new Date(marker).getTime()) {
+      return false;
+    }
+    return true;
+  }, [readItemIds, readMarkers]);
 
   const getCategoryItems = useCallback((category) => {
     const list = notificationsData.notifications[category] || [];
@@ -1759,22 +1781,57 @@ export default function AdminPage() {
     return [];
   }, [notificationsData.notifications, withdrawalAdmin.data?.withdrawals]);
 
-  const getCategoryUnreadCount = (category) => {
+  const getCategoryUnreadCount = useCallback((category) => {
     const items = getCategoryItems(category);
-    const marker = readMarkers[category];
-    if (!marker) return items.length;
-    const markerTime = new Date(marker).getTime();
-    return items.filter((item) => new Date(item.created_at || 0).getTime() > markerTime).length;
-  };
+    return items.filter((item) => isItemUnread(item)).length;
+  }, [getCategoryItems, isItemUnread]);
 
   const unreadCounts = useMemo(() => ({
     orders: getCategoryUnreadCount('orders'),
     feedbacks: getCategoryUnreadCount('feedbacks'),
     withdrawals: getCategoryUnreadCount('withdrawals'),
     affiliates: getCategoryUnreadCount('affiliates'),
-  }), [notificationsData.notifications, readMarkers, getCategoryItems]);
+  }), [getCategoryUnreadCount]);
+
+  const totalUnreadCount = useMemo(() => (
+    (unreadCounts.orders || 0) + (unreadCounts.feedbacks || 0) + (unreadCounts.withdrawals || 0) + (unreadCounts.affiliates || 0)
+  ), [unreadCounts]);
+
+  const markItemAsRead = useCallback((item) => {
+    if (!item || !item.id) return;
+    const uniqueKey = `${item.type}-${item.id}`;
+    setReadItemIds((prev) => {
+      if (prev.includes(uniqueKey)) return prev;
+      const next = [...prev, uniqueKey];
+      try {
+        localStorage.setItem('daymoment_admin_read_item_ids', JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save read item IDs:', e);
+      }
+      return next;
+    });
+  }, []);
+
   const markCategoryAsRead = useCallback((category) => {
     const nowIso = new Date().toISOString();
+    const items = category === 'all'
+      ? [
+          ...(notificationsData.notifications.orders || []),
+          ...(notificationsData.notifications.feedbacks || []),
+          ...(notificationsData.notifications.withdrawals || []),
+          ...(notificationsData.notifications.affiliates || []),
+        ]
+      : (notificationsData.notifications[category] || []);
+    const keys = items.map((it) => `${it.type}-${it.id}`);
+
+    setReadItemIds((prev) => {
+      const next = [...new Set([...prev, ...keys])];
+      try {
+        localStorage.setItem('daymoment_admin_read_item_ids', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
     setReadMarkers((prev) => {
       const next = category === 'all'
         ? {
@@ -1796,56 +1853,29 @@ export default function AdminPage() {
       }
       return next;
     });
-  }, []);
-
-  const totalUnreadCount = useMemo(() => (
-    (unreadCounts.orders || 0) + (unreadCounts.feedbacks || 0) + (unreadCounts.withdrawals || 0) + (unreadCounts.affiliates || 0)
-  ), [unreadCounts]);
-
-  const isItemUnread = useCallback((item) => {
-    const cat = item.type === 'order' ? 'orders' : item.type === 'feedback' ? 'feedbacks' : item.type === 'withdrawal' ? 'withdrawals' : 'affiliates';
-    const marker = readMarkers[cat];
-    if (!marker) return true;
-    return new Date(item.created_at || 0).getTime() > new Date(marker).getTime();
-  }, [readMarkers]);
+  }, [notificationsData.notifications]);
 
   const toggleHeadingNotif = (category) => {
     if (openHeadingNotif === category) {
       setOpenHeadingNotif(null);
     } else {
       setOpenHeadingNotif(category);
-      markCategoryAsRead(category);
     }
   };
 
   const handleSelectGlobalNotifTab = (tab) => {
     setGlobalNotifTab(tab);
-    if (tab !== 'all') {
-      markCategoryAsRead(tab);
-    }
   };
 
   const handleGlobalNotifItemClick = (item) => {
-    const categoryMap = {
-      order: 'orders',
-      feedback: 'feedbacks',
-      withdrawal: 'withdrawals',
-      affiliate: 'affiliates',
-    };
-    if (categoryMap[item.type]) {
-      markCategoryAsRead(categoryMap[item.type]);
-    }
+    markItemAsRead(item);
     setActiveView(item.view);
     setShowNotifications(false);
     setMobileTabOpen(false);
   };
 
   const toggleGlobalNotifications = () => {
-    const nextState = !showNotifications;
-    setShowNotifications(nextState);
-    if (nextState && globalNotifTab !== 'all') {
-      markCategoryAsRead(globalNotifTab);
-    }
+    setShowNotifications((prev) => !prev);
   };
 
   const handleHeadingRefresh = async (category, reloadFn) => {
@@ -1966,34 +1996,68 @@ export default function AdminPage() {
               <p style={{ margin: 0 }}>Belum ada notifikasi pada kategori ini.</p>
             </div>
           ) : (
-            items.map((item) => (
-              <div
-                key={item.id}
-                className="notif-item"
-                onClick={() => {
-                  setActiveView(viewName);
-                  setOpenHeadingNotif(null);
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className={`notif-item-avatar ${category === 'orders' ? 'order' : category === 'feedbacks' ? 'feedback' : category === 'withdrawals' ? 'withdrawal' : 'affiliate'}`}>
-                  {category === 'orders' ? '🛒' : category === 'feedbacks' ? '💬' : category === 'withdrawals' ? '💸' : '👤'}
-                </div>
-                <div className="notif-item-content">
-                  <div className="notif-item-top">
-                    <span className="notif-item-name">{item.title}</span>
-                    {item.status_label && (
-                      <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
-                        {item.status_label}
-                      </span>
-                    )}
+            items.map((item) => {
+              const unread = isItemUnread(item);
+              return (
+                <div
+                  key={item.id}
+                  className={`notif-item ${unread ? 'is-unread' : 'is-read'}`}
+                  onClick={() => {
+                    markItemAsRead(item);
+                    setActiveView(viewName);
+                    setOpenHeadingNotif(null);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div className={`notif-item-avatar ${category === 'orders' ? 'order' : category === 'feedbacks' ? 'feedback' : category === 'withdrawals' ? 'withdrawal' : 'affiliate'}`}>
+                    {category === 'orders' ? '🛒' : category === 'feedbacks' ? '💬' : category === 'withdrawals' ? '💸' : '👤'}
                   </div>
-                  <p className="notif-item-desc">{item.snippet}</p>
-                  <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                  <div className="notif-item-content">
+                    <div className="notif-item-top">
+                      <span className="notif-item-name">{item.title}</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        {unread && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '2.5px 8px',
+                              backgroundColor: '#0f766e',
+                              color: '#ffffff',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              borderRadius: '999px',
+                              letterSpacing: '0.04em',
+                              textTransform: 'uppercase',
+                              boxShadow: '0 1px 4px rgba(15, 118, 110, 0.4)',
+                              flexShrink: 0
+                            }}
+                          >
+                            <span style={{
+                              width: '5px',
+                              height: '5px',
+                              borderRadius: '50%',
+                              backgroundColor: '#34d399',
+                              display: 'inline-block'
+                            }} />
+                            Baru
+                          </span>
+                        )}
+                        {item.status_label && (
+                          <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
+                            {item.status_label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <p className="notif-item-desc">{item.snippet}</p>
+                    <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -2670,20 +2734,34 @@ export default function AdminPage() {
                       <div className="notif-item-content">
                         <div className="notif-item-top">
                           <span className="notif-item-name">{item.title}</span>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                             {unread && (
                               <span
                                 style={{
-                                  display: 'inline-block',
-                                  width: '7px',
-                                  height: '7px',
-                                  borderRadius: '50%',
-                                  backgroundColor: '#10b981',
-                                  boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '2.5px 8px',
+                                  backgroundColor: '#0f766e',
+                                  color: '#ffffff',
+                                  fontSize: '10px',
+                                  fontWeight: '800',
+                                  borderRadius: '999px',
+                                  letterSpacing: '0.04em',
+                                  textTransform: 'uppercase',
+                                  boxShadow: '0 1px 4px rgba(15, 118, 110, 0.4)',
                                   flexShrink: 0
                                 }}
-                                title="Belum dibaca"
-                              />
+                              >
+                                <span style={{
+                                  width: '5px',
+                                  height: '5px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#34d399',
+                                  display: 'inline-block'
+                                }} />
+                                Baru
+                              </span>
                             )}
                             {item.status_label && (
                               <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
