@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { mediaUrl } from '../lib/api.js';
 import TemplateFooter from '../components/TemplateFooter.jsx';
 import VerdantOpeningScene from './verdant-vow/VerdantOpeningScene.jsx';
@@ -191,7 +191,6 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const audioRef = useRef(null);
   const scrollRef = useRef(null);
   const journeyReadyRef = useRef(false);
-  const cinematicHandoffTimerRef = useRef();
   journeyReadyRef.current = journeyReady;
   const normalRef = useRef(null);
   const coupleRef = useRef(null);
@@ -226,29 +225,18 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     return () => observer.disconnect();
   },[opened,cinematicDone,i.love_story,i.has_gift,i.has_wishes]);
 
-  // Keep the final WebGL frame mounted while the first invitation section is
-  // committed and brought into view. Removing the canvas before React commits
-  // the target leaves a full viewport of fallback background behind.
-  useEffect(() => {
+  // Retire the cinematic before the browser paints the invitation. Scrolling to
+  // the section first and collapsing the cinematic later made the opening appear
+  // twice on mobile because its viewport position changed mid-animation.
+  useLayoutEffect(() => {
     if (!opened || !cinematicDone) return undefined;
     const root = scrollRef.current;
-    const target = normalRef.current;
-    if (!root || !target) return undefined;
-
-    const frame = window.requestAnimationFrame(() => {
-      root.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
-      cinematicHandoffTimerRef.current = window.setTimeout(() => {
-        setOpeningPhase('visible');
-        setActiveNormal('vv-full-opening');
-        setJourneyMounted(false);
-        window.requestAnimationFrame(() => root.scrollTo({ top: 0, behavior: 'auto' }));
-      }, 1100);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(cinematicHandoffTimerRef.current);
-    };
+    if (!root) return undefined;
+    root.scrollTo({ top: 0, behavior: 'auto' });
+    setJourneyMounted(false);
+    setOpeningPhase('visible');
+    setActiveNormal('vv-full-opening');
+    return undefined;
   },[opened,cinematicDone,replayId]);
   // One observer drives every content block, so reveals follow the viewport instead
   // of firing an entire section at once.
@@ -259,11 +247,6 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     const experience = root.closest('.vv-redesign');
     const mobileReveal = window.matchMedia('(max-width: 800px)').matches;
     const selectors = [
-      '.vv-wedding-stage > .vv-after-heading',
-      '.vv-wedding-stage > p',
-      '.vv-wedding-stage > h3',
-      '.vv-wedding-stage > time',
-      '.vv-wedding-stage > .vv-countdown-grid',
       '.vv-full-couple > .vv-after-heading',
       '.vv-person-card',
       '.vv-person-amp',
@@ -291,11 +274,6 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     const targets = Array.from(root.querySelectorAll(selectors.join(',')));
     const revealVariants = ['vv-reveal-left','vv-reveal-right','vv-reveal-up','vv-reveal-bounce','vv-reveal-zoom','vv-reveal-type'];
     const getRevealVariant = (el,index) => {
-      if (el.matches('.vv-wedding-stage > .vv-after-heading')) return 'vv-reveal-left';
-      if (el.matches('.vv-wedding-stage > p')) return 'vv-reveal-type';
-      if (el.matches('.vv-wedding-stage > h3')) return 'vv-reveal-bounce';
-      if (el.matches('.vv-wedding-stage > time')) return 'vv-reveal-right';
-      if (el.matches('.vv-wedding-stage > .vv-countdown-grid')) return 'vv-reveal-up';
       if (el.matches('.vv-full-couple > .vv-after-heading')) return 'vv-reveal-up';
       if (el.matches('.vv-person-card')) return el === el.parentElement?.querySelector('.vv-person-card') ? 'vv-reveal-left' : 'vv-reveal-right';
       if (el.matches('.vv-person-amp')) return 'vv-reveal-zoom';

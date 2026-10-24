@@ -2668,13 +2668,6 @@
 /* Viewport-driven content choreography. A single IntersectionObserver assigns
    these states, keeping the work on compositor-friendly opacity/transform. */
 @media (prefers-reduced-motion: no-preference) {
-  .vv-redesign.has-component-reveals .vv-wedding-stage {
-    opacity: 1 !important;
-    animation: none !important;
-    transform: none !important;
-    filter: none !important;
-  }
-
   .vv-redesign .vv-scroll-reveal {
     --vv-reveal-enter: translate3d(0,38px,0) scale(.982);
     --vv-reveal-rest: translate3d(0,0,0) scale(1);
