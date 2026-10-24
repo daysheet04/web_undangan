@@ -1773,22 +1773,78 @@ export default function AdminPage() {
     withdrawals: getCategoryUnreadCount('withdrawals'),
     affiliates: getCategoryUnreadCount('affiliates'),
   }), [notificationsData.notifications, readMarkers, getCategoryItems]);
+  const markCategoryAsRead = useCallback((category) => {
+    const nowIso = new Date().toISOString();
+    setReadMarkers((prev) => {
+      const next = category === 'all'
+        ? {
+            ...prev,
+            orders: nowIso,
+            feedbacks: nowIso,
+            withdrawals: nowIso,
+            affiliates: nowIso,
+            all: nowIso,
+          }
+        : {
+            ...prev,
+            [category]: nowIso,
+          };
+      try {
+        localStorage.setItem('daymoment_admin_read_markers', JSON.stringify(next));
+      } catch (e) {
+        console.error('Failed to save read markers:', e);
+      }
+      return next;
+    });
+  }, []);
+
+  const totalUnreadCount = useMemo(() => (
+    (unreadCounts.orders || 0) + (unreadCounts.feedbacks || 0) + (unreadCounts.withdrawals || 0) + (unreadCounts.affiliates || 0)
+  ), [unreadCounts]);
+
+  const isItemUnread = useCallback((item) => {
+    const cat = item.type === 'order' ? 'orders' : item.type === 'feedback' ? 'feedbacks' : item.type === 'withdrawal' ? 'withdrawals' : 'affiliates';
+    const marker = readMarkers[cat];
+    if (!marker) return true;
+    return new Date(item.created_at || 0).getTime() > new Date(marker).getTime();
+  }, [readMarkers]);
 
   const toggleHeadingNotif = (category) => {
     if (openHeadingNotif === category) {
       setOpenHeadingNotif(null);
     } else {
       setOpenHeadingNotif(category);
-      const nowIso = new Date().toISOString();
-      setReadMarkers((prev) => {
-        const next = { ...prev, [category]: nowIso };
-        try {
-          localStorage.setItem('daymoment_admin_read_markers', JSON.stringify(next));
-        } catch (e) {
-          console.error('Failed to save read markers:', e);
-        }
-        return next;
-      });
+      markCategoryAsRead(category);
+    }
+  };
+
+  const handleSelectGlobalNotifTab = (tab) => {
+    setGlobalNotifTab(tab);
+    if (tab !== 'all') {
+      markCategoryAsRead(tab);
+    }
+  };
+
+  const handleGlobalNotifItemClick = (item) => {
+    const categoryMap = {
+      order: 'orders',
+      feedback: 'feedbacks',
+      withdrawal: 'withdrawals',
+      affiliate: 'affiliates',
+    };
+    if (categoryMap[item.type]) {
+      markCategoryAsRead(categoryMap[item.type]);
+    }
+    setActiveView(item.view);
+    setShowNotifications(false);
+    setMobileTabOpen(false);
+  };
+
+  const toggleGlobalNotifications = () => {
+    const nextState = !showNotifications;
+    setShowNotifications(nextState);
+    if (nextState && globalNotifTab !== 'all') {
+      markCategoryAsRead(globalNotifTab);
     }
   };
 
@@ -2084,7 +2140,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     setShowNotifications(false);
-  }, [activeView]);
+    const viewCategoryMap = {
+      'order-history': 'orders',
+      'feedback': 'feedbacks',
+      'withdrawals': 'withdrawals',
+      'affiliates': 'affiliates',
+    };
+    if (viewCategoryMap[activeView]) {
+      markCategoryAsRead(viewCategoryMap[activeView]);
+    }
+  }, [activeView, markCategoryAsRead]);
 
   useEffect(() => {
     if (['affiliates', 'affiliate-data'].includes(activeView) && !affiliateReviews.data && !affiliateReviews.loading) loadAffiliateReviews();
@@ -2093,14 +2158,6 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeView === 'withdrawals' && !withdrawalAdmin.data && !withdrawalAdmin.loading) loadWithdrawals();
   }, [activeView]);
-
-  useEffect(() => {
-    const closeNotifications = (event) => {
-      if (!event.target.closest('.admin-notification-wrap')) setShowNotifications(false);
-    };
-    document.addEventListener('click', closeNotifications);
-    return () => document.removeEventListener('click', closeNotifications);
-  }, []);
 
   if (loading) return <AdminTemplate><Loading showLabel /></AdminTemplate>;
   if (error?.status === 401) return <AdminTemplate><AdminLogin onSuccess={reload} /></AdminTemplate>;
@@ -2496,21 +2553,27 @@ export default function AdminPage() {
   const sidebarNavigation = <>
     <div className="admin-mobile-header-tools">
       <div className="admin-notification-wrap">
-        <button className={`admin-notification-button ${showNotifications ? 'is-open' : ''}`} type="button" onClick={() => setShowNotifications(!showNotifications)} aria-label="Pusat notifikasi" title="Pusat notifikasi">
-          <svg viewBox="0 0 24 24" fill={notificationsData.counts.total > 0 ? '#f5b642' : 'none'} stroke={notificationsData.counts.total > 0 ? '#f5b642' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" aria-hidden="true">
+        <button className={`admin-notification-button ${showNotifications ? 'is-open' : ''}`} type="button" onClick={toggleGlobalNotifications} aria-label="Pusat notifikasi" title="Pusat notifikasi">
+          <svg viewBox="0 0 24 24" fill={totalUnreadCount > 0 ? '#f5b642' : 'none'} stroke={totalUnreadCount > 0 ? '#f5b642' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" aria-hidden="true">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
-          {notificationsData.counts.total > 0 && <b>{notificationsData.counts.total}</b>}
+          {totalUnreadCount > 0 && <b>{totalUnreadCount}</b>}
         </button>
         {showNotifications && (
           <div className="admin-notification-menu" onClick={(e) => e.stopPropagation()}>
             <div className="admin-global-notif-head">
               <div className="admin-global-notif-title-group">
                 <strong>Pusat Notifikasi</strong>
-                <span className="notif-popover-count-pill has-count">
-                  {notificationsData.counts.total} Baru
-                </span>
+                {totalUnreadCount > 0 ? (
+                  <span className="notif-popover-count-pill has-count">
+                    {totalUnreadCount} Baru
+                  </span>
+                ) : (
+                  <span className="notif-popover-count-pill" style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}>
+                    Semua terbaca
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -2552,35 +2615,35 @@ export default function AdminPage() {
                 className={`admin-notif-tab-btn ${globalNotifTab === 'all' ? 'is-active' : ''}`}
                 onClick={() => setGlobalNotifTab('all')}
               >
-                Semua <span className="admin-notif-tab-badge">{notificationsData.counts.total}</span>
+                Semua {totalUnreadCount > 0 && <span className="admin-notif-tab-badge">{totalUnreadCount}</span>}
               </button>
               <button
                 type="button"
                 className={`admin-notif-tab-btn ${globalNotifTab === 'orders' ? 'is-active' : ''}`}
-                onClick={() => setGlobalNotifTab('orders')}
+                onClick={() => handleSelectGlobalNotifTab('orders')}
               >
-                🛒 Order <span className="admin-notif-tab-badge">{notificationsData.counts.orders}</span>
+                🛒 Order {unreadCounts.orders > 0 && <span className="admin-notif-tab-badge">{unreadCounts.orders}</span>}
               </button>
               <button
                 type="button"
                 className={`admin-notif-tab-btn ${globalNotifTab === 'feedbacks' ? 'is-active' : ''}`}
-                onClick={() => setGlobalNotifTab('feedbacks')}
+                onClick={() => handleSelectGlobalNotifTab('feedbacks')}
               >
-                💬 Saran <span className="admin-notif-tab-badge">{notificationsData.counts.feedbacks}</span>
+                💬 Saran {unreadCounts.feedbacks > 0 && <span className="admin-notif-tab-badge">{unreadCounts.feedbacks}</span>}
               </button>
               <button
                 type="button"
                 className={`admin-notif-tab-btn ${globalNotifTab === 'withdrawals' ? 'is-active' : ''}`}
-                onClick={() => setGlobalNotifTab('withdrawals')}
+                onClick={() => handleSelectGlobalNotifTab('withdrawals')}
               >
-                💸 Tarik <span className="admin-notif-tab-badge">{notificationsData.counts.withdrawals}</span>
+                💸 Tarik {unreadCounts.withdrawals > 0 && <span className="admin-notif-tab-badge">{unreadCounts.withdrawals}</span>}
               </button>
               <button
                 type="button"
                 className={`admin-notif-tab-btn ${globalNotifTab === 'affiliates' ? 'is-active' : ''}`}
-                onClick={() => setGlobalNotifTab('affiliates')}
+                onClick={() => handleSelectGlobalNotifTab('affiliates')}
               >
-                👤 Review <span className="admin-notif-tab-badge">{notificationsData.counts.affiliates}</span>
+                👤 Review {unreadCounts.affiliates > 0 && <span className="admin-notif-tab-badge">{unreadCounts.affiliates}</span>}
               </button>
             </div>
 
@@ -2590,36 +2653,92 @@ export default function AdminPage() {
                   <p>Belum ada notifikasi pada kategori ini.</p>
                 </div>
               ) : (
-                getFilteredGlobalNotifications().map((item) => (
-                  <div
-                    key={`${item.type}-${item.id}`}
-                    className="notif-item"
-                    onClick={() => {
-                      setActiveView(item.view);
-                      setShowNotifications(false);
-                      setMobileTabOpen(false);
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className={`notif-item-avatar ${item.type}`}>
-                      {item.type === 'order' ? '🛒' : item.type === 'feedback' ? '💬' : item.type === 'withdrawal' ? '💸' : '👤'}
-                    </div>
-                    <div className="notif-item-content">
-                      <div className="notif-item-top">
-                        <span className="notif-item-name">{item.title}</span>
-                        {item.status_label && (
-                          <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
-                            {item.status_label}
-                          </span>
-                        )}
+                getFilteredGlobalNotifications().map((item) => {
+                  const unread = isItemUnread(item);
+                  return (
+                    <div
+                      key={`${item.type}-${item.id}`}
+                      className={`notif-item ${unread ? 'is-unread' : 'is-read'}`}
+                      onClick={() => handleGlobalNotifItemClick(item)}
+                      role="button"
+                      tabIndex={0}
+                      style={unread ? { background: '#f8fdfb' } : {}}
+                    >
+                      <div className={`notif-item-avatar ${item.type}`}>
+                        {item.type === 'order' ? '🛒' : item.type === 'feedback' ? '💬' : item.type === 'withdrawal' ? '💸' : '👤'}
                       </div>
-                      <p className="notif-item-desc">{item.snippet}</p>
-                      <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                      <div className="notif-item-content">
+                        <div className="notif-item-top">
+                          <span className="notif-item-name">{item.title}</span>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {unread && (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  width: '7px',
+                                  height: '7px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#10b981',
+                                  boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                                  flexShrink: 0
+                                }}
+                                title="Belum dibaca"
+                              />
+                            )}
+                            {item.status_label && (
+                              <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
+                                {item.status_label}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="notif-item-desc">{item.snippet}</p>
+                        <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
+            </div>
+
+            <div className="dropdown-foot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+              <button
+                type="button"
+                onClick={() => markCategoryAsRead('all')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  color: '#0f766e',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Tandai semua dibaca
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNotifications(false)}
+                style={{
+                  padding: '4px 10px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  color: '#475569',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Tutup
+              </button>
             </div>
           </div>
         )}
