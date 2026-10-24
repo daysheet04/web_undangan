@@ -1061,6 +1061,223 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onReload }) {
   );
 }
 
+function AffiliateCommissionBreakdownModal({
+  open,
+  onClose,
+  commissionTotal,
+  referralSalesTotal,
+  paidOrdersCount,
+  breakdown,
+  onSelectAffiliate,
+  onViewOrder,
+}) {
+  const [query, setQuery] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
+
+  if (!open) return null;
+
+  const needle = query.trim().toLowerCase();
+  const list = needle
+    ? breakdown.filter((item) =>
+        `${item.name} ${item.email} ${item.code}`.toLowerCase().includes(needle)
+      )
+    : breakdown;
+
+  const activeCount = breakdown.filter((item) => item.paidCommissionTotal > 0 || item.paidOrderCount > 0).length;
+
+  return (
+    <div
+      className="admin-order-modal admin-commission-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rincian Komisi Affiliate"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <article className="admin-commission-modal-card">
+        <header>
+          <div>
+            <span className="eyebrow">RINCIAN KOMISI AFFILIATE</span>
+            <h2>Breakdown Komisi per Affiliate</h2>
+            <p>Rincian total komisi dan performa transaksi per partner affiliate dari pesanan lunas</p>
+          </div>
+          <button type="button" className="close" onClick={onClose} aria-label="Tutup">
+            ×
+          </button>
+        </header>
+
+        <div className="admin-commission-metrics">
+          <div className="admin-commission-metrics-card highlight">
+            <span>Total Komisi Lunas</span>
+            <strong>{money(commissionTotal)}</strong>
+            <small>hak komisi siap cair / lunas</small>
+          </div>
+          <div className="admin-commission-metrics-card">
+            <span>Omset Referral Lunas</span>
+            <strong>{money(referralSalesTotal)}</strong>
+            <small>dari {paidOrdersCount} transaksi referral lunas</small>
+          </div>
+          <div className="admin-commission-metrics-card">
+            <span>Partner Terlibat</span>
+            <strong>{activeCount} affiliate</strong>
+            <small>dari {breakdown.length} total mitra referral</small>
+          </div>
+        </div>
+
+        {breakdown.length > 2 && (
+          <div className="admin-commission-search-bar">
+            <input
+              type="search"
+              placeholder="Cari partner (nama, email, atau kode referral)..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div className="admin-commission-table-wrap">
+          <table className="admin-commission-table">
+            <thead>
+              <tr>
+                <th>Partner Affiliate</th>
+                <th>Pesanan Lunas</th>
+                <th>Total Penjualan</th>
+                <th>Total Komisi</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.length ? (
+                list.map((item) => {
+                  const isExpanded = expandedId === item.id;
+                  return (
+                    <React.Fragment key={item.id}>
+                      <tr>
+                        <td>
+                          <div className="admin-commission-partner">
+                            <strong>{item.name}</strong>
+                            <div className="admin-commission-partner-meta">
+                              {item.code && (
+                                <span className="admin-commission-code-badge" title="Kode Referral">
+                                  #{item.code}
+                                </span>
+                              )}
+                              {item.email && <span className="admin-commission-email">{item.email}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{item.paidOrderCount} pesanan</strong>
+                          {item.pendingOrderCount > 0 && (
+                            <small style={{ display: 'block', color: '#b27b2b', marginTop: '2px' }}>
+                              +{item.pendingOrderCount} menunggu
+                            </small>
+                          )}
+                        </td>
+                        <td>
+                          <strong>{money(item.paidSalesTotal)}</strong>
+                        </td>
+                        <td>
+                          <strong className={`admin-commission-amount ${item.paidCommissionTotal > 0 ? '' : 'zero'}`}>
+                            {money(item.paidCommissionTotal)}
+                          </strong>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className="admin-commission-btn-expand"
+                              onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                              title="Lihat daftar invoice referral"
+                            >
+                              {isExpanded ? 'Tutup ▲' : `Daftar (${item.orders.length}) ▼`}
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-commission-view-order-btn"
+                              onClick={() => {
+                                const val = item.email ? `email:${item.email.toLowerCase()}` : `id:${item.id}`;
+                                onSelectAffiliate(val);
+                                onClose();
+                              }}
+                              title="Filter riwayat pesanan dengan affiliate ini"
+                            >
+                              Filter
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan="5" style={{ padding: '0 12px 14px' }}>
+                            <div className="admin-commission-orders-subtable">
+                              <div style={{ marginBottom: '8px', fontSize: '0.68rem', fontWeight: 800, color: '#315549' }}>
+                                Transaksi Referral · {item.name} ({item.orders.length} pesanan)
+                              </div>
+                              <div className="admin-commission-orders-list">
+                                {item.orders.map((ord) => (
+                                  <div key={ord.id || ord.order_code} className="admin-commission-order-item">
+                                    <div className="admin-commission-order-meta">
+                                      <span className="admin-commission-order-code">{ord.order_code}</span>
+                                      <span>· {ord.customer_name}</span>
+                                      <span style={{ color: '#7b8a83' }}>({ord.template_name || '-'} / {ord.package_name || '-'})</span>
+                                      <span className={`admin-pill ${ord.payment_status}`} style={{ fontSize: '0.6rem', padding: '2px 6px' }}>
+                                        {statusLabel(ord.payment_status)}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <span style={{ color: '#566a61' }}>{money(ord.payment_amount || ord.package_price)}</span>
+                                      <span className="admin-commission-order-comm">
+                                        Komisi: {money(ord.affiliate_commission_amount)}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="admin-commission-view-order-btn"
+                                        onClick={() => {
+                                          onClose();
+                                          onViewOrder(ord);
+                                        }}
+                                      >
+                                        Detail
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="5" className="admin-order-empty">
+                    {query
+                      ? 'Tidak ada partner affiliate yang cocok dengan kata kunci pencarian.'
+                      : 'Tidak ada transaksi referral affiliate pada pesanan dengan filter saat ini.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <footer>
+          <small>
+            * Total komisi dihitung dari seluruh pesanan referral yang berstatus lunas.
+          </small>
+          <button type="button" className="close-btn" onClick={onClose}>
+            Tutup
+          </button>
+        </footer>
+      </article>
+    </div>
+  );
+}
+
 function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSave, onSaveWebsite, onReload }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
@@ -1072,6 +1289,7 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
   const [detail, setDetail] = useState(null);
   const [editing, setEditing] = useState(null);
   const [extendingOrder, setExtendingOrder] = useState(null);
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
   const pageSize = 10;
 
   const affiliateChoices = useMemo(() => {
@@ -1107,6 +1325,57 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
   const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const paginationItems = affiliatePaginationItems(currentPage, pageCount);
   const paidTotal = filtered.filter((order) => order.payment_status === 'paid').reduce((sum, order) => sum + Number(order.payment_amount ?? order.package_price ?? 0), 0);
+
+  const affiliatePaidOrders = useMemo(() => {
+    return filtered.filter((order) => order.payment_status === 'paid' && (order.affiliate_id || Number(order.affiliate_commission_amount || 0) > 0));
+  }, [filtered]);
+
+  const affiliateCommissionTotal = useMemo(() => {
+    return affiliatePaidOrders.reduce((sum, order) => sum + Number(order.affiliate_commission_amount || 0), 0);
+  }, [affiliatePaidOrders]);
+
+  const totalReferralSales = useMemo(() => {
+    return affiliatePaidOrders.reduce((sum, order) => sum + Number(order.payment_amount ?? order.package_price ?? 0), 0);
+  }, [affiliatePaidOrders]);
+
+  const commissionBreakdown = useMemo(() => {
+    const map = new Map();
+    filtered.forEach((order) => {
+      if (!order.affiliate_id && !order.affiliate_name && !Number(order.affiliate_commission_amount || 0)) return;
+      const key = String(order.affiliate_id || order.affiliate_email || order.affiliate_name);
+      const isPaid = order.payment_status === 'paid';
+      const commAmount = Number(order.affiliate_commission_amount || 0);
+      const saleAmount = Number(order.payment_amount ?? order.package_price ?? 0);
+
+      const existing = map.get(key) || {
+        id: order.affiliate_id || key,
+        name: order.affiliate_name || order.referral_name || 'Affiliate',
+        email: order.affiliate_email || '',
+        code: order.affiliate_referral_code || '',
+        paidOrderCount: 0,
+        pendingOrderCount: 0,
+        paidSalesTotal: 0,
+        paidCommissionTotal: 0,
+        pendingCommissionTotal: 0,
+        orders: [],
+      };
+
+      if (isPaid) {
+        existing.paidOrderCount += 1;
+        existing.paidSalesTotal += saleAmount;
+        existing.paidCommissionTotal += commAmount;
+      } else {
+        existing.pendingOrderCount += 1;
+        existing.pendingCommissionTotal += commAmount;
+      }
+      existing.orders.push(order);
+      map.set(key, existing);
+    });
+
+    return [...map.values()].sort((a, b) => b.paidCommissionTotal - a.paidCommissionTotal || b.paidSalesTotal - a.paidSalesTotal);
+  }, [filtered]);
+
+  const activeAffiliatesCount = commissionBreakdown.filter((item) => item.paidCommissionTotal > 0 || item.paidOrderCount > 0).length;
 
   useEffect(() => setPage(1), [query, status, affiliate, template, startDate, endDate]);
   useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
@@ -1182,6 +1451,30 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
       <div><span>Pesanan ditemukan</span><strong>{filtered.length}</strong><small>dari {orders.length} seluruh data</small></div>
       <div><span>Pesanan lunas</span><strong>{filtered.filter((item) => item.payment_status === 'paid').length}</strong><small>sesuai filter aktif</small></div>
       <div><span>Nilai pembayaran</span><strong>{money(paidTotal)}</strong><small>total status lunas</small></div>
+      <div
+        className="is-clickable"
+        role="button"
+        tabIndex={0}
+        onClick={() => setShowCommissionModal(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setShowCommissionModal(true);
+          }
+        }}
+        title="Klik untuk melihat rincian total komisi per affiliate"
+      >
+        <div className="summary-title-row">
+          <span>Total komisi affiliate</span>
+          <span className="summary-badge-action">Rincian ↗</span>
+        </div>
+        <strong>{money(affiliateCommissionTotal)}</strong>
+        <small>
+          {activeAffiliatesCount > 0
+            ? `${activeAffiliatesCount} affiliate · ${affiliatePaidOrders.length} order referral lunas`
+            : 'Klik untuk rincian affiliate'}
+        </small>
+      </div>
     </section>
     <section className="admin-order-history-filter">
       <label className="admin-order-search"><span>Cari pesanan</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, customer, email, HP, atau ID transaksi"/></label>
@@ -1213,6 +1506,16 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
         }}
       />
     )}
+    <AffiliateCommissionBreakdownModal
+      open={showCommissionModal}
+      onClose={() => setShowCommissionModal(false)}
+      commissionTotal={affiliateCommissionTotal}
+      referralSalesTotal={totalReferralSales}
+      paidOrdersCount={affiliatePaidOrders.length}
+      breakdown={commissionBreakdown}
+      onSelectAffiliate={setAffiliate}
+      onViewOrder={setDetail}
+    />
   </>;
 }
 
