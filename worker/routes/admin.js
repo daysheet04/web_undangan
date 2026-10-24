@@ -316,7 +316,48 @@ admin.get('/admin/summary', async (c) => {
     if (order.payment_status === 'paid') items[name].revenue += Number(order.payment_amount ?? order.package_price ?? 0);
     return items;
   }, {})).sort((a, b) => b.revenue - a.revenue || b.orders - a.orders);
-  return c.json({ ok: true, summary, orders, templates: templates.map((template) => adminTemplate(c.env, template)), affiliate_options: affiliateOptions, revenue_by_date: revenueByDate, referral_summary: referralSummary, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+
+  let withdrawals = [];
+  let affiliates = [];
+  if (db) {
+    try {
+      const [withdrawalRes, affiliateRes] = await Promise.all([
+        db.from('affiliate_withdrawals')
+          .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,status,admin_note,requested_at,processed_at,updated_at')
+          .order('requested_at', { ascending: false })
+          .limit(1000),
+        db.from('affiliate_accounts')
+          .select('id,email,full_name,phone,nik,referral_code,status,account_tier,pro_source,created_at,updated_at')
+          .order('created_at', { ascending: false })
+          .limit(1000),
+      ]);
+      const affMap = new Map((affiliateRes.data || []).map((a) => [a.id, a]));
+      withdrawals = (withdrawalRes.data || []).map((w) => ({
+        ...w,
+        amount: Number(w.amount || 0),
+        fee_percent: Number(w.fee_percent || 0),
+        fee_amount: Number(w.fee_amount || 0),
+        net_amount: Number(w.net_amount || w.amount || 0),
+        affiliate: affMap.get(w.affiliate_id) || null,
+      }));
+      affiliates = affiliateRes.data || [];
+    } catch (extraErr) {
+      console.warn('Non-fatal: failed to fetch admin summary withdrawals/affiliates', extraErr);
+    }
+  }
+
+  return c.json({
+    ok: true,
+    summary,
+    orders,
+    withdrawals,
+    affiliates,
+    templates: templates.map((template) => adminTemplate(c.env, template)),
+    affiliate_options: affiliateOptions,
+    revenue_by_date: revenueByDate,
+    referral_summary: referralSummary,
+    mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo'
+  });
 });
 
 admin.get('/admin/orders', async (c) => {

@@ -8,6 +8,9 @@ import AdminTemplate from '../templates/AdminTemplate.jsx';
 import TemplateCover, { templateCoverUrl } from '../components/TemplateCover.jsx';
 import AdminCoverAdjusterModal from '../components/AdminCoverAdjusterModal.jsx';
 import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
+import { CardDetailModal, ViewItemDetailModal, EditItemModal } from '../components/AdminDashboardModals.jsx';
+import AdminBottomTables from '../components/AdminBottomTables.jsx';
+import AdminCustomDropdown from '../components/AdminCustomDropdown.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
@@ -2000,6 +2003,7 @@ export default function AdminPage() {
   const [priceDrafts, setPriceDrafts] = useState({});
   const [commissionDrafts, setCommissionDrafts] = useState({});
   const [activePanel, setActivePanel] = useState('');
+  const [detailQuery, setDetailQuery] = useState('');
   const [activeView, setActiveView] = useState('report');
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -2007,6 +2011,13 @@ export default function AdminPage() {
   const [editorQuery, setEditorQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [filterPreset, setFilterPreset] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [cardModal, setCardModal] = useState(null);
+  const [cardModalQuery, setCardModalQuery] = useState('');
+  const [cardModalPage, setCardModalPage] = useState(1);
+  const [viewItemModal, setViewItemModal] = useState(null);
+  const [editItemModal, setEditItemModal] = useState(null);
   const [affiliateReviews, setAffiliateReviews] = useState({ data: null, loading: false, error: '' });
   const [affiliateReviewWorking, setAffiliateReviewWorking] = useState('');
   const [proUpgrades, setProUpgrades] = useState({ data: null, loading: false, error: '' });
@@ -2396,10 +2407,40 @@ export default function AdminPage() {
   };
   const orders = data?.orders || [];
   const regularOrders = useMemo(() => orders.filter((order) => order.order_source !== 'admin_free'), [orders]);
+  const freeOrders = useMemo(() => orders.filter((order) => order.order_source === 'admin_free'), [orders]);
+
   const periodOrders = useMemo(() => regularOrders.filter((order) => {
     const date = orderDateValue(order);
     return (!startDate || date >= startDate) && (!endDate || date <= endDate);
   }), [regularOrders, startDate, endDate]);
+
+  const periodFreeOrders = useMemo(() => freeOrders.filter((order) => {
+    const date = orderDateValue(order);
+    return (!startDate || date >= startDate) && (!endDate || date <= endDate);
+  }), [freeOrders, startDate, endDate]);
+
+  const isAffiliateOrder = useCallback((order) => {
+    if (!order || order.order_source === 'admin_free') return false;
+    if (order.affiliate_id) return true;
+    const ref = String(order.referral_name || '').trim();
+    if (ref && ref !== 'Tanpa referral' && ref !== 'Tanpa nama pembawa') return true;
+    if (order.affiliate_referral_code) return true;
+    if (Number(order.affiliate_commission_amount || 0) > 0) return true;
+    return false;
+  }, []);
+
+  const periodAffiliateOrders = useMemo(() => periodOrders.filter(isAffiliateOrder), [periodOrders, isAffiliateOrder]);
+  const periodDirectOrders = useMemo(() => periodOrders.filter((o) => !isAffiliateOrder(o)), [periodOrders, isAffiliateOrder]);
+  const paidAffiliateOrders = useMemo(() => periodAffiliateOrders.filter((o) => o.payment_status === 'paid'), [periodAffiliateOrders]);
+  const paidDirectOrders = useMemo(() => periodDirectOrders.filter((o) => o.payment_status === 'paid'), [periodDirectOrders]);
+
+  const affiliateFinancials = useMemo(() => {
+    const omset = paidAffiliateOrders.reduce((sum, o) => sum + Number(o.payment_amount ?? o.package_price ?? 0), 0);
+    const commission = paidAffiliateOrders.reduce((sum, o) => sum + Number(o.affiliate_commission_amount || o.referral_amount || 0), 0);
+    const netProfit = Math.max(0, omset - commission);
+    return { omset, commission, netProfit };
+  }, [paidAffiliateOrders]);
+
   const summary = useMemo(() => {
     const paidOrders = periodOrders.filter((order) => order.payment_status === 'paid');
     return {
@@ -2412,6 +2453,166 @@ export default function AdminPage() {
       total_referral_payout: periodOrders.reduce((total, order) => total + Number(order.referral_amount || 0), 0),
     };
   }, [periodOrders]);
+
+  const rawWithdrawals = useMemo(() => {
+    return withdrawalAdmin.data?.withdrawals || data?.withdrawals || [];
+  }, [withdrawalAdmin.data?.withdrawals, data?.withdrawals]);
+
+  const periodWithdrawals = useMemo(() => {
+    return rawWithdrawals.filter((w) => {
+      const d = String(w.requested_at || w.created_at || '').slice(0, 10);
+      return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+    });
+  }, [rawWithdrawals, startDate, endDate]);
+
+  const withdrawalStats = useMemo(() => {
+    const totalCount = periodWithdrawals.length;
+    const totalAmount = periodWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
+    const paid = periodWithdrawals.filter((w) => w.status === 'paid');
+    const paidCount = paid.length;
+    const paidAmount = paid.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
+    const pending = periodWithdrawals.filter((w) => ['pending', 'processing'].includes(w.status));
+    const pendingCount = pending.length;
+    const pendingAmount = pending.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
+    const rejected = periodWithdrawals.filter((w) => ['rejected', 'cancelled'].includes(w.status));
+    const rejectedCount = rejected.length;
+    const rejectedAmount = rejected.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
+    return {
+      totalCount,
+      totalAmount,
+      paid,
+      paidCount,
+      paidAmount,
+      pending,
+      pendingCount,
+      pendingAmount,
+      rejected,
+      rejectedCount,
+      rejectedAmount,
+    };
+  }, [periodWithdrawals]);
+
+  const rawAffiliates = useMemo(() => {
+    return affiliateReviews.data?.affiliates || data?.affiliates || [];
+  }, [affiliateReviews.data?.affiliates, data?.affiliates]);
+
+  const periodAffiliates = useMemo(() => {
+    return rawAffiliates.filter((a) => {
+      const d = String(a.created_at || '').slice(0, 10);
+      return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+    });
+  }, [rawAffiliates, startDate, endDate]);
+
+  const affiliateStats = useMemo(() => {
+    const pending = periodAffiliates.filter((a) => a.status === 'pending');
+    const active = periodAffiliates.filter((a) => a.status === 'active');
+    const inactive = periodAffiliates.filter((a) => ['suspended', 'inactive'].includes(a.status));
+    const rejected = periodAffiliates.filter((a) => a.status === 'rejected');
+    const other = periodAffiliates.filter((a) => !['pending', 'active', 'suspended', 'inactive', 'rejected'].includes(a.status));
+
+    return {
+      totalCount: periodAffiliates.length,
+      pending,
+      pendingCount: pending.length,
+      active,
+      activeCount: active.length,
+      inactive,
+      inactiveCount: inactive.length,
+      rejected,
+      rejectedCount: rejected.length,
+      other,
+      otherCount: other.length,
+    };
+  }, [periodAffiliates]);
+
+  const combinedPeriodOrders = useMemo(() => {
+    return [...periodOrders, ...periodFreeOrders];
+  }, [periodOrders, periodFreeOrders]);
+
+  const isWebsiteActive = useCallback((order) => Boolean(order.website_active), []);
+
+  const websiteStats = useMemo(() => {
+    const allActive = combinedPeriodOrders.filter(isWebsiteActive);
+    const directActive = periodDirectOrders.filter(isWebsiteActive);
+    const affiliateActive = periodAffiliateOrders.filter(isWebsiteActive);
+    const freeActive = periodFreeOrders.filter(isWebsiteActive);
+    const rate = combinedPeriodOrders.length ? Math.round((allActive.length / combinedPeriodOrders.length) * 100) : 0;
+
+    return {
+      allActive,
+      allActiveCount: allActive.length,
+      directActive,
+      directActiveCount: directActive.length,
+      affiliateActive,
+      affiliateActiveCount: affiliateActive.length,
+      freeActive,
+      freeActiveCount: freeActive.length,
+      rate,
+    };
+  }, [combinedPeriodOrders, isWebsiteActive, periodDirectOrders, periodAffiliateOrders, periodFreeOrders]);
+
+  const topAffiliates = useMemo(() => {
+    const map = new Map();
+    rawAffiliates.forEach((aff) => {
+      map.set(aff.id, {
+        id: aff.id,
+        name: aff.full_name || 'Affiliate',
+        code: aff.referral_code || '-',
+        email: aff.email || '',
+        phone: aff.phone || '',
+        tier: aff.account_tier || 'regular',
+        status: aff.status || 'active',
+        ordersCount: 0,
+        paidOrdersCount: 0,
+        revenue: 0,
+        commission: 0,
+        netProfit: 0,
+      });
+    });
+
+    periodOrders.forEach((order) => {
+      if (!isAffiliateOrder(order)) return;
+      const key = order.affiliate_id || order.referral_name || order.affiliate_referral_code;
+      if (!key) return;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          id: order.affiliate_id || key,
+          name: order.affiliate_name || order.referral_name || 'Affiliate',
+          code: order.affiliate_referral_code || '-',
+          email: order.affiliate_email || '',
+          phone: '',
+          tier: 'regular',
+          status: order.affiliate_status || 'active',
+          ordersCount: 0,
+          paidOrdersCount: 0,
+          revenue: 0,
+          commission: 0,
+          netProfit: 0,
+        });
+      }
+
+      const item = map.get(key);
+      item.ordersCount += 1;
+      if (order.payment_status === 'paid') {
+        item.paidOrdersCount += 1;
+        const rev = Number(order.payment_amount ?? order.package_price ?? 0);
+        const comm = Number(order.affiliate_commission_amount || order.referral_amount || 0);
+        item.revenue += rev;
+        item.commission += comm;
+        item.netProfit += Math.max(0, rev - comm);
+      }
+    });
+
+    return [...map.values()]
+      .filter((item) => item.ordersCount > 0 || item.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue || b.paidOrdersCount - a.paidOrdersCount || b.ordersCount - a.ordersCount)
+      .slice(0, 5);
+  }, [rawAffiliates, periodOrders, isAffiliateOrder]);
   const filteredOrders = useMemo(() => periodOrders.filter((order) => {
     const matchesFilter = filter === 'all' || (filter === 'website' ? order.website_active === false : order.payment_status === filter);
     const haystack = `${order.order_code} ${order.customer_name} ${order.customer_email} ${order.template_name} ${order.package_name} ${order.referral_name}`.toLowerCase();
@@ -2519,23 +2720,288 @@ export default function AdminPage() {
   }, [activeView, markCategoryAsRead]);
 
   useEffect(() => {
-    if (['affiliates', 'affiliate-data'].includes(activeView) && !affiliateReviews.data && !affiliateReviews.loading) loadAffiliateReviews();
+    if (['report', 'affiliates', 'affiliate-data'].includes(activeView) && !affiliateReviews.data && !affiliateReviews.loading) {
+      loadAffiliateReviews();
+    }
   }, [activeView]);
 
   useEffect(() => {
-    if (activeView === 'withdrawals' && !withdrawalAdmin.data && !withdrawalAdmin.loading) loadWithdrawals();
+    if (['report', 'withdrawals'].includes(activeView) && !withdrawalAdmin.data && !withdrawalAdmin.loading) {
+      loadWithdrawals();
+    }
   }, [activeView]);
+
+  useEffect(() => {
+    if (data?.withdrawals && !withdrawalAdmin.data) {
+      setWithdrawalAdmin({
+        data: {
+          withdrawals: data.withdrawals,
+          settings: { min_withdrawal_amount: 50000, fee_percent: 0 },
+          summary: {
+            pending: data.withdrawals.filter((w) => w.status === 'pending').length,
+            processing: data.withdrawals.filter((w) => w.status === 'processing').length,
+            paid: data.withdrawals.filter((w) => w.status === 'paid').length,
+            rejected: data.withdrawals.filter((w) => ['rejected', 'cancelled'].includes(w.status)).length,
+          }
+        },
+        loading: false,
+        error: '',
+      });
+    }
+    if (data?.affiliates && !affiliateReviews.data) {
+      setAffiliateReviews({
+        data: {
+          affiliates: data.affiliates,
+          summary: {
+            pending: data.affiliates.filter((a) => a.status === 'pending').length,
+            active: data.affiliates.filter((a) => a.status === 'active').length,
+            rejected: data.affiliates.filter((a) => a.status === 'rejected').length,
+          }
+        },
+        loading: false,
+        error: '',
+      });
+    }
+  }, [data?.withdrawals, data?.affiliates]);
+
+  const activeDetail = useMemo(() => {
+    if (!activePanel) return null;
+
+    if (activePanel.startsWith('top_affiliate:')) {
+      const affId = activePanel.replace('top_affiliate:', '');
+      const matchAff = topAffiliates.find((a) => String(a.id) === affId || a.name === affId);
+      const affName = matchAff?.name || affId;
+      const affOrders = periodOrders.filter((o) => {
+        return String(o.affiliate_id) === affId || o.referral_name === affId || o.affiliate_name === affId || o.affiliate_referral_code === affId;
+      });
+      return {
+        type: 'orders',
+        title: `Pesanan Template dari ${affName}`,
+        subtitle: `Daftar seluruh pesanan template yang dihasilkan oleh mitra ${affName}`,
+        badge: `${affOrders.length} order`,
+        items: affOrders,
+      };
+    }
+
+    switch (activePanel) {
+      case 'orders':
+        return {
+          type: 'orders',
+          title: 'Semua Order Masuk',
+          subtitle: 'Daftar seluruh order masuk reguler pada periode yang dipilih',
+          badge: `${periodOrders.length} order`,
+          items: periodOrders,
+        };
+      case 'paid':
+        return {
+          type: 'orders',
+          title: 'Order Sudah Lunas',
+          subtitle: 'Pesanan yang telah sukses menyelesaikan pembayaran',
+          badge: `${summary.total_paid} order lunas`,
+          items: periodOrders.filter((o) => o.payment_status === 'paid'),
+        };
+      case 'pending':
+        return {
+          type: 'orders',
+          title: 'Menunggu Pembayaran',
+          subtitle: 'Pesanan yang belum lunas dan perlu tindak lanjut / follow-up via WhatsApp',
+          badge: `${summary.total_pending} order menunggu`,
+          items: periodOrders.filter((o) => o.payment_status === 'pending'),
+        };
+      case 'free_orders':
+        return {
+          type: 'free_orders',
+          title: 'Data Order Gratis (Complimentary)',
+          subtitle: 'Daftar undangan gratis yang dibuat khusus oleh admin tanpa alur bayar',
+          badge: `${periodFreeOrders.length} order gratis`,
+          items: periodFreeOrders,
+        };
+      case 'affiliate_commission':
+        return {
+          type: 'affiliate_sales',
+          title: 'Rincian Komisi Mitra Affiliate',
+          subtitle: 'Komisi yang diperoleh para mitra affiliate dari order template yang sudah lunas',
+          badge: `${paidAffiliateOrders.length} transaksi komisi`,
+          items: paidAffiliateOrders,
+        };
+      case 'affiliate_omset':
+        return {
+          type: 'affiliate_sales',
+          title: 'Omzet Penjualan Template via Affiliate',
+          subtitle: 'Nilai penjualan kotor dari paket undangan yang terjual melalui jalur affiliate',
+          badge: `${paidAffiliateOrders.length} order lunas`,
+          items: paidAffiliateOrders,
+        };
+      case 'affiliate_profit':
+        return {
+          type: 'affiliate_sales',
+          title: 'Keuntungan Bersih DayMoment dari Penjualan Affiliate',
+          subtitle: 'Omzet template terjual via affiliate dikurangi hak komisi mitra affiliate',
+          badge: `${paidAffiliateOrders.length} order lunas`,
+          items: paidAffiliateOrders,
+        };
+      case 'affiliate_orders':
+        return {
+          type: 'orders',
+          title: 'Semua Order Jalur Affiliate',
+          subtitle: 'Pesanan yang masuk melalui link atau kode referral mitra affiliate',
+          badge: `${periodAffiliateOrders.length} order`,
+          items: periodAffiliateOrders,
+        };
+      case 'withdrawals_all':
+        return {
+          type: 'withdrawals',
+          title: 'Semua Pengajuan Penarikan Saldo Affiliate',
+          subtitle: 'Seluruh riwayat permohonan penarikan saldo komisi para affiliate',
+          badge: `${withdrawalStats.totalCount} pengajuan`,
+          items: periodWithdrawals,
+        };
+      case 'withdrawals_paid':
+        return {
+          type: 'withdrawals',
+          title: 'Penarikan Selesai (Sudah Ditransfer)',
+          subtitle: 'Permintaan payout affiliate yang telah sukses ditransfer oleh admin',
+          badge: `${withdrawalStats.paidCount} transfer selesai`,
+          items: withdrawalStats.paid,
+        };
+      case 'withdrawals_pending':
+        return {
+          type: 'withdrawals',
+          title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
+          subtitle: 'Permintaan penarikan yang masih menunggu transfer dan upload bukti bayar',
+          badge: `${withdrawalStats.pendingCount} belum selesai`,
+          items: withdrawalStats.pending,
+        };
+      case 'withdrawals_rejected':
+        return {
+          type: 'withdrawals',
+          title: 'Penarikan Ditolak / Dibatalkan',
+          subtitle: 'Permintaan penarikan yang ditolak atau dibatalkan karena kendala rekening atau data',
+          badge: `${withdrawalStats.rejectedCount} ditolak`,
+          items: withdrawalStats.rejected,
+        };
+      case 'affiliates_pending':
+        return {
+          type: 'affiliates',
+          title: 'Pendaftaran Affiliate Menunggu Review',
+          subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
+          badge: `${affiliateStats.pendingCount} perlu review`,
+          items: affiliateStats.pending,
+        };
+      case 'affiliates_active':
+        return {
+          type: 'affiliates',
+          title: 'Mitra Affiliate Disetujui & Aktif',
+          subtitle: 'Mitra resmi yang aktif memiliki link, kode referral, dan siap berpromosi',
+          badge: `${affiliateStats.activeCount} mitra aktif`,
+          items: affiliateStats.active,
+        };
+      case 'affiliates_rejected':
+        return {
+          type: 'affiliates',
+          title: 'Pendaftaran Affiliate Ditolak',
+          subtitle: 'Pendaftaran mitra yang ditolak karena data tidak sesuai atau tidak lengkap',
+          badge: `${affiliateStats.rejectedCount} ditolak`,
+          items: affiliateStats.rejected,
+        };
+      case 'affiliates_all':
+        return {
+          type: 'affiliates',
+          title: 'Semua Mitra Affiliate Terdaftar',
+          subtitle: 'Database lengkap seluruh mitra affiliate yang terdaftar di sistem DayMoment',
+          badge: `${affiliateStats.totalCount} affiliate`,
+          items: periodAffiliates,
+        };
+      case 'active_websites_all':
+        return {
+          type: 'websites',
+          title: 'Semua Website Undangan yang Aktif',
+          subtitle: 'Seluruh website yang terbit, akses dibuka, dan belum kedaluwarsa',
+          badge: `${websiteStats.allActiveCount} website aktif`,
+          items: websiteStats.allActive,
+        };
+      case 'active_websites_direct':
+        return {
+          type: 'websites',
+          title: 'Website Aktif: Order Berbayar Langsung DayMoment',
+          subtitle: 'Website aktif dari pemesan langsung tanpa melalui perantara affiliate',
+          badge: `${websiteStats.directActiveCount} website aktif`,
+          items: websiteStats.directActive,
+        };
+      case 'active_websites_affiliate':
+        return {
+          type: 'websites',
+          title: 'Website Aktif: Dari Penjualan Affiliate',
+          subtitle: 'Website aktif dari pesanan customer yang dipromosikan oleh mitra affiliate',
+          badge: `${websiteStats.affiliateActiveCount} website aktif`,
+          items: websiteStats.affiliateActive,
+        };
+      case 'active_websites_free':
+        return {
+          type: 'websites',
+          title: 'Website Aktif: Dari Order Gratis (Complimentary)',
+          subtitle: 'Website aktif yang dibuat langsung dari alur order gratis admin',
+          badge: `${websiteStats.freeActiveCount} website aktif`,
+          items: websiteStats.freeActive,
+        };
+      default:
+        return null;
+    }
+  }, [
+    activePanel,
+    topAffiliates,
+    periodOrders,
+    summary.total_paid,
+    summary.total_pending,
+    periodFreeOrders,
+    paidAffiliateOrders,
+    periodAffiliateOrders,
+    periodDirectOrders,
+    periodWithdrawals,
+    withdrawalStats,
+    periodAffiliates,
+    affiliateStats,
+    websiteStats,
+  ]);
+
+  const filteredDetailItems = useMemo(() => {
+    if (!activeDetail || !Array.isArray(activeDetail.items)) return [];
+    if (!detailQuery.trim()) return activeDetail.items;
+    const q = detailQuery.toLowerCase().trim();
+    return activeDetail.items.filter((item) => {
+      const texts = [
+        item.order_code,
+        item.customer_name,
+        item.customer_email,
+        item.customer_phone,
+        item.full_name,
+        item.email,
+        item.phone,
+        item.nik,
+        item.referral_code,
+        item.referral_name,
+        item.affiliate_name,
+        item.template_name,
+        item.template_code,
+        item.package_name,
+        item.package_code,
+        item.slug,
+        item.provider,
+        item.account_name,
+        item.account_number,
+        item.admin_note,
+        item.complimentary_note,
+        item.status,
+        item.payment_status,
+      ].filter(Boolean).map(String);
+      return texts.some((t) => t.toLowerCase().includes(q));
+    });
+  }, [activeDetail, detailQuery]);
 
   if (loading) return <AdminTemplate><Loading showLabel /></AdminTemplate>;
   if (error?.status === 401) return <AdminTemplate><AdminLogin onSuccess={reload} /></AdminTemplate>;
   if (error) return <AdminTemplate><ErrorState error={error} /></AdminTemplate>;
-  const detailFilters = {
-    orders: { title: 'Semua order masuk', items: periodOrders },
-    paid: { title: 'Order sudah lunas', items: periodOrders.filter((order) => order.payment_status === 'paid') },
-    published: { title: 'Website sudah terbit', items: periodOrders.filter((order) => order.status === 'published') },
-    pending: { title: 'Menunggu pembayaran', items: periodOrders.filter((order) => order.payment_status === 'pending') },
-  };
-  const detail = detailFilters[activePanel];
+  const detail = activeDetail;
 
   const resolveFeeOrder = (candidate, fallback = null) => {
     const options = [candidate, fallback].filter(Boolean);
@@ -2824,6 +3290,184 @@ export default function AdminPage() {
       return false;
     } finally {
       setWithdrawalWorking('');
+    }
+  };
+
+  const handleDatePreset = (preset) => {
+    setFilterPreset(preset);
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const formatYmd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (preset === 'all') {
+      setStartDate('');
+      setEndDate('');
+      setSelectedYear('all');
+    } else if (preset === 'today') {
+      const ymd = formatYmd(now);
+      setStartDate(ymd);
+      setEndDate(ymd);
+      setSelectedYear('all');
+    } else if (preset === '7d') {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      setStartDate(formatYmd(start));
+      setEndDate(formatYmd(now));
+      setSelectedYear('all');
+    } else if (preset === '30d') {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      setStartDate(formatYmd(start));
+      setEndDate(formatYmd(now));
+      setSelectedYear('all');
+    } else if (preset === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(formatYmd(start));
+      setEndDate(formatYmd(end));
+      setSelectedYear('all');
+    } else if (preset === 'this_year') {
+      const yr = now.getFullYear();
+      setStartDate(`${yr}-01-01`);
+      setEndDate(`${yr}-12-31`);
+      setSelectedYear(String(yr));
+    }
+  };
+
+  const handleYearChange = (year) => {
+    setSelectedYear(year);
+    if (year === 'all') {
+      setStartDate('');
+      setEndDate('');
+      setFilterPreset('all');
+    } else {
+      setStartDate(`${year}-01-01`);
+      setEndDate(`${year}-12-31`);
+      setFilterPreset('custom');
+    }
+  };
+
+  const openCardModal = (cardConfig) => {
+    setCardModalQuery('');
+    setCardModalPage(1);
+    setCardModal(cardConfig);
+  };
+
+  const openViewModal = (type, item) => {
+    setViewItemModal({ type, data: item });
+  };
+
+  const openEditModal = (type, item) => {
+    let draft = {};
+    if (type === 'order') {
+      draft = {
+        status: item.status || 'waiting_payment',
+        payment_status: item.payment_status || 'pending',
+        payment_amount: Number(item.payment_amount ?? item.package_price ?? 0),
+        website_active: Boolean(item.website_active),
+        active_until: item.active_until ? String(item.active_until).slice(0, 10) : '',
+        slug: item.slug || '',
+        referral_name: item.referral_name || '',
+        referral_amount: Number(item.referral_amount || 0),
+      };
+    } else if (type === 'free_order') {
+      draft = {
+        complimentary_note: item.complimentary_note || '',
+        website_active: Boolean(item.website_active),
+        active_until: item.active_until ? String(item.active_until).slice(0, 10) : '',
+        slug: item.slug || '',
+      };
+    } else if (type === 'withdrawal') {
+      draft = {
+        status: item.status || 'pending',
+        admin_note: item.admin_note || '',
+        proofFile: null,
+      };
+    } else if (type === 'affiliate') {
+      draft = {
+        status: item.status || 'active',
+        account_tier: item.account_tier || 'regular',
+        full_name: item.full_name || '',
+        phone: item.phone || '',
+        nik: item.nik || '',
+        referral_code: item.referral_code || '',
+        bank_name: item.bank_name || '',
+        bank_account_number: item.bank_account_number || '',
+        bank_account_holder: item.bank_account_holder || '',
+        review_note: item.review_note || '',
+      };
+    } else if (type === 'website') {
+      draft = {
+        website_active: Boolean(item.website_active),
+        slug: item.slug || '',
+        active_until: item.active_until ? String(item.active_until).slice(0, 10) : '',
+      };
+    }
+    setEditItemModal({ type, data: item, draft });
+  };
+
+  const handleSaveModalEdit = async (type, item, draft) => {
+    setWorking('modal-edit');
+    try {
+      if (type === 'order') {
+        await saveOrderHistory(item.order_code, {
+          status: draft.status,
+          payment_status: draft.payment_status,
+          payment_amount: Number(draft.payment_amount || 0),
+        });
+        await saveWebsiteAccess(item, {
+          active: Boolean(draft.website_active),
+          slug: draft.slug,
+          active_until: draft.active_until || null,
+        });
+        if (draft.referral_name !== undefined || draft.referral_amount !== undefined) {
+          await saveReferral(item, draft.referral_name, draft.referral_amount);
+        }
+      } else if (type === 'free_order') {
+        await saveOrderHistory(item.order_code, {
+          complimentary_note: draft.complimentary_note,
+        });
+        await saveWebsiteAccess(item, {
+          active: Boolean(draft.website_active),
+          slug: draft.slug,
+          active_until: draft.active_until || null,
+        });
+      } else if (type === 'withdrawal') {
+        await processWithdrawal(item, {
+          status: draft.status,
+          adminNote: draft.admin_note,
+          proof: draft.proofFile,
+        });
+      } else if (type === 'affiliate') {
+        if (draft.status !== item.status) {
+          if (['active', 'suspended'].includes(draft.status)) {
+            await updateAffiliateStatus(item.id, draft.status);
+          } else if (['pending', 'rejected'].includes(draft.status)) {
+            await reviewAffiliate(item.id, draft.status === 'rejected' ? 'rejected' : 'approved', draft.review_note || 'Pembaruan oleh admin');
+          }
+        }
+        await saveAffiliateData(item.id, {
+          full_name: draft.full_name,
+          phone: draft.phone,
+          nik: draft.nik,
+          referral_code: draft.referral_code,
+          account_tier: draft.account_tier,
+          bank_name: draft.bank_name,
+          bank_account_number: draft.bank_account_number,
+          bank_account_holder: draft.bank_account_holder,
+        });
+      } else if (type === 'website') {
+        await saveWebsiteAccess(item, {
+          active: Boolean(draft.website_active),
+          slug: draft.slug,
+          active_until: draft.active_until || null,
+        });
+      }
+      setEditItemModal(null);
+      await reload();
+      window.showToast?.('Perubahan berhasil disimpan.');
+    } catch (err) {
+      window.showToast?.(err.message || 'Gagal menyimpan perubahan.', 'error');
+    } finally {
+      setWorking('');
     }
   };
 
@@ -3693,19 +4337,611 @@ export default function AdminPage() {
       <div className="admin-heading"><div><span className="eyebrow">Pusat penjualan · selamat bekerja</span><h1>{activeView === 'report' ? 'Dashboard laporan' : activeView === 'fee' ? 'Kelola fee pembawa' : activeView === 'fee-report' ? 'Laporan fee pembawa' : activeView === 'setting' ? 'Kelola katalog template' : 'Editor customer'}</h1><p>{activeView === 'report' ? 'Angka rapi, order terpantau, kepala lebih tenang.' : activeView === 'fee' ? 'Kelola fee pembawa dan pastikan data fee tersimpan dengan benar.' : activeView === 'fee-report' ? 'Laporan fee berdasarkan data yang sudah disimpan di order.' : activeView === 'setting' ? 'Atur sampul, nama, deskripsi, kategori, dan harga template.' : 'Buka dan ubah isi undangan customer yang sudah lunas.'}</p></div><div className="admin-heading-actions"><button className="button button-secondary" type="button" onClick={reload}>Muat ulang</button><button className="button button-secondary" type="button" onClick={logout}>Keluar</button></div></div>
       {data.mode === 'demo' && <div className="admin-demo-note">Mode demo aktif. Data akan muncul setelah ada order dari alur pemesanan.</div>}
 
-      <div className="admin-stat-grid">
-        <button className={`admin-stat ${activePanel === 'orders' ? 'selected' : ''}`} type="button" onClick={() => setActivePanel(activePanel === 'orders' ? '' : 'orders')}><span>Total order</span><strong>{summary.total_orders}</strong><small>Klik untuk melihat semua order <b>→</b></small></button>
-        <button className={`admin-stat admin-stat-accent ${activePanel === 'paid' ? 'selected' : ''}`} type="button" onClick={() => setActivePanel(activePanel === 'paid' ? '' : 'paid')}><span>Omzet lunas</span><strong>{money(summary.total_revenue)}</strong><small>{summary.total_paid} order lunas <b>→</b></small></button>
-        <button className={`admin-stat ${activePanel === 'published' ? 'selected' : ''}`} type="button" onClick={() => setActivePanel(activePanel === 'published' ? '' : 'published')}><span>Website terbit</span><strong>{summary.total_published}</strong><small>{summary.total_inactive || 0} website nonaktif <b>→</b></small></button>
-        <button className={`admin-stat admin-stat-pending ${activePanel === 'pending' ? 'selected' : ''}`} type="button" onClick={() => setActivePanel(activePanel === 'pending' ? '' : 'pending')}><span>Menunggu bayar</span><strong>{summary.total_pending || 0}</strong><small>Klik untuk melihat detail <b>→</b></small></button>
-        <div className="admin-stat admin-stat-payout"><span>Total untuk pembawa</span><strong>{money(summary.total_referral_payout)}</strong><small>Fee semua order di periode</small></div>
+      {/* Date & Year Filter Toolbar */}
+      <div className="admin-report-filter-toolbar">
+        <div className="report-filter-presets">
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#165643', textTransform: 'uppercase', marginRight: '4px' }}>Periode:</span>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === 'all' && !startDate && !endDate ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('all')}
+          >
+            Semua
+          </button>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === 'today' ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('today')}
+          >
+            Hari Ini
+          </button>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === '7d' ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('7d')}
+          >
+            7 Hari
+          </button>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === '30d' ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('30d')}
+          >
+            30 Hari
+          </button>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === 'this_month' ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('this_month')}
+          >
+            Bulan Ini
+          </button>
+          <button
+            type="button"
+            className={`filter-preset-btn ${filterPreset === 'this_year' ? 'is-active' : ''}`}
+            onClick={() => handleDatePreset('this_year')}
+          >
+            Tahun Ini
+          </button>
+        </div>
+
+        <div className="report-filter-custom">
+          <div className="filter-input-wrap">
+            <AdminCustomDropdown
+              value={selectedYear}
+              onChange={handleYearChange}
+              options={[
+                { value: 'all', label: 'Semua Tahun' },
+                { value: '2026', label: '2026' },
+                { value: '2025', label: '2025' },
+                { value: '2024', label: '2024' },
+                { value: '2023', label: '2023' },
+              ]}
+              prefix="Tahun:"
+              minWidth="145px"
+            />
+          </div>
+
+          <label className="filter-input-wrap">
+            <span>Dari:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setFilterPreset('custom');
+                setSelectedYear('all');
+              }}
+            />
+          </label>
+
+          <label className="filter-input-wrap">
+            <span>Sampai:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setFilterPreset('custom');
+                setSelectedYear('all');
+              }}
+            />
+          </label>
+
+          {(startDate || endDate || selectedYear !== 'all') && (
+            <button
+              type="button"
+              className="filter-reset-btn"
+              onClick={() => handleDatePreset('all')}
+            >
+              Reset Filter
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="admin-pulse-grid"><section className="admin-pulse-card admin-pulse-warm"><span className="pulse-kicker">Status hari ini</span><strong>{summary.total_pending ? `${summary.total_pending} order perlu disapa` : 'Semua order aman'}</strong><small>{summary.total_pending ? 'Cek pembayaran yang masih menunggu.' : 'Tidak ada antrean follow-up.'}</small></section><section className="admin-pulse-card"><div className="pulse-heading"><span className="pulse-kicker">Website aktif</span><strong>{activeRate}%</strong></div><div className="pulse-progress"><span style={{ width: `${activeRate}%` }} /></div><small>{activeWebsites} dari {periodOrders.length} order punya website aktif</small></section><section className="admin-pulse-card admin-pulse-green"><span className="pulse-kicker">Pembawa teratas</span><strong>{topCarrier?.name || 'Belum ada nama'}</strong><small>{topCarrier ? `${topCarrier.orders} order · ${money(topCarrier.payout)} fee` : 'Isi nama pembawa di tabel order.'}</small></section></div>
+      <div className="admin-summary-container">
+        {/* Section 1: Ringkasan Order & Penjualan */}
+        <div className="admin-summary-section">
+          <div className="admin-summary-header">
+            <span className="admin-summary-kicker">Ringkasan Order &amp; Penjualan</span>
+            <span className="admin-summary-hint">Klik card untuk membuka modal rincian data lengkap</span>
+          </div>
+          <div className="admin-stat-grid-4">
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'orders',
+                title: 'Semua Order Masuk',
+                subtitle: 'Daftar seluruh order masuk reguler pada periode yang dipilih',
+                items: periodOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Order</span>
+                <span className="admin-stat-card-badge badge-blue">Reguler</span>
+              </div>
+              <strong className="admin-stat-card-value">{summary.total_orders}</strong>
+              <small className="admin-stat-card-meta">Lihat semua order masuk <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-accent"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'orders',
+                title: 'Order Sudah Lunas',
+                subtitle: 'Pesanan yang telah sukses menyelesaikan pembayaran',
+                items: periodOrders.filter((o) => o.payment_status === 'paid')
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Omzet Lunas</span>
+                <span className="admin-stat-card-badge badge-green">Lunas</span>
+              </div>
+              <strong className="admin-stat-card-value">{money(summary.total_revenue)}</strong>
+              <small className="admin-stat-card-meta">{summary.total_paid} order lunas <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-pending"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'orders',
+                title: 'Menunggu Pembayaran',
+                subtitle: 'Pesanan yang belum lunas dan perlu follow-up via WhatsApp',
+                items: periodOrders.filter((o) => o.payment_status === 'pending')
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Menunggu Bayar</span>
+                <span className="admin-stat-card-badge badge-amber">Follow-up</span>
+              </div>
+              <strong className="admin-stat-card-value">{summary.total_pending || 0}</strong>
+              <small className="admin-stat-card-meta">Perlu follow-up via WA <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-free"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'free_orders',
+                title: 'Data Order Gratis (Complimentary)',
+                subtitle: 'Daftar undangan gratis yang dibuat khusus oleh admin tanpa pembayaran',
+                items: periodFreeOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Order Gratis</span>
+                <span className="admin-stat-card-badge badge-purple">Free</span>
+              </div>
+              <strong className="admin-stat-card-value">{periodFreeOrders.length}</strong>
+              <small className="admin-stat-card-meta">{websiteStats.freeActiveCount} website aktif <b>→</b></small>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 2: Finansial & Komisi Mitra Affiliate */}
+        <div className="admin-summary-section">
+          <div className="admin-summary-header">
+            <span className="admin-summary-kicker">Kinerja &amp; Finansial Mitra Affiliate</span>
+            <span className="admin-summary-hint">Perhitungan omset template &amp; bagi hasil komisi</span>
+          </div>
+          <div className="admin-stat-grid-4">
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliate_sales',
+                title: 'Rincian Komisi Mitra Affiliate',
+                subtitle: 'Komisi yang diperoleh para mitra affiliate dari order template yang sudah lunas',
+                items: paidAffiliateOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Komisi Affiliate</span>
+                <span className="admin-stat-card-badge badge-blue">Mitra</span>
+              </div>
+              <strong className="admin-stat-card-value">{money(affiliateFinancials.commission)}</strong>
+              <small className="admin-stat-card-meta">{paidAffiliateOrders.length} order lunas affiliate <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliate_sales',
+                title: 'Omzet Penjualan Template via Affiliate',
+                subtitle: 'Nilai penjualan kotor dari paket undangan yang terjual melalui jalur affiliate',
+                items: paidAffiliateOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Omzet via Affiliate</span>
+                <span className="admin-stat-card-badge badge-green">Penjualan</span>
+              </div>
+              <strong className="admin-stat-card-value">{money(affiliateFinancials.omset)}</strong>
+              <small className="admin-stat-card-meta">Total omset template terjual <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-profit"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliate_sales',
+                title: 'Keuntungan Bersih DayMoment dari Penjualan Affiliate',
+                subtitle: 'Omzet template terjual via affiliate dikurangi hak komisi mitra affiliate',
+                items: paidAffiliateOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Keuntungan Bersih Kita</span>
+                <span className="admin-stat-card-badge badge-green">Laba Bersih</span>
+              </div>
+              <strong className="admin-stat-card-value">{money(affiliateFinancials.netProfit)}</strong>
+              <small className="admin-stat-card-meta">Omset dikurang komisi mitra <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'orders',
+                title: 'Semua Order Jalur Affiliate',
+                subtitle: 'Pesanan yang masuk melalui link atau kode referral mitra affiliate',
+                items: periodAffiliateOrders
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Order via Affiliate</span>
+                <span className="admin-stat-card-badge badge-blue">Mitra</span>
+              </div>
+              <strong className="admin-stat-card-value">{periodAffiliateOrders.length}</strong>
+              <small className="admin-stat-card-meta">{paidAffiliateOrders.length} lunas · {periodAffiliateOrders.length - paidAffiliateOrders.length} pending <b>→</b></small>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 3: Penarikan Saldo Affiliate */}
+        <div className="admin-summary-section">
+          <div className="admin-summary-header">
+            <span className="admin-summary-kicker">Penarikan Saldo Affiliate (Payout)</span>
+            <span className="admin-summary-hint">Monitoring pencairan saldo komisi para affiliate</span>
+          </div>
+          <div className="admin-stat-grid-4">
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'withdrawals',
+                title: 'Semua Pengajuan Penarikan Saldo Affiliate',
+                subtitle: 'Seluruh riwayat permohonan penarikan saldo komisi para affiliate',
+                items: periodWithdrawals
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Pengajuan Penarikan</span>
+                <span className="admin-stat-card-badge badge-blue">Semua</span>
+              </div>
+              <strong className="admin-stat-card-value">{withdrawalStats.totalCount}</strong>
+              <small className="admin-stat-card-meta">Total {money(withdrawalStats.totalAmount)} diajukan <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-accent"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'withdrawals',
+                title: 'Penarikan Selesai (Sudah Ditransfer)',
+                subtitle: 'Permintaan payout affiliate yang telah sukses ditransfer oleh admin',
+                items: withdrawalStats.paid
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Ditransfer Selesai</span>
+                <span className="admin-stat-card-badge badge-green">Selesai</span>
+              </div>
+              <strong className="admin-stat-card-value">{withdrawalStats.paidCount}</strong>
+              <small className="admin-stat-card-meta">{money(withdrawalStats.paidAmount)} berhasil ditransfer <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-pending"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'withdrawals',
+                title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
+                subtitle: 'Permintaan penarikan yang masih menunggu transfer dan bukti transfer',
+                items: withdrawalStats.pending
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Belum Selesai</span>
+                <span className="admin-stat-card-badge badge-amber">Antrean</span>
+              </div>
+              <strong className="admin-stat-card-value">{withdrawalStats.pendingCount}</strong>
+              <small className="admin-stat-card-meta">{money(withdrawalStats.pendingAmount)} menunggu transfer <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-rejected"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'withdrawals',
+                title: 'Penarikan Ditolak / Dibatalkan',
+                subtitle: 'Permintaan penarikan yang ditolak atau dibatalkan karena kendala rekening atau data',
+                items: withdrawalStats.rejected
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Penarikan Ditolak</span>
+                <span className="admin-stat-card-badge badge-red">Ditolak</span>
+              </div>
+              <strong className="admin-stat-card-value">{withdrawalStats.rejectedCount}</strong>
+              <small className="admin-stat-card-meta">{money(withdrawalStats.rejectedAmount)} ditolak / batal <b>→</b></small>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 4: Status Kemitraan & Review Affiliate */}
+        <div className="admin-summary-section">
+          <div className="admin-summary-header">
+            <span className="admin-summary-kicker">Status Kemitraan &amp; Review Affiliate</span>
+            <span className="admin-summary-hint">Manajemen status aktif/nonaktif dan verifikasi identitas KTP &amp; NIK</span>
+          </div>
+          <div className="admin-stat-grid-5">
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliates',
+                title: 'Semua Mitra Affiliate Terdaftar',
+                subtitle: 'Database lengkap seluruh mitra affiliate yang terdaftar di sistem DayMoment',
+                items: periodAffiliates
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Affiliate</span>
+                <span className="admin-stat-card-badge badge-blue">Database</span>
+              </div>
+              <strong className="admin-stat-card-value">{affiliateStats.totalCount}</strong>
+              <small className="admin-stat-card-meta">Semua akun mitra <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-accent"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliates',
+                title: 'Mitra Affiliate Aktif & Disetujui',
+                subtitle: 'Mitra resmi yang aktif memiliki link, kode referral, dan siap berpromosi',
+                items: affiliateStats.active
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Mitra Aktif</span>
+                <span className="admin-stat-card-badge badge-green">Aktif</span>
+              </div>
+              <strong className="admin-stat-card-value">{affiliateStats.activeCount}</strong>
+              <small className="admin-stat-card-meta">Mitra resmi berpromosi <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-gray"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliates',
+                title: 'Mitra Affiliate Nonaktif / Ditangguhkan',
+                subtitle: 'Akun mitra yang saat ini berstatus nonaktif atau ditangguhkan oleh admin',
+                items: affiliateStats.inactive
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Mitra Nonaktif</span>
+                <span className="admin-stat-card-badge badge-gray">Nonaktif</span>
+              </div>
+              <strong className="admin-stat-card-value">{affiliateStats.inactiveCount}</strong>
+              <small className="admin-stat-card-meta">Akun dinonaktifkan <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-pending"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliates',
+                title: 'Pendaftaran Affiliate Menunggu Review',
+                subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
+                items: affiliateStats.pending
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Perlu Direview</span>
+                <span className="admin-stat-card-badge badge-amber">Pending</span>
+              </div>
+              <strong className="admin-stat-card-value">{affiliateStats.pendingCount}</strong>
+              <small className="admin-stat-card-meta">Verifikasi KTP <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-rejected"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'affiliates',
+                title: 'Pendaftaran Affiliate Ditolak',
+                subtitle: 'Pendaftaran mitra yang ditolak karena data tidak sesuai atau tidak lengkap',
+                items: affiliateStats.rejected
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Mitra Ditolak</span>
+                <span className="admin-stat-card-badge badge-red">Ditolak</span>
+              </div>
+              <strong className="admin-stat-card-value">{affiliateStats.rejectedCount}</strong>
+              <small className="admin-stat-card-meta">Pendaftaran ditolak <b>→</b></small>
+            </button>
+          </div>
+        </div>
+
+        {/* Section 5: Monitoring Website Aktif */}
+        <div className="admin-summary-section">
+          <div className="admin-summary-header">
+            <span className="admin-summary-kicker">Monitoring Website Aktif</span>
+            <span className="admin-summary-hint">{websiteStats.rate}% ({websiteStats.allActiveCount} dari {combinedPeriodOrders.length}) undangan sedang aktif</span>
+          </div>
+          <div className="admin-stat-grid-4">
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'websites',
+                title: 'Semua Website Undangan yang Aktif',
+                subtitle: 'Seluruh website yang terbit, akses dibuka, dan belum kedaluwarsa',
+                items: websiteStats.allActive
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Total Website Aktif</span>
+                <span className="admin-stat-card-badge badge-green">{websiteStats.rate}%</span>
+              </div>
+              <strong className="admin-stat-card-value">{websiteStats.allActiveCount}</strong>
+              <small className="admin-stat-card-meta">Seluruh website aktif <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'websites',
+                title: 'Website Aktif: Order Berbayar Langsung DayMoment',
+                subtitle: 'Website aktif dari pemesan langsung tanpa melalui perantara affiliate',
+                items: websiteStats.directActive
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Order Berbayar Langsung</span>
+                <span className="admin-stat-card-badge badge-blue">Direct</span>
+              </div>
+              <strong className="admin-stat-card-value">{websiteStats.directActiveCount}</strong>
+              <small className="admin-stat-card-meta">Langsung dari DayMoment <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'websites',
+                title: 'Website Aktif: Dari Penjualan Affiliate',
+                subtitle: 'Website aktif dari pesanan customer yang dipromosikan oleh mitra affiliate',
+                items: websiteStats.affiliateActive
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Dari Jalur Affiliate</span>
+                <span className="admin-stat-card-badge badge-green">Affiliate</span>
+              </div>
+              <strong className="admin-stat-card-value">{websiteStats.affiliateActiveCount}</strong>
+              <small className="admin-stat-card-meta">Hasil promosi mitra <b>→</b></small>
+            </button>
+
+            <button
+              className="admin-stat-card admin-stat-card-free"
+              type="button"
+              onClick={() => openCardModal({
+                type: 'websites',
+                title: 'Website Aktif: Dari Order Gratis (Complimentary)',
+                subtitle: 'Website aktif yang dibuat langsung dari alur order gratis admin',
+                items: websiteStats.freeActive
+              })}
+            >
+              <div className="admin-stat-card-label">
+                <span>Dari Order Gratis</span>
+                <span className="admin-stat-card-badge badge-purple">Free</span>
+              </div>
+              <strong className="admin-stat-card-value">{websiteStats.freeActiveCount}</strong>
+              <small className="admin-stat-card-meta">Jalur complimentary <b>→</b></small>
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="admin-insight-grid">
-        <section className="admin-panel revenue-panel"><div className="admin-panel-heading"><div><span className="eyebrow">Pemasukan</span><h2>Performa penjualan</h2></div><span className="admin-panel-note">14 hari terakhir</span></div>{revenueEntries.length ? <div className="revenue-chart-scroller"><div className="revenue-chart" aria-label="Grafik pemasukan harian">{revenueEntries.map(([date, value]) => <div className="revenue-column" key={date}><span className="revenue-value">{money(value)}</span><div className="revenue-bar-wrap"><div className="revenue-bar" style={{ height: `${Math.max((Number(value) / maxRevenue) * 100, 5)}%` }} /></div><small>{dayFormat.format(new Date(`${date}T00:00:00`))}</small></div>)}</div><small className="revenue-scroll-hint">Geser grafik ke kanan untuk melihat seluruh data →</small></div> : <div className="admin-empty admin-chart-empty">Belum ada pemasukan lunas untuk ditampilkan.</div>}</section>
-        <section className="admin-panel"><div className="admin-panel-heading"><div><span className="eyebrow">Atribusi</span><h2>Nama pembawa</h2></div><span className="admin-panel-note">Berdasarkan order</span></div><div className="referral-list">{referralSummary.slice(0, 5).map((referral) => <div className="referral-row" key={referral.name}><div><strong>{referral.name}</strong><small>{referral.orders} order · omzet {money(referral.revenue)}</small></div><b>{money(referral.payout)}</b></div>)}</div>{!referralSummary.length && <div className="admin-empty">Belum ada nama pembawa.</div>}</section>
+        <section className="admin-panel revenue-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <span className="eyebrow">Pemasukan</span>
+              <h2>Performa penjualan</h2>
+            </div>
+            <span className="admin-panel-note">14 hari terakhir</span>
+          </div>
+          {revenueEntries.length ? (
+            <div className="revenue-chart-scroller">
+              <div className="revenue-chart" aria-label="Grafik pemasukan harian">
+                {revenueEntries.map(([date, value]) => (
+                  <div className="revenue-column" key={date}>
+                    <span className="revenue-value">{money(value)}</span>
+                    <div className="revenue-bar-wrap">
+                      <div className="revenue-bar" style={{ height: `${Math.max((Number(value) / maxRevenue) * 100, 5)}%` }} />
+                    </div>
+                    <small>{dayFormat.format(new Date(`${date}T00:00:00`))}</small>
+                  </div>
+                ))}
+              </div>
+              <small className="revenue-scroll-hint">Geser grafik ke kanan untuk melihat seluruh data →</small>
+            </div>
+          ) : (
+            <div className="admin-empty admin-chart-empty">Belum ada pemasukan lunas untuk ditampilkan.</div>
+          )}
+        </section>
+
+        <section className="admin-panel top-affiliates-card">
+          <div className="admin-panel-heading">
+            <div>
+              <span className="eyebrow">Peringkat Penjualan</span>
+              <h2>Top 5 Affiliate Teratas</h2>
+            </div>
+            <span className="admin-panel-note">Berdasarkan total penjualan template</span>
+          </div>
+
+          <div className="top-affiliates-list">
+            {topAffiliates.length ? topAffiliates.map((item, index) => {
+              const rankClass = index === 0 ? 'rank-gold' : index === 1 ? 'rank-silver' : index === 2 ? 'rank-bronze' : 'rank-default';
+              const isSelected = activePanel === `top_affiliate:${item.id}`;
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={`top-affiliate-item ${isSelected ? 'is-selected' : ''}`}
+                  onClick={() => openCardModal({
+                    type: 'orders',
+                    title: `Pesanan Template dari ${item.name}`,
+                    subtitle: `Daftar seluruh pesanan template yang dihasilkan mitra ${item.name} (Kode: ${item.code})`,
+                    items: periodOrders.filter((o) => String(o.affiliate_id) === String(item.id) || o.referral_name === item.name || o.affiliate_name === item.name || o.affiliate_referral_code === item.code)
+                  })}
+                  title="Klik untuk melihat modal rincian pesanan affiliate ini"
+                >
+                  <div className="top-affiliate-left">
+                    <span className={`top-affiliate-rank ${rankClass}`}>#{index + 1}</span>
+                    <div className="top-affiliate-info">
+                      <strong>{item.name}</strong>
+                      <small>
+                        Kode: <b>{item.code}</b> · {item.paidOrdersCount} order lunas ({item.ordersCount} total)
+                      </small>
+                    </div>
+                  </div>
+                  <div className="top-affiliate-right">
+                    <span className="top-affiliate-rev">{money(item.revenue)}</span>
+                    <span className="top-affiliate-profit">Komisi: {money(item.commission)} · Laba: +{money(item.netProfit)}</span>
+                  </div>
+                </button>
+              );
+            }) : (
+              <div className="admin-empty" style={{ padding: '24px 12px' }}>
+                Belum ada transaksi penjualan dari mitra affiliate.
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
       <section className="admin-settings-panel admin-panel">
@@ -3713,11 +4949,52 @@ export default function AdminPage() {
         <div className="admin-template-pricing-grid">{templateCatalog.map((template) => <TemplateCatalogEditor key={template.code} template={template} priceDrafts={priceDrafts} setPriceDrafts={setPriceDrafts} commissionDrafts={commissionDrafts} setCommissionDrafts={setCommissionDrafts} working={working} onSavePackage={savePackageSettings} onReload={reload} />)}</div>
       </section>
 
-      {detail && <section className="admin-detail-panel"><div className="admin-section-heading"><div><span className="eyebrow">Detail pilihan · {detail.items.length} data</span><h2>{detail.title}</h2></div><button className="admin-close" type="button" onClick={() => setActivePanel('')}>Tutup</button></div><div className="admin-detail-list">{detail.items.length ? detail.items.map((order) => <div className="admin-detail-row" key={order.id || order.order_code}><div><strong>{order.order_code}</strong><small>{order.customer_name} · {order.customer_email}</small></div><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><b>{order.payment_status === 'paid' ? money(order.payment_amount || order.package_price) : 'Belum lunas'}</b>{order.payment_status === 'pending' && whatsappUrl(order) && <a className="whatsapp-action" href={whatsappUrl(order)} target="_blank" rel="noreferrer">Follow-up WA</a>}</div>) : <div className="admin-empty">Tidak ada data untuk bagian ini.</div>}</div></section>}
+      {/* Permanent Bottom Tables with Independent Sub-Table Pagination */}
+      <AdminBottomTables
+        orders={periodOrders}
+        freeOrders={periodFreeOrders}
+        withdrawals={periodWithdrawals}
+        affiliates={periodAffiliates}
+        activeWebsites={websiteStats.allActive}
+        isAffiliateOrder={isAffiliateOrder}
+        statusLabel={statusLabel}
+        whatsappUrl={whatsappUrl}
+        onView={openViewModal}
+        onEdit={openEditModal}
+      />
 
-      <div className="admin-section-heading"><div><span className="eyebrow">Operasional</span><h2>Order masuk</h2></div><span className="admin-count">{filteredOrders.length} order tersedia</span></div>
-      <div className="admin-toolbar"><label className="admin-search"><span>Cari order atau nama pembawa</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Kode, nama, email, nama pembawa..." /></label><label className="admin-date"><span>Dari tanggal</span><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label className="admin-date"><span>Sampai tanggal</span><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label><label className="admin-filter"><span>Filter</span><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">Semua status</option><option value="paid">Sudah lunas</option><option value="pending">Menunggu pembayaran</option><option value="website">Website nonaktif</option></select></label><button className="admin-reset" type="button" onClick={() => { setStartDate(''); setEndDate(''); setFilter('all'); setQuery(''); }}>Reset</button></div>
-      <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Order</th><th>Pemesan</th><th>Produk</th><th>Pembayaran</th><th>Website</th><th>Dibawa oleh</th><th>Dibuat</th></tr></thead><tbody>{filteredOrders.length ? filteredOrders.map((order) => <tr key={order.id || order.order_code}><td><strong>{order.order_code}</strong><small>{orderStatusLabel(order.status)}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small></td><td><strong>{order.template_name || order.template_code || '-'}</strong><small>{order.package_name || order.package_code || '-'} · {money(order.package_price)}</small></td><td><span className={`admin-pill ${order.payment_status}`}>{statusLabel(order.payment_status)}</span><small>{order.payment_status === 'paid' ? money(order.payment_amount || order.package_price) : 'Belum ada pemasukan'}</small>{order.payment_status === 'pending' && whatsappUrl(order) && <a className="whatsapp-action" href={whatsappUrl(order)} target="_blank" rel="noreferrer">Follow-up WA</a>}</td><td><WebsiteAccessEditor order={order} working={working === `website:${order.order_code}`} onSave={saveWebsiteAccess}/></td><td><ReferralEditor order={order} working={working === `referral:${order.order_code}`} onSave={saveReferral} /></td><td><small>{order.created_at ? dateFormat.format(new Date(order.created_at)) : '-'}</small></td></tr>) : <tr><td colSpan="7" className="admin-empty">Belum ada order yang cocok dengan filter ini.</td></tr>}</tbody></table></div>
+      {/* Pop-up Modal when clicking stat cards */}
+      <CardDetailModal
+        modal={cardModal}
+        query={cardModalQuery}
+        onQueryChange={setCardModalQuery}
+        page={cardModalPage}
+        onPageChange={setCardModalPage}
+        onClose={() => setCardModal(null)}
+        onView={openViewModal}
+        onEdit={openEditModal}
+        isAffiliateOrder={isAffiliateOrder}
+        statusLabel={statusLabel}
+        whatsappUrl={whatsappUrl}
+      />
+
+      {/* View Item Detail Modal */}
+      <ViewItemDetailModal
+        viewModal={viewItemModal}
+        onClose={() => setViewItemModal(null)}
+        onEdit={openEditModal}
+        statusLabel={statusLabel}
+        orderStatusLabel={orderStatusLabel}
+        whatsappUrl={whatsappUrl}
+      />
+
+      {/* Edit Item Modal */}
+      <EditItemModal
+        editModal={editItemModal}
+        working={working === 'modal-edit'}
+        onClose={() => setEditItemModal(null)}
+        onSave={handleSaveModalEdit}
+      />
     </section>
   </AdminTemplate>;
 }
