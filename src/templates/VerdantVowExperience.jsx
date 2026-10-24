@@ -238,6 +238,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     const frame = window.requestAnimationFrame(() => {
       root.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
       cinematicHandoffTimerRef.current = window.setTimeout(() => {
+        setOpeningPhase('visible');
+        setActiveNormal('vv-full-opening');
         setJourneyMounted(false);
         window.requestAnimationFrame(() => root.scrollTo({ top: 0, behavior: 'auto' }));
       }, 1100);
@@ -357,7 +359,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         delete el.dataset.vvRevealSeen;
       });
     };
-  }, [opened, cinematicDone, replayId, photos.length, greetings.length]);
+  }, [opened, cinematicDone, journeyMounted, replayId, photos.length, greetings.length]);
 
   // Unified section phase coordinator with cached offsets (Zero reflow during active touch scroll)
   useEffect(() => {
@@ -440,7 +442,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       resizeObserver.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [opened, cinematicDone, replayId, i.love_story, i.has_gift, i.has_wishes, photos.length]);
+  }, [opened, cinematicDone, journeyMounted, replayId, i.love_story, i.has_gift, i.has_wishes, photos.length]);
 
   // Runtime safety net: device hints are incomplete on iOS, so sample actual
   // scroll-frame pacing and progressively reduce visual load when needed.
