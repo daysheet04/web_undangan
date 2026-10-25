@@ -310,11 +310,11 @@ orders.post('/orders/:code/payment-status', async (c) => {
 
 orders.post('/payments/midtrans/notification', async (c) => {
   const payload = await c.req.json();
-  if (!(await verifyNotificationSignature(c.env, payload))) {
-    return c.json({ ok: false, message: 'Signature Midtrans tidak valid.' }, 401);
-  }
   if (String(payload.order_id || '').startsWith('payment_notif_test_') || String(payload.order_id || '').startsWith('test-')) {
     return c.json({ ok: true, message: 'Test notification received.' });
+  }
+  if (!(await verifyNotificationSignature(c.env, payload))) {
+    return c.json({ ok: false, message: 'Signature Midtrans tidak valid.' }, 401);
   }
   const db = database(c.env);
   const { data: payment, error: paymentError } = await db.from('payments').select('*').eq('gateway_order_id', cleanText(payload.order_id, 64)).maybeSingle();

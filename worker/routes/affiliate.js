@@ -1286,10 +1286,10 @@ affiliate.post('/affiliate/pro-upgrade/payment-status', async (c) => {
 
 affiliate.post('/affiliate/pro-upgrade/midtrans/notification', async (c) => {
   const payload = await c.req.json();
-  if (!(await verifyNotificationSignature(c.env, payload))) return c.json({ ok: false, message: 'Signature Midtrans tidak valid.' }, 401);
   if (String(payload.order_id || '').startsWith('payment_notif_test_') || String(payload.order_id || '').startsWith('test-')) {
     return c.json({ ok: true, message: 'Test notification received.' });
   }
+  if (!(await verifyNotificationSignature(c.env, payload))) return c.json({ ok: false, message: 'Signature Midtrans tidak valid.' }, 401);
   const db = database(c.env);
   const { data: request, error } = await db.from('affiliate_pro_upgrade_requests')
     .select('id,gateway_order_id,payment_amount,transaction_id,status')
