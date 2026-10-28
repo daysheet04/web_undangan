@@ -33,6 +33,35 @@ export default function FeedbackSection() {
         message: trimmedMessage,
       });
 
+      console.log('[Feedback Form] Server response:', res);
+
+      // Jika worker mengabarkan email belum terkirim via server,
+      // jalankan pengiriman langsung via browser klien ke FormSubmit:
+      if (res?.emailSent === false) {
+        console.warn('[Feedback Form] Worker emailSent false, mengirim langsung via browser FormSubmit...');
+        try {
+          const directRes = await fetch('https://formsubmit.co/ajax/daymoment7@gmail.com', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              _subject: `[Daymoment] Saran & Kritik Baru dari ${trimmedName}`,
+              _template: 'table',
+              _captcha: 'false',
+              'Nama Pengirim': trimmedName,
+              'Saran & Kritik': trimmedMessage,
+              'Waktu Pengiriman (WIB)': new Date().toLocaleString('id-ID'),
+            }),
+          });
+          const directData = await directRes.json().catch(() => ({}));
+          console.log('[Feedback Form] Direct browser submission response:', directData);
+        } catch (directErr) {
+          console.warn('[Feedback Form] Direct submission warning:', directErr);
+        }
+      }
+
       setSubmittedName(trimmedName);
       setName('');
       setMessage('');

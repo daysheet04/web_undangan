@@ -18,10 +18,13 @@ export async function sendFeedbackToFormSubmit(env, { name, message, ip, origin,
     referer ||
     env?.PUBLIC_APP_URL ||
     env?.APP_URL ||
-    'https://daymoment.id'
+    'https://daymoment.biz.id'
   ).trim().replace(/\/+$/, '');
 
   const refererUrl = `${siteOrigin}/`;
+
+  console.log(`[FormSubmit] Starting submission for "${name}" -> target: ${targetEmail}`);
+  console.log(`[FormSubmit] siteOrigin: ${siteOrigin}, refererUrl: ${refererUrl}`);
 
   const nowFormatted = new Intl.DateTimeFormat('id-ID', {
     dateStyle: 'full',
@@ -38,8 +41,10 @@ export async function sendFeedbackToFormSubmit(env, { name, message, ip, origin,
     'Waktu Pengiriman (WIB)': nowFormatted,
   };
 
+  const endpointUrl = `https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`;
+
   try {
-    const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+    const res = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,22 +56,31 @@ export async function sendFeedbackToFormSubmit(env, { name, message, ip, origin,
       body: JSON.stringify(payload),
     });
 
-    const data = await res.json().catch(() => ({}));
+    const responseText = await res.text();
+    console.log(`[FormSubmit] HTTP Status: ${res.status}`);
+    console.log(`[FormSubmit] Response Body: ${responseText}`);
+
+    let data = {};
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = { raw: responseText };
+    }
 
     if (!res.ok) {
-      console.warn(`[FormSubmit] HTTP ${res.status}:`, data);
-      return { ok: false, status: res.status, data };
+      console.error(`[FormSubmit Error] HTTP ${res.status}:`, data);
+      return { ok: false, status: res.status, data, message: `HTTP ${res.status}` };
     }
 
     if (data?.success === 'false' || data?.success === false) {
-      console.warn('[FormSubmit] Notice:', data?.message);
+      console.warn('[FormSubmit Notice - Activation/Message]:', data?.message);
       return { ok: false, message: data?.message, data };
     }
 
-    console.log(`[FormSubmit] Sukses mengirimkan saran dari "${name}" ke ${targetEmail}`);
+    console.log(`[FormSubmit Success] Berhasil terkirim ke ${targetEmail}`);
     return { ok: true, data };
   } catch (err) {
-    console.warn('[FormSubmit] Gagal mengirimkan saran via FormSubmit:', err?.message || err);
-    return { ok: false, error: err?.message || String(err) };
+    console.error('[FormSubmit Exception]:', err?.message || err);
+    return { ok: false, error: err?.message || String(err), message: err?.message };
   }
 }

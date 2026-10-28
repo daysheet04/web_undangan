@@ -4,6 +4,11 @@ compatibility_date = "2026-09-16"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 
+[vars]
+PUBLIC_APP_URL = "https://daymoment.biz.id"
+APP_URL = "https://daymoment.biz.id"
+FEEDBACK_NOTIF_EMAIL = "daymoment7@gmail.com"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"

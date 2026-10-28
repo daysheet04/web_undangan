@@ -114,23 +114,26 @@ publicRoutes.post('/feedback', async (c) => {
     created_at: new Date().toISOString(),
   });
 
-  const formSubmitTask = sendFeedbackToFormSubmit(c.env, {
-    name,
-    message,
-    ip,
-    origin: c.req.header('Origin'),
-    referer: c.req.header('Referer'),
-  });
-
-  if (c.executionCtx?.waitUntil) {
-    c.executionCtx.waitUntil(formSubmitTask);
-  } else {
-    formSubmitTask.catch((err) => console.warn('[Feedback] FormSubmit notice:', err?.message || err));
+  let formSubmitResult = { ok: false, message: 'Belum diproses' };
+  try {
+    formSubmitResult = await sendFeedbackToFormSubmit(c.env, {
+      name,
+      message,
+      ip,
+      origin: c.req.header('Origin'),
+      referer: c.req.header('Referer'),
+    });
+    console.log('[Feedback API] FormSubmit execution result:', JSON.stringify(formSubmitResult));
+  } catch (submitErr) {
+    console.error('[Feedback API] Exception while executing FormSubmit:', submitErr?.message || submitErr);
+    formSubmitResult = { ok: false, error: submitErr?.message || String(submitErr) };
   }
 
   return c.json({
     ok: true,
     message: 'Terima kasih atas saran dan masukan yang Anda berikan.',
+    emailSent: Boolean(formSubmitResult.ok),
+    formSubmitDetails: formSubmitResult,
   }, 201);
 });
 
