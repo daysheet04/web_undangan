@@ -30,7 +30,11 @@ function templateCoverUrl(env, thumbnail) {
 }
 
 function adminTemplate(env, template) {
-  return { ...template, thumbnail_url: templateCoverUrl(env, template.thumbnail) };
+  return {
+    ...template,
+    thumbnail_url: templateCoverUrl(env, template.thumbnail),
+    phone_cover_url: templateCoverUrl(env, template.phone_cover),
+  };
 }
 
 function cleanTemplateField(value, maxLength) {
@@ -1365,6 +1369,89 @@ admin.post('/admin/templates/:templateCode/cover', async (c) => {
     thumbnail: key,
     thumbnail_url: templateCoverUrl(c.env, key),
     message: 'Gambar sampul berhasil diganti.',
+  });
+});
+
+admin.post('/admin/templates/:templateCode/phone-cover', async (c) => {
+  const form = await c.req.formData();
+  const file = form.get('file');
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!(file instanceof File)) return c.json({ ok: false, message: 'Pilih gambar sampul HP terlebih dahulu.' }, 422);
+  if (!allowedTypes.includes(file.type)) return c.json({ ok: false, message: 'Format sampul HP harus JPG, PNG, atau WEBP.' }, 422);
+  if (file.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran sampul HP maksimal 4 MB.' }, 422);
+  if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan gambar belum tersedia.' }, 503);
+
+  const templateCode = c.req.param('templateCode');
+  let template;
+  if (!hasRealSupabaseConfig(c.env)) {
+    template = demoTemplates().find((item) => item.code === templateCode);
+  } else {
+    const { data, error } = await database(c.env).from('templates').select('*').eq('code', templateCode).maybeSingle();
+    if (error) throw error;
+    template = data;
+  }
+  if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+
+  const safeCode = String(templateCode).replace(/[^a-z0-9_-]/gi, '').slice(0, 50) || 'template';
+  const oldPhoneCover = String(template.phone_cover || '');
+  const key = `template-phone-covers/${safeCode}/${crypto.randomUUID()}.${imageExtension(file)}`;
+  await c.env.MEDIA.put(key, file.stream(), {
+    httpMetadata: { contentType: file.type, cacheControl: 'public, max-age=31536000, immutable' },
+    customMetadata: { originalName: String(file.name || 'phone-cover').slice(0, 150) },
+  });
+
+  try {
+    if (!hasRealSupabaseConfig(c.env)) template.phone_cover = key;
+    else {
+      const { error } = await database(c.env).from('templates').update({ phone_cover: key }).eq('id', template.id);
+      if (error) throw error;
+    }
+  } catch (error) {
+    await c.env.MEDIA.delete(key);
+    throw error;
+  }
+
+  if (oldPhoneCover.startsWith('template-phone-covers/') && oldPhoneCover !== key) {
+    await c.env.MEDIA.delete(oldPhoneCover).catch(() => {});
+  }
+
+  return c.json({
+    ok: true,
+    phone_cover: key,
+    phone_cover_url: templateCoverUrl(c.env, key),
+    message: 'Sampul HP berhasil diperbarui.',
+  });
+});
+
+admin.delete('/admin/templates/:templateCode/phone-cover', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  let template;
+  if (!hasRealSupabaseConfig(c.env)) {
+    template = demoTemplates().find((item) => item.code === templateCode);
+  } else {
+    const { data, error } = await database(c.env).from('templates').select('*').eq('code', templateCode).maybeSingle();
+    if (error) throw error;
+    template = data;
+  }
+  if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+
+  const oldPhoneCover = String(template.phone_cover || '');
+  if (oldPhoneCover.startsWith('template-phone-covers/')) {
+    await c.env.MEDIA.delete(oldPhoneCover).catch(() => {});
+  }
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    template.phone_cover = null;
+  } else {
+    const { error } = await database(c.env).from('templates').update({ phone_cover: null }).eq('id', template.id);
+    if (error) throw error;
+  }
+
+  return c.json({
+    ok: true,
+    phone_cover: null,
+    phone_cover_url: null,
+    message: 'Sampul HP berhasil direset ke sampul bawaan.',
   });
 });
 

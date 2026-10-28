@@ -20,6 +20,15 @@ export function templateCoverUrl(template) {
   return `${MAIN_APP_URL}/media/${source.replace(/^\/+/, '')}`;
 }
 
+export function templatePhoneCoverUrl(template) {
+  const source = String(template?.phone_cover_url || template?.phone_cover || '').trim();
+  if (source && (source.includes('/') || /\.(avif|jpe?g|png|webp)$/i.test(source))) {
+    if (/^(https?:|data:|blob:)/i.test(source) || source.startsWith('/')) return source;
+    return `${MAIN_APP_URL}/media/${source.replace(/^\/+/, '')}`;
+  }
+  return templateCoverUrl(template);
+}
+
 export function DesktopTemplatePreview({ template, eager, source, fallback, setSource, className = '' }) {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(0.3);

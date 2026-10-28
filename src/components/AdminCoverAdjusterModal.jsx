@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
-const CANVAS_W = 800;
-const CANVAS_H = 600; // Exact 4:3 aspect ratio matching homepage template-card
-
 export default function AdminCoverAdjusterModal({
   isOpen,
   onClose,
   template,
   initialImageUrl,
   onSaveCover,
+  aspectRatio = '4:3',
+  title,
+  subtitle,
+  hint,
 }) {
+  const isPhone = aspectRatio === 'phone';
+  const CANVAS_W = isPhone ? 472 : 800;
+  const CANVAS_H = isPhone ? 944 : 600;
+  const exportW = isPhone ? 590 : 1200;
+  const exportH = isPhone ? 1180 : 900;
+
   const [currentUrl, setCurrentUrl] = useState(initialImageUrl || '');
   const [zoom, setZoom] = useState(100); // 100% to 350%
   const [panX, setPanX] = useState(0); // in canvas px
@@ -247,8 +254,8 @@ export default function AdminCoverAdjusterModal({
     try {
       // 1200x900 px export canvas (exact 4:3 ratio with high-DPI clarity)
       const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = 1200;
-      exportCanvas.height = 900;
+      exportCanvas.width = exportW;
+      exportCanvas.height = exportH;
       const exportCtx = exportCanvas.getContext('2d');
 
       const baseScale = Math.max(CANVAS_W / img.naturalWidth, CANVAS_H / img.naturalHeight);
@@ -264,7 +271,7 @@ export default function AdminCoverAdjusterModal({
       const drawY = baseY + panY;
 
       // Scale to export canvas
-      const ratio = 1200 / CANVAS_W;
+      const ratio = exportW / CANVAS_W;
 
       exportCtx.imageSmoothingEnabled = true;
       exportCtx.imageSmoothingQuality = 'high';
@@ -287,7 +294,9 @@ export default function AdminCoverAdjusterModal({
         );
       });
 
-      const fileName = `${template?.code || 'template'}-cover-${Date.now()}.webp`;
+      const fileName = isPhone
+        ? `${template?.code || 'template'}-phone-cover-${Date.now()}.webp`
+        : `${template?.code || 'template'}-cover-${Date.now()}.webp`;
       const file = new File([blob], fileName, { type: 'image/webp' });
 
       await onSaveCover(file);
@@ -304,14 +313,14 @@ export default function AdminCoverAdjusterModal({
 
   return createPortal(
     <div className="admin-cover-adjuster-backdrop" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <div className="admin-cover-adjuster-modal" role="dialog" aria-modal="true" aria-labelledby="adjusterTitle">
+      <div className={`admin-cover-adjuster-modal ${isPhone ? 'is-phone-modal' : ''}`} role="dialog" aria-modal="true" aria-labelledby="adjusterTitle">
         {/* Header */}
         <div className="admin-cover-adjuster-header">
           <div className="admin-cover-adjuster-title-group">
-            <div className="admin-cover-adjuster-badge-icon">📐</div>
+            <div className="admin-cover-adjuster-badge-icon">{isPhone ? '📱' : '📐'}</div>
             <div>
-              <h2 id="adjusterTitle">Atur Frame Sampul — {template?.name || 'Template'}</h2>
-              <p>Geser dan atur zoom foto agar pas dengan frame kartu template di homepage (rasio 4:3).</p>
+              <h2 id="adjusterTitle">{title || (isPhone ? `Atur Sampul HP — ${template?.name || 'Template'}` : `Atur Frame Sampul — ${template?.name || 'Template'}`)}</h2>
+              <p>{subtitle || (isPhone ? 'Geser dan atur zoom foto agar pas dengan frame layar HP di beranda (rasio 1:2 vertikal).' : 'Geser dan atur zoom foto agar pas dengan frame kartu template di homepage (rasio 4:3).')}</p>
             </div>
           </div>
           <button
@@ -330,12 +339,13 @@ export default function AdminCoverAdjusterModal({
           {/* Stage Area */}
           <div className="admin-cover-stage-wrap">
             <span className="admin-cover-stage-hint">
-              🖼️ Frame Sampul Homepage (Rasio 4:3)
+              {hint || (isPhone ? '📱 Frame Layar Mockup HP (Rasio 1:2)' : '🖼️ Frame Sampul Homepage (Rasio 4:3)')}
             </span>
 
             <div
               ref={stageRef}
-              className="admin-cover-stage-container"
+              className={`admin-cover-stage-container ${isPhone ? 'is-phone-stage' : ''}`}
+              style={isPhone ? { aspectRatio: '1 / 2', maxWidth: '240px', borderRadius: '28px' } : {}}
               onPointerDown={handlePointerDown}
               onWheel={handleWheel}
               onTouchStart={handleTouchStart}

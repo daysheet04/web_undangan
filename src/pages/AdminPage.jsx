@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { Loading, ErrorState } from '../components/Layout.jsx';
-import { get, money, patch, post } from '../lib/api.js';
+import { get, money, patch, post, del } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
 import AdminLogin from '../components/AdminLogin.jsx';
 import AdminTemplate from '../templates/AdminTemplate.jsx';
-import TemplateCover, { templateCoverUrl } from '../components/TemplateCover.jsx';
+import TemplateCover, { templateCoverUrl, templatePhoneCoverUrl } from '../components/TemplateCover.jsx';
 import AdminCoverAdjusterModal from '../components/AdminCoverAdjusterModal.jsx';
 import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
 import { CardDetailModal, ViewItemDetailModal, EditItemModal } from '../components/AdminDashboardModals.jsx';
@@ -100,11 +100,14 @@ function WebsiteAccessEditor({ order, working, onSave }) {
 function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissionDrafts, setCommissionDrafts, working, onSavePackage, onReload }) {
   const [draft, setDraft] = useState({ name: template.name || '', category: template.category || '', description: template.description || '' });
   const [cover, setCover] = useState({ thumbnail: template.thumbnail, thumbnail_url: template.thumbnail_url });
+  const [phoneCover, setPhoneCover] = useState({ phone_cover: template.phone_cover, phone_cover_url: template.phone_cover_url });
   const [templateVisible, setTemplateVisible] = useState(template.is_active !== false);
   const [packageVisibility, setPackageVisibility] = useState(() => Object.fromEntries((template.packages || []).map((item) => [item.code, item.is_active !== false])));
   const [catalogWorking, setCatalogWorking] = useState('');
   const [adjusterOpen, setAdjusterOpen] = useState(false);
   const [adjusterImage, setAdjusterImage] = useState('');
+  const [phoneAdjusterOpen, setPhoneAdjusterOpen] = useState(false);
+  const [phoneAdjusterImage, setPhoneAdjusterImage] = useState('');
 
   useEffect(() => {
     setDraft({ name: template.name || '', category: template.category || '', description: template.description || '' });
@@ -113,6 +116,10 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
   useEffect(() => {
     setCover({ thumbnail: template.thumbnail, thumbnail_url: template.thumbnail_url });
   }, [template.thumbnail, template.thumbnail_url]);
+
+  useEffect(() => {
+    setPhoneCover({ phone_cover: template.phone_cover, phone_cover_url: template.phone_cover_url });
+  }, [template.phone_cover, template.phone_cover_url]);
 
   useEffect(() => {
     setTemplateVisible(template.is_active !== false);
@@ -169,6 +176,57 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
     }
   };
 
+  const handleSelectPhoneCoverFile = (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    setPhoneAdjusterImage(objectUrl);
+    setPhoneAdjusterOpen(true);
+    input.value = '';
+  };
+
+  const handleOpenPhoneAdjusterForCurrent = () => {
+    const currentSrc = templatePhoneCoverUrl({ ...template, ...cover, ...phoneCover });
+    setPhoneAdjusterImage(currentSrc);
+    setPhoneAdjusterOpen(true);
+  };
+
+  const handleSaveCroppedPhoneCover = async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    setCatalogWorking('phone-cover');
+    try {
+      const result = await post(`/api/admin/templates/${encodeURIComponent(template.code)}/phone-cover`, form);
+      setPhoneCover({
+        phone_cover: result.phone_cover,
+        phone_cover_url: `${result.phone_cover_url}${result.phone_cover_url.includes('?') ? '&' : '?'}v=${Date.now()}`,
+      });
+      window.showToast?.('Sampul layar HP berhasil disesuaikan dan disimpan.');
+      onReload();
+    } catch (failure) {
+      window.showToast?.(failure.message, 'error');
+      throw failure;
+    } finally {
+      setCatalogWorking('');
+    }
+  };
+
+  const handleResetPhoneCover = async () => {
+    if (!window.confirm(`Reset sampul HP untuk template "${template.name}" ke gambar sampul utama?`)) return;
+    setCatalogWorking('phone-cover-reset');
+    try {
+      await del(`/api/admin/templates/${encodeURIComponent(template.code)}/phone-cover`);
+      setPhoneCover({ phone_cover: null, phone_cover_url: null });
+      window.showToast?.('Sampul HP berhasil direset ke sampul utama.');
+      onReload();
+    } catch (failure) {
+      window.showToast?.(failure.message, 'error');
+    } finally {
+      setCatalogWorking('');
+    }
+  };
+
   const toggleTemplateVisibility = async () => {
     const nextVisible = !templateVisible;
     setCatalogWorking('template-visibility');
@@ -207,7 +265,7 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
     <div className="admin-template-cover-editor">
       <TemplateCover template={{ ...template, ...cover }} eager />
       <div>
-        <span className="eyebrow">Gambar sampul</span>
+        <span className="eyebrow">Gambar sampul katalog</span>
         <p>JPG, PNG, atau WEBP. Maksimal 4 MB. Frame kartu homepage rasio 4:3.</p>
         <div className="admin-cover-buttons">
           <label className={`admin-cover-upload ${catalogWorking === 'cover' ? 'is-loading' : ''}`}>
@@ -232,6 +290,69 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
       template={template}
       initialImageUrl={adjusterImage}
       onSaveCover={handleSaveCroppedCover}
+    />
+    <div className="admin-template-cover-editor admin-template-phone-cover-editor">
+      <div className="admin-phone-cover-preview-box">
+        <img
+          src={templatePhoneCoverUrl({ ...template, ...cover, ...phoneCover })}
+          alt={`Sampul Layar HP ${template.name}`}
+          className="admin-phone-cover-preview-img"
+        />
+        <div className="admin-phone-cover-frame-notch" aria-hidden="true" />
+      </div>
+      <div>
+        <div className="admin-phone-cover-header-line">
+          <span className="eyebrow">Sampul HP (Mockup Beranda)</span>
+          {phoneCover.phone_cover ? (
+            <span className="admin-badge-phone-custom">Kustom Aktif</span>
+          ) : (
+            <span className="admin-badge-phone-default">Bawaan Sampul</span>
+          )}
+        </div>
+        <p>JPG, PNG, atau WEBP. Maksimal 4 MB. Khusus untuk tampilan layar mockup HP di beranda (rasio 1:2 vertikal).</p>
+        <div className="admin-cover-buttons">
+          <label className={`admin-cover-upload ${catalogWorking === 'phone-cover' ? 'is-loading' : ''}`}>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={Boolean(catalogWorking)}
+              onChange={handleSelectPhoneCoverFile}
+            />
+            {catalogWorking === 'phone-cover' ? 'Mengunggah...' : (phoneCover.phone_cover ? 'Ganti sampul HP' : 'Upload sampul HP')}
+          </label>
+          <button
+            type="button"
+            className="admin-btn-adjust-cover"
+            onClick={handleOpenPhoneAdjusterForCurrent}
+            disabled={Boolean(catalogWorking)}
+            title="Atur posisi geser dan zoom foto sampul layar HP"
+          >
+            📐 Atur Posisi / Zoom
+          </button>
+          {phoneCover.phone_cover && (
+            <button
+              type="button"
+              className="admin-btn-reset-cover"
+              onClick={handleResetPhoneCover}
+              disabled={Boolean(catalogWorking)}
+              title="Reset ke gambar sampul utama"
+            >
+              ✕ Reset
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+    <AdminCoverAdjusterModal
+      isOpen={phoneAdjusterOpen}
+      onClose={() => setPhoneAdjusterOpen(false)}
+      template={template}
+      initialImageUrl={phoneAdjusterImage}
+      onSaveCover={handleSaveCroppedPhoneCover}
+      aspectRatio="phone"
+      title={`Atur Sampul Layar HP — ${template.name}`}
+      subtitle="Geser dan atur zoom foto agar pas dengan frame layar mockup HP di beranda (rasio 1:2 vertikal)."
+      hint="📱 Frame Layar Mockup HP (Rasio 1:2)"
     />
     <form className="admin-template-meta-form" onSubmit={saveDetails}>
       <label><span>Nama template</span><input maxLength="100" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required /></label>

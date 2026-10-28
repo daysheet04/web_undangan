@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { templateCoverUrl, defaultTemplateCover } from './TemplateCover.jsx';
+import { templatePhoneCoverUrl, defaultTemplateCover } from './TemplateCover.jsx';
 
 const FALLBACK_HERO_TEMPLATES = [
   {
@@ -72,7 +72,7 @@ export default function HeroPhoneSlideshow({ templates = [], interval = 3500 }) 
       code: item.code,
       name: item.name || 'Daymoment',
       category: item.category || 'Undangan Digital',
-      imageUrl: templateCoverUrl(item),
+      imageUrl: templatePhoneCoverUrl(item),
     }));
   }, [templates]);
 

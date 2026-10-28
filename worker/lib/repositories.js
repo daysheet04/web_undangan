@@ -9,6 +9,7 @@ const FALLBACK_TEMPLATES = [
     category: 'Javanese Botanical',
     description: 'Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.',
     thumbnail: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+    phone_cover: null,
     is_active: true,
     template_packages: [
       { id: 1, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 99000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
@@ -23,6 +24,7 @@ const FALLBACK_TEMPLATES = [
     category: 'Porcelain Moon Garden',
     description: 'Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, frame editorial, dan motion berlapis tiga dimensi.',
     thumbnail: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+    phone_cover: null,
     is_active: true,
     template_packages: [
       { id: 4, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 99000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
@@ -32,7 +34,7 @@ const FALLBACK_TEMPLATES = [
   },
   {
     id: 3, code: 'aurelia_grande', name: 'Aurelia Grande', category: 'Interactive 3D Ballroom',
-    description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.', thumbnail: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp', is_active: true,
+    description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif dan panggung sinematik.', thumbnail: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp', phone_cover: null, is_active: true,
     template_packages: [
       { id: 7, code: 'essential', name: 'Essential', tagline: 'Undangan inti yang cantik dan ringkas.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
       { id: 8, code: 'signature', name: 'Signature', tagline: 'Ballroom hidup dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
@@ -41,7 +43,7 @@ const FALLBACK_TEMPLATES = [
   },
   {
     id: 4, code: 'verdant_vow', name: 'Verdant Vow', category: 'Sage Garden 4D',
-    description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.', thumbnail: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp', is_active: true,
+    description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik, dengan pasangan, kabut, botanical aisle, dan parallax berlapis.', thumbnail: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp', phone_cover: null, is_active: true,
     template_packages: [
       { id: 10, code: 'essential', name: 'Essential', tagline: 'Undangan garden 4D yang cantik dan ringan.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
       { id: 11, code: 'signature', name: 'Signature', tagline: 'Garden story dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
