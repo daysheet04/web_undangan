@@ -24,3 +24,5 @@ preview_bucket_name = "daymoment-media-preview"
 # npx wrangler secret put SMTP_USER
 # npx wrangler secret put SMTP_APP_PASSWORD
 # SMTP_HOST, SMTP_PORT, dan SMTP_FROM_NAME memakai nilai default dari aplikasi.
+# FEEDBACK_NOTIF_EMAIL default ke daymoment7@gmail.com jika tidak diatur.
+

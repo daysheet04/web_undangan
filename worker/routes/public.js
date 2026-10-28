@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { database } from '../lib/database.js';
 import { cleanText } from '../lib/helpers.js';
 import { invitationExtras, publishedInvitation } from '../lib/repositories.js';
+import { sendFeedbackToFormSubmit } from '../lib/formsubmit.js';
 
 const publicRoutes = new Hono();
 
@@ -112,6 +113,20 @@ publicRoutes.post('/feedback', async (c) => {
     message,
     created_at: new Date().toISOString(),
   });
+
+  const formSubmitTask = sendFeedbackToFormSubmit(c.env, {
+    name,
+    message,
+    ip,
+    origin: c.req.header('Origin'),
+    referer: c.req.header('Referer'),
+  });
+
+  if (c.executionCtx?.waitUntil) {
+    c.executionCtx.waitUntil(formSubmitTask);
+  } else {
+    formSubmitTask.catch((err) => console.warn('[Feedback] FormSubmit notice:', err?.message || err));
+  }
 
   return c.json({
     ok: true,

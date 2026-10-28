@@ -39,6 +39,39 @@ export default function FeedbackSection() {
       setStatus('success');
       window.showToast?.(res?.message || 'Terima kasih banyak atas saran dan masukan Anda!');
     } catch (err) {
+      // Fallback darurat: jika server worker belum terhubung, kirim langsung via FormSubmit.co
+      const isNetworkError = !err.status || String(err.message || '').includes('Server belum terhubung');
+      if (isNetworkError) {
+        try {
+          const directRes = await fetch('https://formsubmit.co/ajax/daymoment7@gmail.com', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              _subject: `[Daymoment] Saran & Kritik Baru dari ${trimmedName}`,
+              _template: 'table',
+              _captcha: 'false',
+              'Nama Pengirim': trimmedName,
+              'Saran & Kritik': trimmedMessage,
+              'Waktu Pengiriman': new Date().toLocaleString('id-ID'),
+            }),
+          });
+          const directData = await directRes.json().catch(() => ({}));
+          if (directRes.ok && directData?.success !== 'false') {
+            setSubmittedName(trimmedName);
+            setName('');
+            setMessage('');
+            setStatus('success');
+            window.showToast?.('Terima kasih banyak atas saran dan masukan Anda!');
+            return;
+          }
+        } catch {
+          // Lanjutkan ke penanganan error standar jika fallback juga tidak berhasil
+        }
+      }
+
       setStatus('error');
       const msg = err.message || 'Terjadi kendala saat mengirimkan saran. Silakan coba lagi.';
       setErrorMessage(msg);
