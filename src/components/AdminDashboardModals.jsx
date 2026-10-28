@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { money } from '../lib/api.js';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
@@ -72,7 +72,24 @@ export function CardDetailModal({
   if (!modal) return null;
 
   const pageSize = 8;
-  const items = Array.isArray(modal.items) ? modal.items : [];
+  const [activeTabId, setActiveTabId] = useState(() => modal.initialTab || (modal.tabs && modal.tabs[0]?.id) || 'all');
+
+  useEffect(() => {
+    if (modal) {
+      setActiveTabId(modal.initialTab || (modal.tabs && modal.tabs[0]?.id) || 'all');
+    }
+  }, [modal]);
+
+  const activeTab = useMemo(() => {
+    if (!modal.tabs || !modal.tabs.length) return null;
+    return modal.tabs.find((t) => t.id === activeTabId) || modal.tabs[0];
+  }, [modal.tabs, activeTabId]);
+
+  const items = useMemo(() => {
+    if (activeTab && Array.isArray(activeTab.items)) return activeTab.items;
+    return Array.isArray(modal.items) ? modal.items : [];
+  }, [activeTab, modal.items]);
+
   const q = String(query || '').toLowerCase().trim();
 
   const filteredItems = useMemo(() => {
@@ -146,6 +163,61 @@ export function CardDetailModal({
             </button>
           </div>
         </div>
+
+        {modal.summaryBanner && (
+          <div className="modal-financial-banner">
+            <div className="banner-metric">
+              <small>Penjualan Direct</small>
+              <strong>{money(modal.summaryBanner.directOmset)}</strong>
+              <span>{modal.summaryBanner.directCount} order lunas</span>
+            </div>
+            <div className="banner-operator">+</div>
+            <div className="banner-metric">
+              <small>Penjualan Affiliate</small>
+              <strong>{money(modal.summaryBanner.affiliateOmset)}</strong>
+              <span>{modal.summaryBanner.affiliateCount} order lunas</span>
+            </div>
+            <div className="banner-operator">-</div>
+            <div className="banner-metric">
+              <small>Total Komisi Mitra</small>
+              <strong className="text-commission">-{money(modal.summaryBanner.totalCommission)}</strong>
+              <span>Bagi hasil affiliate</span>
+            </div>
+            <div className="banner-operator">=</div>
+            <div className="banner-metric banner-metric-highlight">
+              <small>Keuntungan Bersih Kita</small>
+              <strong className="text-profit">+{money(modal.summaryBanner.totalNetProfit)}</strong>
+              <span>Laba bersih total</span>
+            </div>
+          </div>
+        )}
+
+        {modal.tabs && modal.tabs.length > 0 && (
+          <div className="modal-tab-menu-bar">
+            {modal.tabs.map((tab) => {
+              const isActive = tab.id === (activeTab?.id || 'all');
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={`modal-menu-tab-btn ${isActive ? 'is-active' : ''}`}
+                  onClick={() => {
+                    setActiveTabId(tab.id);
+                    onPageChange(1);
+                  }}
+                >
+                  <span className="tab-menu-label">{tab.label}</span>
+                  {typeof tab.count !== 'undefined' && (
+                    <span className="tab-menu-count-badge">{tab.count}</span>
+                  )}
+                  {tab.amountFormatted && (
+                    <span className="tab-menu-amount">{tab.amountFormatted}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="modal-filter-bar">
           <div className="modal-search-box">
@@ -430,6 +502,123 @@ export function CardDetailModal({
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: '#647b70' }}>
                       Belum ada data transaksi affiliate yang cocok.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+
+          {modal.type === 'net_profit' && (
+            <table className="detail-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer / Pemesan</th>
+                  <th>Template &amp; Paket</th>
+                  <th>Jalur</th>
+                  <th>Harga Jual (Omset)</th>
+                  <th>Komisi Mitra</th>
+                  <th>Laba Bersih Kita</th>
+                  <th>Status Bayar</th>
+                  <th style={{ textAlign: 'center' }}>Aksi Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedItems.length ? pagedItems.map((order) => {
+                  const isAff = isAffiliateOrder?.(order);
+                  const price = Number(order.payment_amount ?? order.package_price ?? 0);
+                  const comm = isAff ? Number(order.affiliate_commission_amount || order.referral_amount || 0) : 0;
+                  const profit = Math.max(0, price - comm);
+                  return (
+                    <tr key={order.id || order.order_code}>
+                      <td>
+                        <span className="detail-code-badge">{order.order_code}</span>
+                      </td>
+                      <td>
+                        <strong>{order.customer_name}</strong>
+                        <small style={{ display: 'block', color: '#657e72', fontSize: '0.7rem' }}>
+                          {order.customer_email || '-'}
+                        </small>
+                      </td>
+                      <td>
+                        <strong>{order.template_name || order.template_code || '-'}</strong>
+                        <small style={{ display: 'block', color: '#657e72', fontSize: '0.7rem' }}>
+                          {order.package_name || order.package_code || '-'}
+                        </small>
+                      </td>
+                      <td>
+                        {isAff ? (
+                          <div>
+                            <span className="admin-stat-card-badge badge-blue">Affiliate</span>
+                            <small style={{ display: 'block', color: '#165643', fontWeight: '700' }}>
+                              {order.affiliate_name || order.referral_name}
+                            </small>
+                          </div>
+                        ) : (
+                          <span className="admin-stat-card-badge badge-gray" style={{ fontSize: '0.68rem' }}>
+                            Direct DayMoment
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <strong style={{ color: '#102e26' }}>{money(price)}</strong>
+                      </td>
+                      <td>
+                        {isAff ? (
+                          <div>
+                            <span style={{ color: '#0369a1', fontWeight: '700' }}>-{money(comm)}</span>
+                            {order.affiliate_commission_percent > 0 && (
+                              <small style={{ display: 'block', color: '#657e72', fontSize: '0.68rem' }}>
+                                ({order.affiliate_commission_percent}%)
+                              </small>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#657e72', fontSize: '0.74rem' }}>Rp 0 (Direct)</span>
+                        )}
+                      </td>
+                      <td>
+                        <strong style={{ color: '#059669', fontSize: '0.86rem' }}>
+                          +{money(profit)}
+                        </strong>
+                        {!isAff && (
+                          <small style={{ display: 'block', color: '#059669', fontSize: '0.66rem', fontWeight: '700' }}>
+                            100% Laba
+                          </small>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`admin-pill ${order.payment_status}`}>
+                          {statusLabel(order.payment_status)}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="detail-actions-cluster" style={{ justifyContent: 'center' }}>
+                          <button
+                            type="button"
+                            className="detail-action-link view-btn"
+                            onClick={() => onView('order', order)}
+                            title="Lihat detail lengkap pesanan"
+                          >
+                            👁 Lihat
+                          </button>
+                          <button
+                            type="button"
+                            className="detail-action-link edit-btn"
+                            onClick={() => onEdit('order', order)}
+                            title="Edit pesanan"
+                          >
+                            ✏ Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#647b70' }}>
+                      Tidak ada transaksi lunas yang cocok dengan kriteria pencarian.
                     </td>
                   </tr>
                 )}

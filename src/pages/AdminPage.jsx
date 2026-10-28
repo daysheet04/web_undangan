@@ -2555,12 +2555,31 @@ export default function AdminPage() {
   const paidAffiliateOrders = useMemo(() => periodAffiliateOrders.filter((o) => o.payment_status === 'paid'), [periodAffiliateOrders]);
   const paidDirectOrders = useMemo(() => periodDirectOrders.filter((o) => o.payment_status === 'paid'), [periodDirectOrders]);
 
-  const affiliateFinancials = useMemo(() => {
-    const omset = paidAffiliateOrders.reduce((sum, o) => sum + Number(o.payment_amount ?? o.package_price ?? 0), 0);
-    const commission = paidAffiliateOrders.reduce((sum, o) => sum + Number(o.affiliate_commission_amount || o.referral_amount || 0), 0);
-    const netProfit = Math.max(0, omset - commission);
-    return { omset, commission, netProfit };
+  const paidAllOrders = useMemo(() => periodOrders.filter((o) => o.payment_status === 'paid'), [periodOrders]);
+
+  const directRevenue = useMemo(() => {
+    return paidDirectOrders.reduce((sum, o) => sum + Number(o.payment_amount ?? o.package_price ?? 0), 0);
+  }, [paidDirectOrders]);
+
+  const affiliateRevenue = useMemo(() => {
+    return paidAffiliateOrders.reduce((sum, o) => sum + Number(o.payment_amount ?? o.package_price ?? 0), 0);
   }, [paidAffiliateOrders]);
+
+  const affiliateCommissionTotal = useMemo(() => {
+    return paidAffiliateOrders.reduce((sum, o) => sum + Number(o.affiliate_commission_amount || o.referral_amount || 0), 0);
+  }, [paidAffiliateOrders]);
+
+  // Keuntungan bersih seluruhnya = (penjualan affiliate + penjualan direct kita) - total komisi affiliate
+  const totalNetProfit = useMemo(() => {
+    return Math.max(0, (directRevenue + affiliateRevenue) - affiliateCommissionTotal);
+  }, [directRevenue, affiliateRevenue, affiliateCommissionTotal]);
+
+  const affiliateFinancials = useMemo(() => {
+    const omset = affiliateRevenue;
+    const commission = affiliateCommissionTotal;
+    const affiliateNetProfit = Math.max(0, omset - commission);
+    return { omset, commission, netProfit: totalNetProfit, affiliateNetProfit, totalNetProfit };
+  }, [affiliateRevenue, affiliateCommissionTotal, totalNetProfit]);
 
   const summary = useMemo(() => {
     const paidOrders = periodOrders.filter((order) => order.payment_status === 'paid');
@@ -3470,6 +3489,81 @@ export default function AdminPage() {
     setCardModalQuery('');
     setCardModalPage(1);
     setCardModal(cardConfig);
+  };
+
+  const openOmsetModal = (initialTab = 'all') => {
+    openCardModal({
+      type: 'orders',
+      title: 'Rincian Omzet Lunas',
+      subtitle: 'Pesanan yang telah sukses menyelesaikan pembayaran (Direct DayMoment & Mitra Affiliate)',
+      initialTab,
+      tabs: [
+        {
+          id: 'all',
+          label: 'Semua Order Lunas',
+          count: paidAllOrders.length,
+          amountFormatted: money(summary.total_revenue),
+          items: paidAllOrders,
+        },
+        {
+          id: 'direct',
+          label: 'Direct DayMoment',
+          count: paidDirectOrders.length,
+          amountFormatted: money(directRevenue),
+          items: paidDirectOrders,
+        },
+        {
+          id: 'affiliate',
+          label: 'Via Mitra Affiliate',
+          count: paidAffiliateOrders.length,
+          amountFormatted: money(affiliateRevenue),
+          items: paidAffiliateOrders,
+        },
+      ],
+      items: paidAllOrders,
+    });
+  };
+
+  const openNetProfitModal = (initialTab = 'all') => {
+    openCardModal({
+      type: 'net_profit',
+      title: 'Rincian Keuntungan Bersih DayMoment',
+      subtitle: 'Keuntungan seluruhnya = (Penjualan Direct + Penjualan Affiliate) - Total Komisi Affiliate',
+      initialTab,
+      summaryBanner: {
+        directOmset: directRevenue,
+        directCount: paidDirectOrders.length,
+        affiliateOmset: affiliateRevenue,
+        affiliateCount: paidAffiliateOrders.length,
+        totalRevenue: summary.total_revenue,
+        totalCommission: affiliateCommissionTotal,
+        totalNetProfit,
+      },
+      tabs: [
+        {
+          id: 'all',
+          label: 'Semua Transaksi Lunas',
+          count: paidAllOrders.length,
+          amountFormatted: `Laba: ${money(totalNetProfit)}`,
+          items: paidAllOrders,
+        },
+        {
+          id: 'direct',
+          label: 'Direct DayMoment',
+          count: paidDirectOrders.length,
+          amountFormatted: `Laba: ${money(directRevenue)}`,
+          items: paidDirectOrders,
+        },
+        {
+          id: 'affiliate',
+          label: 'Via Mitra Affiliate',
+          count: paidAffiliateOrders.length,
+          amountFormatted: `Laba: ${money(Math.max(0, affiliateRevenue - affiliateCommissionTotal))}`,
+          items: paidAffiliateOrders,
+        },
+      ],
+      items: paidAllOrders,
+    });
   };
 
   const openViewModal = (type, item) => {
@@ -4590,19 +4684,36 @@ export default function AdminPage() {
             <button
               className="admin-stat-card admin-stat-card-accent"
               type="button"
-              onClick={() => openCardModal({
-                type: 'orders',
-                title: 'Order Sudah Lunas',
-                subtitle: 'Pesanan yang telah sukses menyelesaikan pembayaran',
-                items: periodOrders.filter((o) => o.payment_status === 'paid')
-              })}
+              onClick={() => openOmsetModal('all')}
             >
               <div className="admin-stat-card-label">
                 <span>Omzet Lunas</span>
                 <span className="admin-stat-card-badge badge-green">Lunas</span>
               </div>
               <strong className="admin-stat-card-value">{money(summary.total_revenue)}</strong>
-              <small className="admin-stat-card-meta">{summary.total_paid} order lunas <b>→</b></small>
+              <div className="admin-stat-card-pills">
+                <span
+                  className="admin-stat-card-subpill direct"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openOmsetModal('direct');
+                  }}
+                  title="Klik untuk melihat pesanan Direct tanpa affiliate"
+                >
+                  Direct: {money(directRevenue)}
+                </span>
+                <span
+                  className="admin-stat-card-subpill affiliate"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openOmsetModal('affiliate');
+                  }}
+                  title="Klik untuk melihat pesanan via Mitra Affiliate"
+                >
+                  Affiliate: {money(affiliateRevenue)}
+                </span>
+              </div>
+              <small className="admin-stat-card-meta">{summary.total_paid} order lunas (Direct &amp; Affiliate) <b>→</b></small>
             </button>
 
             <button
@@ -4689,19 +4800,36 @@ export default function AdminPage() {
             <button
               className="admin-stat-card admin-stat-card-profit"
               type="button"
-              onClick={() => openCardModal({
-                type: 'affiliate_sales',
-                title: 'Keuntungan Bersih DayMoment dari Penjualan Affiliate',
-                subtitle: 'Omzet template terjual via affiliate dikurangi hak komisi mitra affiliate',
-                items: paidAffiliateOrders
-              })}
+              onClick={() => openNetProfitModal('all')}
             >
               <div className="admin-stat-card-label">
                 <span>Keuntungan Bersih Kita</span>
                 <span className="admin-stat-card-badge badge-green">Laba Bersih</span>
               </div>
-              <strong className="admin-stat-card-value">{money(affiliateFinancials.netProfit)}</strong>
-              <small className="admin-stat-card-meta">Omset dikurang komisi mitra <b>→</b></small>
+              <strong className="admin-stat-card-value">{money(totalNetProfit)}</strong>
+              <div className="admin-stat-card-pills">
+                <span
+                  className="admin-stat-card-subpill direct"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openNetProfitModal('direct');
+                  }}
+                  title="Laba dari pesanan Direct"
+                >
+                  Direct: {money(directRevenue)}
+                </span>
+                <span
+                  className="admin-stat-card-subpill affiliate"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openNetProfitModal('affiliate');
+                  }}
+                  title="Laba dari pesanan Affiliate setelah komisi"
+                >
+                  Affiliate: {money(Math.max(0, affiliateRevenue - affiliateCommissionTotal))}
+                </span>
+              </div>
+              <small className="admin-stat-card-meta">Omset direct + affiliate dikurang komisi mitra <b>→</b></small>
             </button>
 
             <button
