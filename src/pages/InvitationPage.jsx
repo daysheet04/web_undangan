@@ -86,7 +86,38 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   }
   if(state.loading||!templateStylesReady)return <InvitationLoading/>;
   let invitation,media=[],giftAccounts=[],greetings=[],guestName='Bapak/Ibu/Saudara/i',guestSalutation='Kepada Yth.';
-  if(preview&&!token){const template=state.data.template,pkg=template.packages.find(p=>p.code===(query.get('package')||'signature'))||template.packages[0];invitation=sample({...pkg,package_code:pkg.code,package_name:pkg.name});if(pkg.has_gift)giftAccounts=[{provider:'BCA',account_number:'1234 5678 90',account_name:'Andi & Nisa',label:'Hadiah pernikahan'}];}
+  if(preview&&!token){
+    const template=state.data.template,requestedPkg=query.get('package')||'signature',pkg=template.packages.find(p=>p.code===requestedPkg)||template.packages[0];
+    const demoInv=state.data.invitation||template.demo_invitation||{};
+    const pkgCover = state.data.covers?.[pkg.code] || demoInv.covers?.[pkg.code] || demoInv[`cover_image_${pkg.code}`] || demoInv.cover_image;
+    const pkgStage = state.data.stage_photos?.[pkg.code] || demoInv.stage_photos?.[pkg.code] || demoInv[`stage_photo_${pkg.code}`] || demoInv.stage_photo || demoInv.custom_couple_image;
+    invitation=sample({
+      ...demoInv,
+      cover_image: pkgCover || demoInv.cover_image,
+      stage_photo: pkgStage || demoInv.stage_photo,
+      custom_couple_image: pkgStage || demoInv.custom_couple_image,
+      ...pkg,
+      package_code:pkg.code,
+      package_name:pkg.name
+    });
+    const packagePhotos=state.data.demo_gallery?.[pkg.code]||template.demo_gallery?.[pkg.code]||(pkg.code===requestedPkg?state.data.media:null)||[];
+    media=(packagePhotos.length?packagePhotos:state.data.media||[]).slice(0,Math.max(1,Number(pkg.gallery_limit)||2));
+    if(pkg.has_gift){
+      const customGifts = state.data.giftAccounts?.length ? state.data.giftAccounts : (demoInv.gift_accounts?.length ? demoInv.gift_accounts : [{provider:'BCA',account_number:'8830 1928 34',account_name:`${invitation.groom_nickname||'Baskara'} & ${invitation.bride_nickname||'Anindya'}`,label:'Hadiah pernikahan'}]);
+      giftAccounts = customGifts;
+    } else {
+      giftAccounts = [];
+    }
+    if(pkg.has_wishes){
+      const customGreetings = state.data.greetings?.length ? state.data.greetings : (demoInv.greetings?.length ? demoInv.greetings : []);
+      const seen = new Set();
+      greetings = [...submittedGreetings, ...customGreetings].filter((item) => item?.id && !seen.has(item.id) && seen.add(item.id));
+    } else {
+      greetings = [];
+    }
+    guestName = query.get('to') || demoInv.guest_name || guestName;
+    guestSalutation = query.get('salutation') || demoInv.guest_salutation || guestSalutation;
+  }
   else {invitation=preview?withFallbacks(state.data.invitation):state.data.invitation;media=state.data.media||[];giftAccounts=state.data.giftAccounts||[];const seen=new Set();greetings=[...submittedGreetings,...(state.data.greetings||[])].filter((item)=>item?.id&&!seen.has(item.id)&&seen.add(item.id));guestName=state.data.guestName||guestName;guestSalutation=state.data.guestSalutation||guestSalutation;}
   const Template=activeCode==='verdant_vow'?VerdantVowTemplate:activeCode==='aurelia_grande'?AureliaGrandeTemplate:activeCode==='lunara_azure'?LunaraAzureTemplate:PuspaJawi;
   return <Suspense fallback={<InvitationLoading/>}><Template invitation={invitation} media={media} giftAccounts={giftAccounts} greetings={greetings} guestName={guestName} guestSalutation={guestSalutation} preview={preview}/></Suspense>;
@@ -151,6 +182,7 @@ function withFallbacks(value){const fallback=sample(value);for(const key of Obje
 function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSalutation,preview}){
   const groom=i.groom_nickname||'Andi',bride=i.bride_nickname||'Nisa',limit=Math.max(1,Number(i.gallery_limit)||5),photos=media.slice(0,limit);
   const cover=mediaUrl(i.cover_image),bridePhoto=mediaUrl(i.bride_photo||media[0]?.file_path||i.cover_image),groomPhoto=mediaUrl(i.groom_photo||media[1]?.file_path||i.cover_image);
+  const stagePhoto=mediaUrl(i.stage_photo || i.custom_couple_image || i.cover_image);
   const eventDate=i.reception_date||sampleDate(),eventTime=String(i.reception_start_time||'11:00').slice(0,5), calendar=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Pernikahan ${groom} & ${bride}`)}&dates=${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00/${eventDate.replaceAll('-','')}T${eventTime.replace(':','')}00&location=${encodeURIComponent(i.venue_name||'')}`;
 
   const [lightbox, setLightbox] = useState(null);
@@ -264,13 +296,13 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
           <div className="jawi-prologue-portrait jawi-reveal" data-reveal="portrait-3d">
             <div
               className="jawi-prologue-arch jawi-clickable-photo"
-              onClick={() => openPhoto({ src: cover, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Sampul' })}
+              onClick={() => openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Panggung' })}
               role="button"
               tabIndex={0}
-              aria-label="Lihat foto sampul ukuran penuh"
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Sampul' }); } }}
+              aria-label="Lihat foto panggung ukuran penuh"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Panggung' }); } }}
             >
-              <img src={cover} alt={`Foto ${bride} dan ${groom}`} decoding="async" fetchPriority="low"/>
+              <img src={stagePhoto} alt={`Foto ${bride} dan ${groom}`} decoding="async" fetchPriority="low"/>
               <span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span>
               <span>Our Beautiful Moment</span>
             </div>

@@ -13,10 +13,30 @@ export default function AdminCoverAdjusterModal({
   hint,
 }) {
   const isPhone = aspectRatio === 'phone';
-  const CANVAS_W = isPhone ? 472 : 800;
-  const CANVAS_H = isPhone ? 944 : 600;
-  const exportW = isPhone ? 590 : 1200;
-  const exportH = isPhone ? 1180 : 900;
+  const isPortrait = aspectRatio === 'portrait' || aspectRatio === 'vertical' || aspectRatio === '3:4';
+  const isSquare = aspectRatio === 'square' || aspectRatio === '1:1';
+
+  let CANVAS_W = 800;
+  let CANVAS_H = 600;
+  let exportW = 1200;
+  let exportH = 900;
+
+  if (isPhone) {
+    CANVAS_W = 472;
+    CANVAS_H = 944;
+    exportW = 590;
+    exportH = 1180;
+  } else if (isPortrait) {
+    CANVAS_W = 600;
+    CANVAS_H = 800;
+    exportW = 900;
+    exportH = 1200;
+  } else if (isSquare) {
+    CANVAS_W = 600;
+    CANVAS_H = 600;
+    exportW = 900;
+    exportH = 900;
+  }
 
   const [currentUrl, setCurrentUrl] = useState(initialImageUrl || '');
   const [zoom, setZoom] = useState(100); // 100% to 350%
@@ -58,38 +78,54 @@ export default function AdminCoverAdjusterModal({
   useEffect(() => {
     if (!isOpen || !currentUrl) return;
 
+    let cancelled = false;
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    const isBlobOrData = currentUrl.startsWith('blob:') || currentUrl.startsWith('data:');
+    if (!isBlobOrData) {
+      img.crossOrigin = 'anonymous';
+    }
 
-    img.onload = () => {
+    const onImageSuccess = () => {
+      if (cancelled) return;
       imageRef.current = img;
       setImageLoaded(true);
       setLoadError(false);
     };
 
-    img.onerror = () => {
+    const onImageFailure = () => {
+      if (cancelled) return;
       // If anonymous CORS failed, retry without crossOrigin
       if (img.crossOrigin) {
         const retry = new Image();
         retry.onload = () => {
+          if (cancelled) return;
           imageRef.current = retry;
           setImageLoaded(true);
           setLoadError(false);
         };
         retry.onerror = () => {
+          if (cancelled) return;
           setLoadError(true);
           setImageLoaded(false);
         };
-        retry.src = currentUrl;
+        retry.src = isBlobOrData ? currentUrl : `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}_nocache=${Date.now()}`;
       } else {
         setLoadError(true);
         setImageLoaded(false);
       }
     };
 
-    img.src = currentUrl;
+    img.onload = onImageSuccess;
+    img.onerror = onImageFailure;
+    const initialSrc = isBlobOrData ? currentUrl : `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+    img.src = initialSrc;
+
+    if (img.complete && img.naturalWidth > 0) {
+      onImageSuccess();
+    }
 
     return () => {
+      cancelled = true;
       imageRef.current = null;
     };
   }, [isOpen, currentUrl]);
@@ -339,13 +375,18 @@ export default function AdminCoverAdjusterModal({
           {/* Stage Area */}
           <div className="admin-cover-stage-wrap">
             <span className="admin-cover-stage-hint">
-              {hint || (isPhone ? '📱 Frame Layar Mockup HP (Rasio 1:2)' : '🖼️ Frame Sampul Homepage (Rasio 4:3)')}
+              {hint || (isPhone ? '📱 Frame Layar Mockup HP (Rasio 1:2)' : isPortrait ? '📐 Frame Foto Portrait (Rasio 3:4)' : isSquare ? '📐 Frame Foto Kotak (Rasio 1:1)' : '🖼️ Frame Sampul Landscape (Rasio 4:3)')}
             </span>
 
             <div
               ref={stageRef}
               className={`admin-cover-stage-container ${isPhone ? 'is-phone-stage' : ''}`}
-              style={isPhone ? { aspectRatio: '1 / 2', maxWidth: '240px', borderRadius: '28px' } : {}}
+              style={
+                isPhone ? { aspectRatio: '1 / 2', maxWidth: '240px', borderRadius: '28px' } :
+                isPortrait ? { aspectRatio: '3 / 4', maxWidth: '300px', borderRadius: '18px' } :
+                isSquare ? { aspectRatio: '1 / 1', maxWidth: '320px', borderRadius: '18px' } :
+                { aspectRatio: '4 / 3', maxWidth: '440px', borderRadius: '18px' }
+              }
               onPointerDown={handlePointerDown}
               onWheel={handleWheel}
               onTouchStart={handleTouchStart}

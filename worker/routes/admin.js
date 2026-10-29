@@ -3,6 +3,17 @@ import { database } from '../lib/database.js';
 import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
 import { allTemplates, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
+import {
+  deleteTemplateGalleryPhoto,
+  deleteTemplateMusic,
+  deleteTemplatePackagePhoto,
+  getTemplateDemoData,
+  saveTemplateDemoData,
+  uploadTemplateCouplePhoto,
+  uploadTemplateGalleryPhoto,
+  uploadTemplateMusic,
+  uploadTemplatePackagePhoto,
+} from '../lib/templateDemoStore.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -127,7 +138,7 @@ admin.post('/admin/logout', (c) => {
 admin.get('/admin/session', async (c) => c.json({ ok: true, authenticated: await validSession(c.req.raw, String(c.env.ADMIN_PASSWORD || '')) }));
 
 admin.use('/admin/*', async (c, next) => {
-  if (['/api/admin/login', '/api/admin/logout', '/api/admin/session'].includes(c.req.path) || c.req.method === 'OPTIONS') return next();
+  if (['/api/admin/login', '/api/admin/logout', '/api/admin/session'].includes(c.req.path) || c.req.path.startsWith('/api/admin/media/') || c.req.method === 'OPTIONS') return next();
   if (!await validSession(c.req.raw, String(c.env.ADMIN_PASSWORD || ''))) return c.json({ ok: false, message: 'Login admin diperlukan.' }, 401);
   return next();
 });
@@ -1227,7 +1238,8 @@ admin.get('/admin/media/*', async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
-  headers.set('cache-control', headers.get('cache-control') || 'private, max-age=3600');
+  headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
+  headers.set('access-control-allow-origin', '*');
   return new Response(object.body, { headers });
 });
 
@@ -1522,6 +1534,237 @@ admin.patch('/admin/templates/:templateCode/packages/:packageCode/visibility', a
   if (error) throw error;
   if (!selectedPackage) return c.json({ ok: false, message: 'Paket template tidak ditemukan.' }, 404);
   return c.json({ ok: true, is_active: selectedPackage.is_active, message: isActive ? 'Paket ditampilkan kembali.' : 'Paket disembunyikan dari katalog.' });
+});
+
+admin.get('/admin/templates/:templateCode/editor-demo', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const templates = await allTemplates(c.env);
+  const template = templates.find((item) => item.code === templateCode);
+  if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
+
+  const demoData = await getTemplateDemoData(c.env, templateCode);
+  return c.json({
+    ok: true,
+    template: adminTemplate(c.env, template),
+    packages: template.packages || [],
+    invitation: demoData.invitation,
+    gallery: demoData.gallery,
+  });
+});
+
+admin.put('/admin/templates/:templateCode/editor-demo', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const input = await c.req.json().catch(() => ({}));
+  const invitation = input.invitation || {};
+
+  const cleanInvitation = {
+    groom_full_name: cleanTemplateField(invitation.groom_full_name, 150),
+    groom_nickname: cleanTemplateField(invitation.groom_nickname, 80),
+    groom_father: cleanTemplateField(invitation.groom_father, 150),
+    groom_mother: cleanTemplateField(invitation.groom_mother, 150),
+    bride_full_name: cleanTemplateField(invitation.bride_full_name, 150),
+    bride_nickname: cleanTemplateField(invitation.bride_nickname, 80),
+    bride_father: cleanTemplateField(invitation.bride_father, 150),
+    bride_mother: cleanTemplateField(invitation.bride_mother, 150),
+    akad_date: cleanTemplateField(invitation.akad_date, 20),
+    akad_start_time: cleanTemplateField(invitation.akad_start_time, 10),
+    akad_end_time: cleanTemplateField(invitation.akad_end_time, 10),
+    reception_date: cleanTemplateField(invitation.reception_date, 20),
+    reception_start_time: cleanTemplateField(invitation.reception_start_time, 10),
+    reception_end_time: cleanTemplateField(invitation.reception_end_time, 10),
+    venue_name: cleanTemplateField(invitation.venue_name, 180),
+    venue_address: cleanTemplateField(invitation.venue_address, 1000),
+    maps_url: cleanTemplateField(invitation.maps_url, 500),
+    nearest_landmark: cleanTemplateField(invitation.nearest_landmark, 240),
+    route_directions: cleanTemplateField(invitation.route_directions, 1200),
+    transportation_guide: cleanTemplateField(invitation.transportation_guide, 1000),
+    love_story: cleanTemplateField(invitation.love_story, 3000),
+    instagram: cleanTemplateField(invitation.instagram, 100),
+    music_title: cleanTemplateField(invitation.music_title, 150),
+    guest_name: cleanTemplateField(invitation.guest_name, 100) || 'Bapak/Ibu/Saudara/i',
+    guest_salutation: cleanTemplateField(invitation.guest_salutation, 60) || 'Kepada Yth.',
+    guest_list: Array.isArray(invitation.guest_list)
+      ? invitation.guest_list.map((g, idx) => ({
+          id: g.id || `guest-${idx + 1}`,
+          name: cleanTemplateField(g.name, 100),
+          salutation: cleanTemplateField(g.salutation, 60) || 'Kepada Yth.',
+        })).filter((g) => g.name)
+      : [],
+    gift_accounts: Array.isArray(invitation.gift_accounts)
+      ? invitation.gift_accounts.map((acc, idx) => ({
+          id: acc.id || `gift-${idx + 1}`,
+          provider: cleanTemplateField(acc.provider, 50) || 'Bank',
+          account_number: cleanTemplateField(acc.account_number, 50),
+          account_name: cleanTemplateField(acc.account_name, 100),
+          label: cleanTemplateField(acc.label, 80),
+        })).filter((acc) => acc.account_number)
+      : [],
+    greetings: Array.isArray(invitation.greetings)
+      ? invitation.greetings.map((g, idx) => ({
+          id: g.id || `greet-${idx + 1}`,
+          guest_name: cleanTemplateField(g.guest_name, 120),
+          attendance_status: ['attending', 'not_attending', 'unsure'].includes(g.attendance_status) ? g.attendance_status : 'attending',
+          message: cleanTemplateField(g.message, 500),
+          created_at: g.created_at || new Date().toISOString(),
+        })).filter((g) => g.guest_name && g.message)
+      : [],
+  };
+
+  const updated = await saveTemplateDemoData(c.env, templateCode, { invitation: cleanInvitation });
+  return c.json({
+    ok: true,
+    message: 'Data editor demo berhasil disimpan.',
+    invitation: updated.invitation,
+    gallery: updated.gallery,
+  });
+});
+
+admin.post('/admin/templates/:templateCode/editor-demo/music', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const form = await c.req.formData();
+  const file = form.get('file') || form.get('music');
+  const title = String(form.get('title') || '').trim();
+
+  if (!(file instanceof File)) {
+    return c.json({ ok: false, message: 'Pilih berkas musik terlebih dahulu.' }, 422);
+  }
+
+  try {
+    const result = await uploadTemplateMusic(c.env, templateCode, file, title);
+    return c.json({
+      ok: true,
+      message: 'Musik latar berhasil diunggah.',
+      url: result.url,
+      title: result.title,
+      invitation: result.invitation,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal mengunggah musik.' }, 422);
+  }
+});
+
+admin.delete('/admin/templates/:templateCode/editor-demo/music', async (c) => {
+  const templateCode = c.req.param('templateCode');
+
+  try {
+    const result = await deleteTemplateMusic(c.env, templateCode);
+    return c.json({
+      ok: true,
+      message: 'Musik latar berhasil dihapus.',
+      invitation: result.invitation,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal menghapus musik.' }, 422);
+  }
+});
+
+admin.post('/admin/templates/:templateCode/editor-demo/gallery', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const form = await c.req.formData();
+  const packageCode = String(form.get('package_code') || 'essential').toLowerCase();
+  const slotIndex = parseInt(form.get('slot_index'), 10) || 0;
+  const file = form.get('file') || form.get('photo');
+
+  if (!(file instanceof File)) {
+    return c.json({ ok: false, message: 'Pilih foto terlebih dahulu.' }, 422);
+  }
+
+  try {
+    const result = await uploadTemplateGalleryPhoto(c.env, templateCode, packageCode, slotIndex, file);
+    return c.json({
+      ok: true,
+      message: `Foto berhasil disimpan ke slot ${slotIndex + 1} (${packageCode}).`,
+      media: result.media,
+      gallery: result.gallery,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal mengunggah foto galeri.' }, 422);
+  }
+});
+
+admin.delete('/admin/templates/:templateCode/editor-demo/gallery', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const input = await c.req.json().catch(() => ({}));
+  const packageCode = String(input.package_code || 'essential').toLowerCase();
+  const slotIndex = parseInt(input.slot_index, 10) || 0;
+
+  try {
+    const result = await deleteTemplateGalleryPhoto(c.env, templateCode, packageCode, slotIndex);
+    return c.json({
+      ok: true,
+      message: `Foto slot ${slotIndex + 1} (${packageCode}) berhasil dihapus.`,
+      gallery: result.gallery,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal menghapus foto galeri.' }, 422);
+  }
+});
+
+admin.post('/admin/templates/:templateCode/editor-demo/photo', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const form = await c.req.formData();
+  const kind = String(form.get('kind') || 'cover_image');
+  const file = form.get('file') || form.get('photo');
+
+  if (!(file instanceof File)) {
+    return c.json({ ok: false, message: 'Pilih foto terlebih dahulu.' }, 422);
+  }
+
+  try {
+    const result = await uploadTemplateCouplePhoto(c.env, templateCode, kind, file);
+    return c.json({
+      ok: true,
+      message: 'Foto berhasil disimpan.',
+      path: result.path,
+      url: result.url,
+      invitation: result.invitation,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal mengunggah foto.' }, 422);
+  }
+});
+
+admin.post('/admin/templates/:templateCode/editor-demo/package-photo', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const form = await c.req.formData();
+  const kind = String(form.get('kind') || 'cover_image');
+  const packageCode = String(form.get('package_code') || 'essential').toLowerCase();
+  const file = form.get('file') || form.get('photo');
+
+  if (!(file instanceof File)) {
+    return c.json({ ok: false, message: 'Pilih berkas foto terlebih dahulu.' }, 422);
+  }
+
+  try {
+    const result = await uploadTemplatePackagePhoto(c.env, templateCode, kind, packageCode, file);
+    return c.json({
+      ok: true,
+      message: `Foto ${kind === 'cover_image' ? 'cover' : 'panggung'} (${packageCode}) berhasil disimpan.`,
+      path: result.path,
+      url: result.url,
+      invitation: result.invitation,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal mengunggah foto paket.' }, 422);
+  }
+});
+
+admin.delete('/admin/templates/:templateCode/editor-demo/package-photo', async (c) => {
+  const templateCode = c.req.param('templateCode');
+  const input = await c.req.json().catch(() => ({}));
+  const kind = String(input.kind || 'cover_image');
+  const packageCode = String(input.package_code || 'essential').toLowerCase();
+
+  try {
+    const result = await deleteTemplatePackagePhoto(c.env, templateCode, kind, packageCode);
+    return c.json({
+      ok: true,
+      message: `Foto ${kind === 'cover_image' ? 'cover' : 'panggung'} (${packageCode}) berhasil dihapus.`,
+      invitation: result.invitation,
+    });
+  } catch (err) {
+    return c.json({ ok: false, message: err.message || 'Gagal menghapus foto paket.' }, 422);
+  }
 });
 
 admin.patch('/admin/orders/:code', async (c) => {

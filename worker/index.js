@@ -72,6 +72,21 @@ app.get('/media/*', async (c) => {
   return new Response(object.body, { headers });
 });
 
+app.get('/api/admin/media/*', async (c) => {
+  const key = decodeURIComponent(c.req.path.replace(/^\/api\/admin\/media\//, ''));
+  if (key.startsWith('affiliate-ktp/') || key.startsWith('affiliate-proofs/')) {
+    return c.json({ ok: false, message: 'Berkas tidak ditemukan.' }, 404);
+  }
+  const object = await c.env.MEDIA.get(key);
+  if (!object) return c.json({ ok: false, message: 'Berkas tidak ditemukan.' }, 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('etag', object.httpEtag);
+  headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
+  headers.set('access-control-allow-origin', '*');
+  return new Response(object.body, { headers });
+});
+
 app.notFound((c) => c.json({ ok: false, message: 'Endpoint tidak ditemukan.' }, 404));
 app.onError((error, c) => {
   console.error(error);

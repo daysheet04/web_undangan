@@ -54,7 +54,7 @@ export default function AureliaGrandeTemplate({
     [near, setNear] = useState(""),
     customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple')),
     customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : Date.now()),
-    rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null),
+    rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.stage_photo ? mediaUrl(i.stage_photo) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null)),
     customCoupleUrl = rawCustomCoupleUrl ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : null,
     photos = media.filter(m => !m.file_path?.includes('custom-couple')).slice(0, Math.max(1, +i.gallery_limit || 5)),
     [lightbox, setLightbox] = useState(null),
@@ -65,6 +65,10 @@ export default function AureliaGrandeTemplate({
     [rsvpAttendance, setRsvpAttendance] = useState('attending'),
     [rsvpMessage, setRsvpMessage] = useState('');
   const touchStartX = useRef(0);
+
+  useEffect(() => {
+    setWishes(Array.isArray(greetings) ? greetings : []);
+  }, [greetings]);
 
   const openPhoto = (photo) => {
     setLightbox({

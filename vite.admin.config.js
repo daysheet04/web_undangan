@@ -22,6 +22,7 @@ export default defineConfig({
     port: 8081,
     proxy: {
       '/api': 'http://127.0.0.1:8790',
+      '/media': 'http://127.0.0.1:8790',
     },
   },
   build: {

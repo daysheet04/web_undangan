@@ -8,6 +8,7 @@ function PreviewPhone({ template, active }) {
     <div className="phone-mockup preview-phone">
       <div className="phone-speaker" />
       <iframe
+        key={active.code}
         className="preview-iframe"
         title={`Preview ${template.name} paket ${active.name}`}
         src={`/template/${template.code}?embed=1&package=${active.code}`}

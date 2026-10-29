@@ -11,6 +11,7 @@ import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
 import { CardDetailModal, ViewItemDetailModal, EditItemModal } from '../components/AdminDashboardModals.jsx';
 import AdminBottomTables from '../components/AdminBottomTables.jsx';
 import AdminCustomDropdown from '../components/AdminCustomDropdown.jsx';
+import AdminTemplateEditorModal from '../components/AdminTemplateEditorModal.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
@@ -97,7 +98,7 @@ function WebsiteAccessEditor({ order, working, onSave }) {
   </div>;
 }
 
-function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissionDrafts, setCommissionDrafts, working, onSavePackage, onReload }) {
+function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissionDrafts, setCommissionDrafts, working, onSavePackage, onReload, onOpenEditorDemo }) {
   const [draft, setDraft] = useState({ name: template.name || '', category: template.category || '', description: template.description || '' });
   const [cover, setCover] = useState({ thumbnail: template.thumbnail, thumbnail_url: template.thumbnail_url });
   const [phoneCover, setPhoneCover] = useState({ phone_cover: template.phone_cover, phone_cover_url: template.phone_cover_url });
@@ -362,6 +363,7 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
     </form>
     <div className="admin-template-pricing-header"><div><strong>Harga dan komisi affiliate</strong><small>Persentase berlaku global untuk order baru · {template.name}</small></div><span className="admin-pill active">{template.package_count || template.packages?.length || 0} paket</span></div>
     <div className="admin-template-price-list">{(template.packages || []).map((packageItem) => { const key = `${template.code}:${packageItem.code}`; const currentValue = priceDrafts[key] ?? packageItem.price ?? 0; const currentCommission = commissionDrafts[key] ?? packageItem.affiliate_commission_default_percent ?? 0; const packageVisible = packageVisibility[packageItem.code] !== false; const visibilityWorking = catalogWorking === `package-visibility:${packageItem.code}`; return <div className={`admin-template-price-row admin-template-package-settings ${packageVisible ? '' : 'is-package-hidden'}`.trim()} key={key}><div className="admin-package-meta"><strong>{packageItem.name}</strong><small>{packageItem.tagline}</small><em>{packageVisible ? 'Tampil di katalog' : 'Sedang maintenance'}</em></div><label className="admin-package-setting-field"><small>Harga</small><div className="admin-price-editor"><span>Rp</span><input type="text" inputMode="numeric" value={formatRupiahInput(currentValue)} onChange={(event) => setPriceDrafts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, '') }))}/></div></label><label className="admin-package-setting-field"><small>Komisi affiliate</small><div className="admin-commission-editor"><input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={currentCommission} onChange={(event) => setCommissionDrafts((current) => ({ ...current, [key]: event.target.value }))}/><span>%</span></div></label><div className="admin-package-actions"><button className={`admin-package-visibility ${packageVisible ? 'is-visible' : 'is-hidden'}`} type="button" disabled={Boolean(catalogWorking)} onClick={() => togglePackageVisibility(packageItem)}>{visibilityWorking ? 'Menyimpan...' : packageVisible ? 'Hide' : 'Show'}</button><button className="admin-save-price" type="button" disabled={working === `package:${key}`} onClick={() => onSavePackage(template.code, packageItem.code)}>{working === `package:${key}` ? 'Menyimpan...' : 'Simpan'}</button></div></div>; })}</div>
+    <button type="button" className="admin-btn-manage-editor" onClick={() => onOpenEditorDemo?.(template)} title={`Kelola editor dan galeri foto untuk preview ${template.name}`}>🎨 Kelola Editor &amp; Galeri Demo</button>
   </article>;
 }
 
@@ -2139,6 +2141,7 @@ export default function AdminPage() {
   const [cardModalPage, setCardModalPage] = useState(1);
   const [viewItemModal, setViewItemModal] = useState(null);
   const [editItemModal, setEditItemModal] = useState(null);
+  const [editorDemoModalTemplate, setEditorDemoModalTemplate] = useState(null);
   const [affiliateReviews, setAffiliateReviews] = useState({ data: null, loading: false, error: '' });
   const [affiliateReviewWorking, setAffiliateReviewWorking] = useState('');
   const [proUpgrades, setProUpgrades] = useState({ data: null, loading: false, error: '' });
@@ -5195,7 +5198,7 @@ export default function AdminPage() {
 
       <section className="admin-settings-panel admin-panel">
         <div className="admin-panel-heading admin-catalog-heading"><div><span className="eyebrow">Katalog template</span><h2>Sampul dan informasi produk</h2></div><span className="admin-panel-note">Perubahan digunakan di website utama dan etalase affiliate</span></div>
-        <div className="admin-template-pricing-grid">{templateCatalog.map((template) => <TemplateCatalogEditor key={template.code} template={template} priceDrafts={priceDrafts} setPriceDrafts={setPriceDrafts} commissionDrafts={commissionDrafts} setCommissionDrafts={setCommissionDrafts} working={working} onSavePackage={savePackageSettings} onReload={reload} />)}</div>
+        <div className="admin-template-pricing-grid">{templateCatalog.map((template) => <TemplateCatalogEditor key={template.code} template={template} priceDrafts={priceDrafts} setPriceDrafts={setPriceDrafts} commissionDrafts={commissionDrafts} setCommissionDrafts={setCommissionDrafts} working={working} onSavePackage={savePackageSettings} onReload={reload} onOpenEditorDemo={setEditorDemoModalTemplate} />)}</div>
       </section>
 
       {/* Permanent Bottom Tables with Independent Sub-Table Pagination */}
@@ -5245,6 +5248,12 @@ export default function AdminPage() {
         onSave={handleSaveModalEdit}
       />
     </section>
+    <AdminTemplateEditorModal
+      isOpen={Boolean(editorDemoModalTemplate)}
+      onClose={() => setEditorDemoModalTemplate(null)}
+      template={editorDemoModalTemplate}
+      onReload={reload}
+    />
   </AdminTemplate>;
 }
 

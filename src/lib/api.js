@@ -39,7 +39,8 @@ export async function api(path, options = {}) {
 export const get = (path) => api(path);
 export const post = (path, data) => api(path, { method: 'POST', body: data instanceof FormData ? data : JSON.stringify(data) });
 export const patch = (path, data) => api(path, { method: 'PATCH', body: JSON.stringify(data) });
-export const del = (path) => api(path, { method: 'DELETE' });
+export const put = (path, data) => api(path, { method: 'PUT', body: data instanceof FormData ? data : JSON.stringify(data) });
+export const del = (path, data) => api(path, { method: 'DELETE', ...(data ? { body: data instanceof FormData ? data : JSON.stringify(data) } : {}) });
 
 export function money(value) {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -48,6 +49,10 @@ export function money(value) {
 export function mediaUrl(path) {
   if (!path) return '/assets/images/templates/placeholder-couple.svg';
   if (/^https?:\/\//i.test(path) || path.startsWith('/')) return path;
-  if (path.startsWith('uploads/')) return `/${path}`;
-  return `${API_BASE}/media/${String(path).replace(/^\/+/, '')}`;
+  if (path.startsWith('uploads/')) return '/' + path;
+  const cleanPath = String(path).replace(/^\/+/, '');
+  if (typeof window !== 'undefined' && (window.location.port === '8081' || window.location.pathname.startsWith('/admin'))) {
+    return (API_BASE ? API_BASE : '') + '/api/admin/media/' + cleanPath;
+  }
+  return (API_BASE ? API_BASE : '') + '/media/' + cleanPath;
 }
