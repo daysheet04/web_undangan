@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { database } from '../lib/database.js';
 import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
-import { allTemplates, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
+import { allTemplates, canonicalTemplateCode, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
 import {
   deleteTemplateGalleryPhoto,
   deleteTemplateMusic,
@@ -394,7 +394,7 @@ admin.post('/admin/complimentary-orders', async (c) => {
   if (!validPhone(customerPhone)) errors.customer_phone = 'Gunakan nomor Indonesia yang diawali 08 atau +62.';
 
   const templates = await allTemplates(c.env);
-  const template = templates.find((item) => item.code === templateCode);
+  const template = templates.find((item) => item.code === templateCode || canonicalTemplateCode(item.code) === canonicalTemplateCode(templateCode));
   const selectedPackage = template?.packages?.find((item) => item.code === packageCode);
   if (!template) errors.template_code = 'Pilih template yang tersedia.';
   if (!selectedPackage) errors.package_code = 'Pilih paket yang tersedia untuk template tersebut.';
@@ -1350,7 +1350,8 @@ admin.post('/admin/templates/:templateCode/cover', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
     template = demoTemplates().find((item) => item.code === templateCode);
   } else {
-    const { data, error } = await database(c.env).from('templates').select('*').eq('code', templateCode).maybeSingle();
+    const codesToTry = Array.from(new Set([templateCode, canonicalTemplateCode(templateCode)].filter(Boolean)));
+    const { data, error } = await database(c.env).from('templates').select('*').in('code', codesToTry).limit(1).maybeSingle();
     if (error) throw error;
     template = data;
   }
@@ -1539,7 +1540,7 @@ admin.patch('/admin/templates/:templateCode/packages/:packageCode/visibility', a
 admin.get('/admin/templates/:templateCode/editor-demo', async (c) => {
   const templateCode = c.req.param('templateCode');
   const templates = await allTemplates(c.env);
-  const template = templates.find((item) => item.code === templateCode);
+  const template = templates.find((item) => item.code === templateCode || canonicalTemplateCode(item.code) === canonicalTemplateCode(templateCode));
   if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
 
   const demoData = await getTemplateDemoData(c.env, templateCode);

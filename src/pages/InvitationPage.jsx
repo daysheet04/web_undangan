@@ -9,7 +9,17 @@ const AureliaGrandeTemplate = lazy(() => import('../templates/AureliaGrandeTempl
 const VerdantVowTemplate = lazy(() => import('../templates/VerdantVowExperience.jsx'));
 
 const A='/assets/images/templates/puspa-jawi/';
+function canonicalCode(c) {
+  const s = String(c || '').toLowerCase().trim();
+  if (s === 'puspa_jawi' || s === 'puspa-jawi' || s === 'java_vibes' || s === 'java-vibes') return 'java_vibes';
+  if (s === 'lunara_azure' || s === 'lunara-azure' || s === 'butterfly_blum' || s === 'butterfly-blum') return 'lunara_azure';
+  if (s === 'aurelia_grande' || s === 'aurelia-grande' || s === 'luxury_vibes' || s === 'luxury-vibes') return 'aurelia_grande';
+  if (s === 'verdant_vow' || s === 'verdant-vow' || s === 'modern_javanese' || s === 'modern-javanese') return 'verdant_vow';
+  return s;
+}
+
 const TEMPLATE_RUNTIME={
+  java_vibes:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261023-couple-bg-flip-v2',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
   puspa_jawi:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261023-couple-bg-flip-v2',script:'/assets/js/templates/puspa-jawi.js?v=20261016-52'},
   lunara_azure:{title:'Lunara Azure — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261016-01',script:'/assets/js/templates/lunara-azure.js?v=20261012-11'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261019-01',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
@@ -45,18 +55,19 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     return ()=>window.removeEventListener('daymoment:greeting-sent',receiveGreeting);
   },[preview]);
   const resolvedCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||null;
-  const activeCode=resolvedCode||'puspa_jawi';
-  const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.puspa_jawi;
+  const canonicalResolved=canonicalCode(resolvedCode);
+  const activeCode=canonicalResolved||'java_vibes';
+  const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.java_vibes;
   useEffect(()=>{
     if(resolvedCode!=='verdant_vow')return;
     import('../templates/VerdantVowExperience.jsx');
   },[resolvedCode]);
-  const templateName = state.data?.invitation?.template_name || state.data?.template?.name || (activeCode === 'puspa_jawi' ? 'Java Vibes' : (runtime?.title ? runtime.title.replace(/\s*—\s*Daymoment.*$/, '') : 'Undangan Pernikahan'));
+  const templateName = state.data?.invitation?.template_name || state.data?.template?.name || (activeCode === 'java_vibes' || activeCode === 'puspa_jawi' ? 'Java Vibes' : (runtime?.title ? runtime.title.replace(/\s*—\s*Daymoment.*$/, '') : 'Undangan Pernikahan'));
   useDocumentTitle(`${templateName} — Daymoment`);
   useHeadLinks(runtime?[runtime.font]:[]);
   const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/templates/mobile-template-fixes.css?v=20261024-2','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
   useEffect(()=>{
-    if(resolvedCode!=='puspa_jawi')return undefined;
+    if(activeCode!=='java_vibes' && activeCode!=='puspa_jawi')return undefined;
     const href=`${A}${window.matchMedia('(max-width: 700px)').matches?'puspa-cover-washi-v2-mobile.webp':'puspa-cover-washi-v2.webp'}`;
     const link=document.createElement('link');
     link.rel='preload';link.as='image';link.href=href;link.fetchPriority='high';link.dataset.puspaCoverPreload='true';
@@ -64,7 +75,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     return()=>link.remove();
   },[resolvedCode]);
   useEffect(() => {
-    if(activeCode==='puspa_jawi')return undefined;
+    if(activeCode==='java_vibes' || activeCode==='puspa_jawi')return undefined;
     const coverPath=state.data?.invitation?.cover_image;
     if(!coverPath)return undefined;
     const image=new Image();
@@ -196,9 +207,9 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
   };
 
   const openGalleryPhoto = (index) => {
-    const galleryItems = (photos.length ? photos : ['Pertemuan', 'Perjalanan', 'Lamaran', 'Hari Bahagia', 'Selamanya'].slice(0, limit)).map((p, idx) => ({
+    const galleryItems = (photos.length ? photos : ['Galeri 01', 'Galeri 02', 'Galeri 03', 'Galeri 04', 'Galeri 05'].slice(0, limit)).map((p, idx) => ({
       src: p?.file_path ? mediaUrl(p.file_path) : cover,
-      title: `Kenangan · ${String(idx + 1).padStart(2, '0')}`,
+      title: `Galeri · ${String(idx + 1).padStart(2, '0')}`,
       caption: `${bride} & ${groom} — Potret Bahagia`
     }));
     setLightbox({
@@ -368,8 +379,8 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
         <a className="jawi-button calendar-link jawi-reveal" data-reveal="scale" href={calendar} target="_blank" rel="noreferrer">Tambah ke Kalender <Icon name="jawi-arrow"/></a>
       </section>
       <section className="jawi-section jawi-events-section jawi-events-v2"><div className="jawi-events-scenery" aria-hidden="true"/><div className="jawi-events-routes" aria-hidden="true"><i/><i/><i/></div><Heading small="Rangkaian Acara" title="Lokasi & Waktu"/><div className="event-date-lockup jawi-reveal" data-reveal="seal-stamp"><span>{new Date(`${eventDate}T12:00:00`).toLocaleDateString('id-ID',{month:'long'})}</span><strong>{new Date(`${eventDate}T12:00:00`).getDate()}</strong><span>{new Date(`${eventDate}T12:00:00`).getFullYear()}</span></div><div className="jawi-events-grid"><EventCard type="akad" invitation={i}/><EventCard type="reception" invitation={i}/></div></section>
-      <section className="jawi-section jawi-story-section jawi-story-v2"><div className="jawi-story-scenery" aria-hidden="true"/><div className="jawi-story-stitches" aria-hidden="true"><i/><i/><i/></div><div className="story-gate story-manuscript jawi-reveal" data-reveal="story-gate"><span className="story-chapter" aria-hidden="true">Catatan <b>01</b></span><Heading small="Kisah Kami" title={<>Berawal,<br/>Bertumbuh,<br/>Berlabuh</>}/><div className="story-copy"><span aria-hidden="true">Satu kisah · satu tujuan</span><p data-live="love_story">{i.love_story||'Berawal dari pertemuan sederhana, tumbuh menjadi persahabatan, lalu keyakinan untuk berjalan bersama.'}</p></div><img className="story-thread-ornament" src={`${A}puspa-story-thread-v1.webp`} alt="" loading="lazy" decoding="async"/></div></section>
-      <section className="jawi-section jawi-gallery-section jawi-gallery-v2"><div className="jawi-gallery-scenery" aria-hidden="true"/><div className="jawi-gallery-registers" aria-hidden="true"><i/><i/><i/></div><img className="gallery-studio-ornament gallery-studio-left" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><img className="gallery-studio-ornament gallery-studio-right" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><Heading small="Potret Bahagia" title="Galeri Kisah Kami"/><div className={`jawi-gallery-track gallery-count-${Math.min(photos.length||limit,5)}`}>{photos.length?photos.map((photo,index)=><figure className="jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={photo.id} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto galeri ${index+1} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><img className="gallery-image" loading="lazy" decoding="async" src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index+1}`}/><figcaption><span>{String(index+1).padStart(2,'0')}</span> Kenangan</figcaption></figure>):['Pertemuan','Perjalanan','Lamaran','Hari Bahagia','Selamanya'].slice(0,limit).map((caption,index)=><figure className="gallery-empty jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={caption} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto ${caption} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><span>{String(index+1).padStart(2,'0')}</span><figcaption>{caption}</figcaption></figure>)}</div></section>
+      <section className="jawi-section jawi-story-section jawi-story-v2"><div className="jawi-story-scenery" aria-hidden="true"/><div className="jawi-story-stitches" aria-hidden="true"><i/><i/><i/></div><div className="story-gate story-manuscript jawi-reveal" data-reveal="story-gate"><Heading small="Kisah Kami" title={<>Berawal,<br/>Bertumbuh,<br/>Berlabuh</>}/><div className="story-copy"><span aria-hidden="true">Satu kisah · satu tujuan</span><p data-live="love_story">{i.love_story||'Berawal dari pertemuan sederhana, tumbuh menjadi persahabatan, lalu keyakinan untuk berjalan bersama.'}</p></div><img className="story-thread-ornament" src={`${A}puspa-story-thread-v1.webp`} alt="" loading="lazy" decoding="async"/></div></section>
+      <section className="jawi-section jawi-gallery-section jawi-gallery-v2"><div className="jawi-gallery-scenery" aria-hidden="true"/><div className="jawi-gallery-registers" aria-hidden="true"><i/><i/><i/></div><img className="gallery-studio-ornament gallery-studio-left" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><img className="gallery-studio-ornament gallery-studio-right" src={`${A}puspa-gallery-studio-ornament-v1.webp`} alt="" loading="lazy" decoding="async"/><Heading small="Potret Bahagia" title="Galeri Kisah Kami"/><div className={`jawi-gallery-track gallery-count-${Math.min(photos.length||limit,5)}`}>{photos.length?photos.map((photo,index)=><figure className="jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={photo.id} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto galeri ${index+1} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><img className="gallery-image" loading="lazy" decoding="async" src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index+1}`}/><figcaption><span>{String(index+1).padStart(2,'0')}</span> Galeri</figcaption></figure>):['Pertemuan','Perjalanan','Lamaran','Hari Bahagia','Selamanya'].slice(0,limit).map((caption,index)=><figure className="gallery-empty jawi-reveal jawi-clickable-photo" data-reveal="gallery-card" key={caption} style={{'--gallery-rot': `${index % 2 === 0 ? -4 : 4}deg`, '--gallery-target-rot': `${index % 2 === 0 ? -1.5 : 2}deg`, '--gallery-x': `${index % 2 === 0 ? -35 : 35}px`}} onClick={()=>openGalleryPhoto(index)} role="button" tabIndex={0} aria-label={`Lihat foto ${caption} ukuran penuh`} onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGalleryPhoto(index);}}}><figcaption><span>{String(index+1).padStart(2,'0')}</span> Galeri</figcaption></figure>)}</div></section>
       {i.has_gift&&<GiftSection accounts={giftAccounts}/>} {i.has_wishes&&<RsvpSection invitation={i} guestName={guestName} greetings={greetings} preview={preview}/>}
       <section className="jawi-section jawi-closing-section jawi-closing-v2">
         <div className="jawi-closing-scenery" aria-hidden="true"/>

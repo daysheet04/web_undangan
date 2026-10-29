@@ -1,6 +1,6 @@
 import { cleanText } from './helpers.js';
 import { database } from './database.js';
-import { hasRealSupabaseConfig } from './repositories.js';
+import { canonicalTemplateCode, hasRealSupabaseConfig } from './repositories.js';
 
 const DEMO_STORE_KEY_PREFIX = 'template-demo-data/';
 
@@ -14,7 +14,7 @@ function imageExtension(file) {
 }
 
 export function getDefaultTemplateDemo(templateCode) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
 
   // Baseline shared fallback
   const base = {
@@ -233,7 +233,7 @@ function getMemoryStore() {
 }
 
 export async function getTemplateDemoData(env, templateCode) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const memStore = getMemoryStore();
 
   const cached = memStore.get(code);
@@ -317,7 +317,7 @@ export async function getTemplateDemoData(env, templateCode) {
 }
 
 export async function saveTemplateDemoData(env, templateCode, data) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const current = await getTemplateDemoData(env, code);
 
   const updated = {
@@ -344,6 +344,13 @@ export async function saveTemplateDemoData(env, templateCode, data) {
         value: JSON.stringify(updated),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
+      if (code === 'java_vibes') {
+        await db.from('site_settings').upsert({
+          key: 'template_demo_puspa_jawi',
+          value: JSON.stringify(updated),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'key' });
+      }
     } catch (err) {
       console.warn(`Failed saving demo data to Supabase for ${code}:`, err.message);
     }
@@ -366,7 +373,7 @@ export async function saveTemplateDemoData(env, templateCode, data) {
 }
 
 export async function uploadTemplateGalleryPhoto(env, templateCode, packageCode, slotIndex, file) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const pkgCode = String(packageCode || 'essential').toLowerCase().trim();
   const index = Math.max(0, parseInt(slotIndex, 10) || 0);
 
@@ -422,7 +429,7 @@ export async function uploadTemplateGalleryPhoto(env, templateCode, packageCode,
 }
 
 export async function deleteTemplateGalleryPhoto(env, templateCode, packageCode, slotIndex) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const pkgCode = String(packageCode || 'essential').toLowerCase().trim();
   const index = Math.max(0, parseInt(slotIndex, 10) || 0);
 
@@ -447,7 +454,7 @@ export async function deleteTemplateGalleryPhoto(env, templateCode, packageCode,
 }
 
 export async function uploadTemplateCouplePhoto(env, templateCode, kind, file) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const allowedKinds = ['groom_photo', 'bride_photo', 'cover_image', 'stage_photo', 'custom_couple_image'];
   if (!allowedKinds.includes(kind)) {
     throw new Error('Jenis foto tidak valid.');
@@ -492,7 +499,7 @@ export async function uploadTemplateCouplePhoto(env, templateCode, kind, file) {
 }
 
 export async function uploadTemplatePackagePhoto(env, templateCode, kind, packageCode, file) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const pkgCode = String(packageCode || 'essential').toLowerCase().trim();
   const allowedKinds = ['cover_image', 'stage_photo'];
   if (!allowedKinds.includes(kind)) {
@@ -547,7 +554,7 @@ export async function uploadTemplatePackagePhoto(env, templateCode, kind, packag
 }
 
 export async function deleteTemplatePackagePhoto(env, templateCode, kind, packageCode) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const pkgCode = String(packageCode || 'essential').toLowerCase().trim();
   const current = await getTemplateDemoData(env, code);
 
@@ -575,7 +582,7 @@ export async function deleteTemplatePackagePhoto(env, templateCode, kind, packag
 }
 
 export async function uploadTemplateMusic(env, templateCode, file, title = '') {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
 
   if (!(file instanceof File)) {
     throw new Error('Pilih berkas audio terlebih dahulu.');
@@ -622,7 +629,7 @@ export async function uploadTemplateMusic(env, templateCode, file, title = '') {
 }
 
 export async function deleteTemplateMusic(env, templateCode) {
-  const code = String(templateCode || '').toLowerCase().trim();
+  const code = canonicalTemplateCode(templateCode);
   const current = await getTemplateDemoData(env, code);
 
   const prevFile = current.invitation?.music_file;

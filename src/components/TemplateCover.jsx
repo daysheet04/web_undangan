@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MAIN_APP_URL } from '../lib/urls.js';
 
 const DEFAULT_COVERS = {
+  java_vibes: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
   puspa_jawi: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
   lunara_azure: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
   aurelia_grande: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',

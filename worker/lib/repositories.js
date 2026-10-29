@@ -1,10 +1,27 @@
 import { database, many, one } from './database.js';
 import { cleanText } from './helpers.js';
 
+export function canonicalTemplateCode(rawCode) {
+  const code = String(rawCode || '').toLowerCase().trim();
+  if (code === 'puspa_jawi' || code === 'puspa-jawi' || code === 'java_vibes' || code === 'java-vibes') {
+    return 'java_vibes';
+  }
+  if (code === 'lunara_azure' || code === 'lunara-azure' || code === 'butterfly_blum' || code === 'butterfly-blum') {
+    return 'lunara_azure';
+  }
+  if (code === 'aurelia_grande' || code === 'aurelia-grande' || code === 'luxury_vibes' || code === 'luxury-vibes') {
+    return 'aurelia_grande';
+  }
+  if (code === 'verdant_vow' || code === 'verdant-vow' || code === 'modern_javanese' || code === 'modern-javanese') {
+    return 'verdant_vow';
+  }
+  return code;
+}
+
 const FALLBACK_TEMPLATES = [
   {
     id: 1,
-    code: 'puspa_jawi',
+    code: 'java_vibes',
     name: 'Java Vibes',
     category: 'Javanese Botanical',
     description: 'Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, puspa watercolor, dan awan bergerak.',
@@ -99,15 +116,24 @@ export async function activeTemplates(env) {
 }
 
 export async function templateByCode(env, code) {
+  const target = String(code || '').toLowerCase().trim();
+  const canonical = canonicalTemplateCode(target);
   const templates = await activeTemplates(env);
-  const template = templates.find((item) => item.code === code);
+  const template = templates.find((item) => {
+    const itemCode = String(item.code || '').toLowerCase().trim();
+    return itemCode === target || canonicalTemplateCode(itemCode) === canonical;
+  });
   if (template) return template;
 
   let exists = false;
   if (!hasRealSupabaseConfig(env)) {
-    exists = demoTemplates().some((item) => item.code === code);
+    exists = demoTemplates().some((item) => {
+      const itemCode = String(item.code || '').toLowerCase().trim();
+      return itemCode === target || canonicalTemplateCode(itemCode) === canonical;
+    });
   } else {
-    const { data, error: readError } = await database(env).from('templates').select('id').eq('code', code).maybeSingle();
+    const codesToTry = Array.from(new Set([target, canonical].filter(Boolean)));
+    const { data, error: readError } = await database(env).from('templates').select('id').in('code', codesToTry).limit(1).maybeSingle();
     if (readError) throw readError;
     exists = Boolean(data);
   }

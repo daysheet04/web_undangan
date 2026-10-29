@@ -5,6 +5,18 @@ import { jsPDF } from 'jspdf';
    ========================================================================== */
 
 export const THEMES = {
+  java_vibes: {
+    key: 'java_vibes',
+    name: 'Java Vibes',
+    paper: [254, 252, 246],
+    paperCard: [248, 244, 233],
+    ink: [26, 24, 22],
+    muted: [102, 92, 84],
+    gold: [194, 150, 62],
+    goldLight: [230, 208, 156],
+    border: [214, 186, 134],
+    style: 'jawi',
+  },
   puspa_jawi: {
     key: 'puspa_jawi',
     name: 'Java Vibes',

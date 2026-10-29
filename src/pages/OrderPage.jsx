@@ -5,7 +5,7 @@ import { useRemote } from '../lib/hooks.js';
 
 export default function OrderPage() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
-  const code = query.get('template') || 'puspa_jawi';
+  const code = query.get('template') || 'java_vibes';
   const referralCode = query.get('ref') || '';
   const referralQuery = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : '';
   const { data, loading, error } = useRemote(`/api/templates/${code}${referralQuery}`, [code, referralCode]);

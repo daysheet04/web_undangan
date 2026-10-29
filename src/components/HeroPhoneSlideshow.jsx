@@ -3,7 +3,7 @@ import { templatePhoneCoverUrl, defaultTemplateCover } from './TemplateCover.jsx
 
 const FALLBACK_HERO_TEMPLATES = [
   {
-    code: 'puspa_jawi',
+    code: 'java_vibes',
     name: 'Java Vibes',
     category: 'Javanese Botanical',
   },
