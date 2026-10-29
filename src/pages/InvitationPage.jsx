@@ -296,15 +296,14 @@ function PuspaJawi({invitation:i,media,giftAccounts,greetings,guestName,guestSal
           <div className="jawi-prologue-portrait jawi-reveal" data-reveal="portrait-3d">
             <div
               className="jawi-prologue-arch jawi-clickable-photo"
-              onClick={() => openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Panggung' })}
+              onClick={() => openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Foto Mempelai' })}
               role="button"
               tabIndex={0}
-              aria-label="Lihat foto panggung ukuran penuh"
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Our Beautiful Moment — Foto Panggung' }); } }}
+              aria-label="Lihat foto mempelai ukuran penuh"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: stagePhoto, title: `${bride} & ${groom}`, caption: 'Foto Mempelai' }); } }}
             >
               <img src={stagePhoto} alt={`Foto ${bride} dan ${groom}`} decoding="async" fetchPriority="low"/>
               <span className="jawi-photo-zoom-hint" aria-hidden="true"><Icon name="jawi-zoom"/></span>
-              <span>Our Beautiful Moment</span>
             </div>
             <img className="jawi-prologue-flower portrait-flower" src={`${A}puspa-floral-nusantara-v3.webp`} alt="" decoding="async"/>
             <b className="jawi-prologue-seal" aria-hidden="true">{bride.charAt(0)} <i>&amp;</i> {groom.charAt(0)}</b>
