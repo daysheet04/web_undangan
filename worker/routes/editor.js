@@ -6,6 +6,25 @@ import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invit
 const editor = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
 
+const TEMPLATE_COVERS = {
+  java_vibes: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+  puspa_jawi: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+  lunara_azure: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+  butterfly_blum: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+  aurelia_grande: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
+  luxury_vibes: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
+  verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+  modern_javanese: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+};
+
+function resolveTemplateThumbnail(t) {
+  const code = canonicalTemplateCode(t.code);
+  const fallback = TEMPLATE_COVERS[code] || TEMPLATE_COVERS[t.code] || '/assets/images/templates/placeholder-couple.svg';
+  if (!t.thumbnail) return fallback;
+  if (t.thumbnail.startsWith('/') || /^https?:\/\//i.test(t.thumbnail)) return t.thumbnail;
+  return fallback;
+}
+
 function demoInvitationByToken(token) {
   const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === token);
   if (!order) return null;
@@ -108,7 +127,7 @@ editor.get('/editor/:token', async (c) => {
         name: t.name,
         category: t.category,
         description: t.description,
-        thumbnail: t.thumbnail,
+        thumbnail: resolveTemplateThumbnail(t),
         is_current: t.code === invitation.template_code,
         supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
       }));
@@ -139,7 +158,7 @@ editor.get('/editor/:token', async (c) => {
       name: t.name,
       category: t.category,
       description: t.description,
-      thumbnail: t.thumbnail,
+      thumbnail: resolveTemplateThumbnail(t),
       is_current: t.code === invitation.template_code,
       supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
     }));

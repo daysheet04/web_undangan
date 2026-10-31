@@ -9,6 +9,25 @@ const salutations=['Bapak/Ibu/Saudara/i','Bapak & Ibu','Saudara/i','Keluarga','T
 const TextField=({label,name,value='',full=false,...props})=><label className={`field ${full?'full':''}`}><span>{label}{props.required&&<b> *</b>}</span><input name={name} defaultValue={value||''} {...props}/></label>;
 const invitationDateLabel=(value)=>value?new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'long',year:'numeric'}).format(new Date(value)):'';
 
+const TEMPLATE_THUMBNAILS = {
+  java_vibes: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+  puspa_jawi: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+  lunara_azure: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+  butterfly_blum: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+  aurelia_grande: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
+  luxury_vibes: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
+  verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+  modern_javanese: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+};
+
+function getTemplateCover(tpl) {
+  const code = String(tpl?.code || '').toLowerCase().trim();
+  const fallback = TEMPLATE_THUMBNAILS[code] || '/assets/images/templates/placeholder-couple.svg';
+  if (!tpl?.thumbnail) return fallback;
+  if (tpl.thumbnail.startsWith('/') || /^https?:\/\//i.test(tpl.thumbnail)) return tpl.thumbnail;
+  return fallback;
+}
+
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
   useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
@@ -466,7 +485,18 @@ export default function BuilderPage({token}){
                 return (
                   <div key={tpl.code} className={`theme-card ${isCurrent ? 'is-active' : ''}`}>
                     <div className="theme-card-thumb-wrap">
-                      <img src={tpl.thumbnail} alt={tpl.name} className="theme-card-thumb" loading="lazy" />
+                      <img
+                        src={getTemplateCover(tpl)}
+                        alt={tpl.name}
+                        className="theme-card-thumb"
+                        loading="lazy"
+                        onError={(e) => {
+                          const fallback = TEMPLATE_THUMBNAILS[String(tpl?.code || '').toLowerCase().trim()] || '/assets/images/templates/placeholder-couple.svg';
+                          if (!e.currentTarget.src.endsWith(fallback)) {
+                            e.currentTarget.src = fallback;
+                          }
+                        }}
+                      />
                       {isCurrent && <span className="theme-badge-current">✓ Tema Aktif</span>}
                     </div>
                     <div className="theme-card-content">
