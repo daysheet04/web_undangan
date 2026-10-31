@@ -11,7 +11,7 @@ const invitationDateLabel=(value)=>value?new Intl.DateTimeFormat('id-ID',{timeZo
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
@@ -54,22 +54,25 @@ export default function BuilderPage({token}){
   const activationState=!published?'pending':!i.is_active?'disabled':activeExpired?'expired':'active';
   const activationTitle=!published?'Masa aktif belum dimulai':!i.is_active?'Link undangan sedang dinonaktifkan':activeExpired?`Masa aktif berakhir pada ${activeUntilLabel}`:`Link aktif sampai ${activeUntilLabel}`;
   const activationCopy=!published?'Link baru aktif selama 2 bulan setelah tombol publish pertama kali ditekan.':!i.is_active?'Undangan sudah pernah diterbitkan, tetapi akses publik sedang dinonaktifkan.':activeExpired?'Tautan publik sudah melewati masa aktif dua bulan.':'Tanggal berakhir tetap sama meskipun undangan diedit dan disimpan ulang.';
-  const downloadPrintPdf=async()=>{
-    if(pdfWorking)return;
+  const downloadPrintPdf = async () => {
+    if (pdfWorking) return;
     setPdfWorking(true);
-    try{
-      const form=document.getElementById('invitationForm');
-      const latest=form?Object.fromEntries(new FormData(form).entries()):{};
+    try {
+      const form = document.getElementById('invitationForm');
+      const latest = form ? Object.fromEntries(new FormData(form).entries()) : {};
       await downloadInvitationPdf({
-        invitation:{...i,...latest},
-        templateCode:i.template_code,
-        templateName:i.template_name,
-        orderCode:i.order_code,
+        invitation: { ...i, ...latest },
+        templateCode: i.template_code,
+        templateName: i.template_name,
+        orderCode: i.order_code,
       });
-      window.showToast?.('PDF A4 berhasil dibuat.');
-    }catch(error){
-      window.showToast?.(error?.message||'PDF belum dapat dibuat.','error');
-    }finally{
+      if (typeof window.showToast === 'function') {
+        window.showToast('Undangan PDF A4 berhasil diunduh.');
+      }
+    } catch (error) {
+      console.error('PDF download error:', error);
+      alert(error?.message || 'PDF belum dapat dibuat. Silakan coba sesaat lagi.');
+    } finally {
       setPdfWorking(false);
     }
   };

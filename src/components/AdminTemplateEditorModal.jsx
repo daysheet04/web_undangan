@@ -408,89 +408,119 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
       <div className="admin-modal-window admin-template-editor-modal">
         {/* Scoped CSS to ensure immediate rendering without stylesheet cache lag */}
         <style dangerouslySetInnerHTML={{ __html: `
-          .attendance-pills-selector {
+
+          .editor-select-custom,
+          .editor-field select {
+            width: 100%;
+            padding: 10px 40px 10px 14px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: #123026;
+            background-color: #ffffff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23165643' stroke-width='2.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px 16px;
+            border: 1.5px solid #c8ddd2;
+            border-radius: 10px;
+            outline: none;
+            font-family: inherit;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            box-sizing: border-box;
+            box-shadow: 0 2px 6px rgba(18, 48, 38, 0.04);
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+          .editor-select-custom:hover,
+          .editor-field select:hover {
+            border-color: #165643;
+            background-color: #f7faf8;
+            box-shadow: 0 3px 10px rgba(22, 86, 67, 0.08);
+          }
+          .editor-select-custom:focus,
+          .editor-field select:focus {
+            border-color: #165643;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3.5px rgba(22, 86, 67, 0.16);
+          }
+          .editor-select-custom option,
+          .editor-field select option {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #123026;
+            background-color: #ffffff;
+            padding: 8px 12px;
+          }
+          .greeting-form-grid {
             display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .greeting-form-grid .guest-name-field {
+            flex: 1 1 240px;
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+          .greeting-form-grid .attendance-field {
+            flex: 1.2 1 280px;
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+          .attendance-pills-selector {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 8px;
             width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
           }
           .attendance-pill-option {
-            flex: 1;
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 7px;
-            padding: 10px 14px;
+            gap: 6px;
+            padding: 9px 6px;
+            min-height: 42px;
             border-radius: 10px;
-            font-size: 0.8rem;
-            font-weight: 750;
             cursor: pointer;
             transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
             outline: none;
             background: #ffffff;
             border: 1.5px solid transparent;
             user-select: none;
+            -webkit-user-select: none;
+            text-align: center;
           }
-          .attendance-pill-option.attending {
-            border-color: #c6e7d6;
-            color: #166534;
-            background: #f2f9f5;
+          .attendance-pill-option span {
+            text-transform: none !important;
+            letter-spacing: normal !important;
           }
-          .attendance-pill-option.attending:hover {
-            background: #e4f5ec;
-            border-color: #166534;
-            transform: translateY(-1px);
-          }
-          .attendance-pill-option.attending.is-active {
-            background: linear-gradient(135deg, #15803d, #0f622f);
-            color: #ffffff;
-            border-color: #15803d;
-            box-shadow: 0 4px 14px rgba(21, 128, 61, 0.32);
-            transform: translateY(-1px);
-          }
-          .attendance-pill-option.not_attending {
-            border-color: #fecaca;
-            color: #991b1b;
-            background: #fef2f2;
-          }
-          .attendance-pill-option.not_attending:hover {
-            background: #fee2e2;
-            border-color: #991b1b;
-            transform: translateY(-1px);
-          }
-          .attendance-pill-option.not_attending.is-active {
-            background: linear-gradient(135deg, #dc2626, #b91c1c);
-            color: #ffffff;
-            border-color: #dc2626;
-            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.32);
-            transform: translateY(-1px);
-          }
-          .attendance-pill-option.unsure {
-            border-color: #fde68a;
-            color: #92400e;
-            background: #fffbeb;
-          }
-          .attendance-pill-option.unsure:hover {
-            background: #fef3c7;
-            border-color: #92400e;
-            transform: translateY(-1px);
-          }
-          .attendance-pill-option.unsure.is-active {
-            background: linear-gradient(135deg, #d97706, #b45309);
-            color: #ffffff;
-            border-color: #d97706;
-            box-shadow: 0 4px 14px rgba(217, 119, 6, 0.32);
-            transform: translateY(-1px);
+          .attendance-pill-option .pill-label {
+            font-size: 0.76rem !important;
+            font-weight: 750 !important;
+            line-height: 1.15 !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
+            white-space: nowrap !important;
+            transition: color 0.18s ease;
           }
           .attendance-pill-option .pill-dot {
-            font-size: 0.65rem;
-            line-height: 1;
+            font-size: 0.65rem !important;
+            line-height: 1 !important;
+            flex-shrink: 0 !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
           }
-          .attendance-pill-option.attending .pill-dot { color: #16a34a; }
-          .attendance-pill-option.attending.is-active .pill-dot { color: #86efac; }
-          .attendance-pill-option.not_attending .pill-dot { color: #dc2626; }
-          .attendance-pill-option.not_attending.is-active .pill-dot { color: #fca5a5; }
-          .attendance-pill-option.unsure .pill-dot { color: #d97706; }
-          .attendance-pill-option.unsure.is-active .pill-dot { color: #fde68a; }
           .attendance-pill-option .pill-check {
             display: inline-grid;
             place-items: center;
@@ -498,9 +528,272 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
             height: 16px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.28);
-            font-size: 0.65rem;
-            font-weight: 900;
+            font-size: 0.65rem !important;
+            font-weight: 900 !important;
             margin-left: 2px;
+            flex-shrink: 0 !important;
+            line-height: 1 !important;
+            text-transform: none !important;
+            letter-spacing: normal !important;
+          }
+          /* Inactive States */
+          .attendance-pill-option.attending {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+          }
+          .attendance-pill-option.attending .pill-label {
+            color: #166534 !important;
+          }
+          .attendance-pill-option.attending .pill-dot {
+            color: #16a34a !important;
+          }
+          .attendance-pill-option.attending:hover {
+            background: #dcfce7;
+            border-color: #16a34a;
+            transform: translateY(-1px);
+          }
+          .attendance-pill-option.not_attending {
+            border-color: #fecaca;
+            background: #fef2f2;
+          }
+          .attendance-pill-option.not_attending .pill-label {
+            color: #991b1b !important;
+          }
+          .attendance-pill-option.not_attending .pill-dot {
+            color: #dc2626 !important;
+          }
+          .attendance-pill-option.not_attending:hover {
+            background: #fee2e2;
+            border-color: #dc2626;
+            transform: translateY(-1px);
+          }
+          .attendance-pill-option.unsure {
+            border-color: #fde68a;
+            background: #fffbeb;
+          }
+          .attendance-pill-option.unsure .pill-label {
+            color: #92400e !important;
+          }
+          .attendance-pill-option.unsure .pill-dot {
+            color: #d97706 !important;
+          }
+          .attendance-pill-option.unsure:hover {
+            background: #fef3c7;
+            border-color: #d97706;
+            transform: translateY(-1px);
+          }
+          /* Active States (Selected) - High Contrast Pure White Text */
+          .attendance-pill-option.attending.is-active {
+            background: linear-gradient(135deg, #15803d, #0f622f) !important;
+            border-color: #15803d !important;
+            box-shadow: 0 4px 14px rgba(21, 128, 61, 0.35) !important;
+            transform: translateY(-1px);
+          }
+          .attendance-pill-option.attending.is-active .pill-label {
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+          }
+          .attendance-pill-option.attending.is-active .pill-dot {
+            color: #86efac !important;
+          }
+          .attendance-pill-option.attending.is-active .pill-check {
+            background: rgba(255, 255, 255, 0.32) !important;
+            color: #ffffff !important;
+          }
+          .attendance-pill-option.not_attending.is-active {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            border-color: #dc2626 !important;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35) !important;
+            transform: translateY(-1px);
+          }
+          .attendance-pill-option.not_attending.is-active .pill-label {
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+          }
+          .attendance-pill-option.not_attending.is-active .pill-dot {
+            color: #fecaca !important;
+          }
+          .attendance-pill-option.not_attending.is-active .pill-check {
+            background: rgba(255, 255, 255, 0.32) !important;
+            color: #ffffff !important;
+          }
+          .attendance-pill-option.unsure.is-active {
+            background: linear-gradient(135deg, #d97706, #b45309) !important;
+            border-color: #d97706 !important;
+            box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35) !important;
+            transform: translateY(-1px);
+          }
+          .attendance-pill-option.unsure.is-active .pill-label {
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+          }
+          .attendance-pill-option.unsure.is-active .pill-dot {
+            color: #fef08a !important;
+          }
+          .attendance-pill-option.unsure.is-active .pill-check {
+            background: rgba(255, 255, 255, 0.32) !important;
+            color: #ffffff !important;
+          }
+          @media (max-width: 768px) {
+            .greeting-add-form {
+              padding: 14px 12px !important;
+              box-sizing: border-box !important;
+              width: 100% !important;
+              max-width: 100% !important;
+            }
+            .greeting-form-grid {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 12px !important;
+              width: 100% !important;
+            }
+            .greeting-form-grid .guest-name-field,
+            .greeting-form-grid .attendance-field {
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              flex: 1 1 100% !important;
+            }
+            .attendance-pills-selector {
+              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+              gap: 6px !important;
+              width: 100% !important;
+            }
+            .attendance-pill-option {
+              padding: 8px 3px !important;
+              min-height: 38px !important;
+              gap: 4px !important;
+            }
+            .attendance-pill-option .pill-label {
+              font-size: 0.68rem !important;
+              white-space: normal !important;
+              text-align: center !important;
+            }
+            .attendance-pill-option .pill-check {
+              display: none !important;
+            }
+          }
+          @media (max-width: 360px) {
+            .attendance-pills-selector {
+              grid-template-columns: 1fr !important;
+              gap: 6px !important;
+            }
+            .attendance-pill-option {
+              padding: 9px 12px !important;
+              min-height: 40px !important;
+              justify-content: flex-start !important;
+              gap: 8px !important;
+            }
+            .attendance-pill-option .pill-label {
+              font-size: 0.78rem !important;
+              flex: 1 !important;
+              text-align: left !important;
+            }
+            .attendance-pill-option .pill-check {
+              display: inline-grid !important;
+            }
+          }
+          .editor-form-bottom-bar {
+            position: sticky;
+            bottom: -24px;
+            background: #fafcfbf0;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            padding: 16px 0;
+            border-top: 1px solid #e1ece5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+          }
+          .btn-save-editor {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 32px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #ffffff;
+            background: linear-gradient(135deg, #196650, #114b3a);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(17, 75, 58, 0.28);
+            transition: all 0.18s ease;
+            text-align: center;
+          }
+          .btn-save-editor:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(17, 75, 58, 0.36);
+          }
+          .btn-save-editor:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+          @media (max-width: 768px) {
+            .editor-form-bottom-bar {
+              bottom: -28px !important;
+              padding: 14px 0 !important;
+              display: flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              width: 100% !important;
+              box-sizing: border-box !important;
+            }
+            .btn-save-editor {
+              width: 100% !important;
+              max-width: 100% !important;
+              display: inline-flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              text-align: center !important;
+              padding: 13px 18px !important;
+              font-size: 0.86rem !important;
+              box-sizing: border-box !important;
+              border-radius: 12px !important;
+            }
+            .greeting-add-action-line {
+              width: 100% !important;
+              justify-content: center !important;
+              margin-top: 14px !important;
+            }
+            .btn-add-greeting-submit {
+              width: 100% !important;
+              max-width: 100% !important;
+              padding: 12px 14px !important;
+              font-size: 0.80rem !important;
+              justify-content: center !important;
+              text-align: center !important;
+              box-sizing: border-box !important;
+              border-radius: 10px !important;
+            }
+            .bank-add-action-line {
+              width: 100% !important;
+              justify-content: center !important;
+              margin-top: 14px !important;
+            }
+            .btn-add-bank-submit {
+              width: 100% !important;
+              max-width: 100% !important;
+              justify-content: center !important;
+              text-align: center !important;
+              padding: 12px 14px !important;
+              font-size: 0.80rem !important;
+              box-sizing: border-box !important;
+              border-radius: 10px !important;
+            }
+          }
+          .greeting-add-action-line {
+            margin-top: 16px;
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+            box-sizing: border-box;
           }
           .btn-add-greeting-submit {
             display: inline-flex;
@@ -518,6 +811,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
             white-space: nowrap;
             box-shadow: 0 4px 14px rgba(14, 69, 53, 0.28);
             transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            box-sizing: border-box;
           }
           .btn-add-greeting-submit:hover {
             background: linear-gradient(135deg, #1d775f 0%, #125542 100%);
@@ -986,39 +1280,64 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
         </div>
 
         {/* Navigation Tabs */}
-        <div className="template-editor-tab-bar">
+        <div className="template-editor-tab-bar" role="tablist" aria-label="Tab Pengaturan Template">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'info'}
             className={`tab-btn ${activeTab === 'info' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('info')}
+            onClick={(e) => {
+              setActiveTab('info');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
           >
             💍 Data Pengantin &amp; Acara
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'gallery'}
             className={`tab-btn ${activeTab === 'gallery' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('gallery')}
+            onClick={(e) => {
+              setActiveTab('gallery');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
           >
             📸 Plot Galeri Foto per Paket
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'music'}
             className={`tab-btn ${activeTab === 'music' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('music')}
+            onClick={(e) => {
+              setActiveTab('music');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
           >
             🎵 Musik Latar ({invitation.music_file ? '✓ Ada Musik' : 'Signature & Prestige'})
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'bank'}
             className={`tab-btn ${activeTab === 'bank' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('bank')}
+            onClick={(e) => {
+              setActiveTab('bank');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
           >
             💳 Rekening &amp; Amplop (Prestige)
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'guests'}
             className={`tab-btn ${activeTab === 'guests' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('guests')}
+            onClick={(e) => {
+              setActiveTab('guests');
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }}
           >
             💬 Kartu Ucapan &amp; RSVP (Signature &amp; Prestige)
           </button>
@@ -1866,6 +2185,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                   <label className="editor-field">
                     <span>Pilih Bank / E-Wallet</span>
                     <select
+                      className="editor-select-custom"
                       value={bankDraft.provider}
                       onChange={(e) => setBankDraft((prev) => ({ ...prev, provider: e.target.value }))}
                     >
@@ -1977,7 +2297,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
 
                 <form onSubmit={handleAddGreeting} className="greeting-add-form">
                   <div className="greeting-form-grid">
-                    <label className="editor-field" style={{ minWidth: '220px', flex: 1 }}>
+                    <label className="editor-field guest-name-field">
                       <span>Nama Tamu / Kerabat / Sahabat</span>
                       <input
                         type="text"
@@ -1988,7 +2308,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                       />
                     </label>
 
-                    <div className="editor-field attendance-field" style={{ minWidth: '320px', flex: 1.3 }}>
+                    <div className="editor-field attendance-field">
                       <span>Konfirmasi Kehadiran</span>
                       <div className="attendance-pills-selector" role="radiogroup" aria-label="Status Kehadiran">
                         <button
@@ -2043,7 +2363,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                     />
                   </label>
 
-                  <div className="greeting-add-action-line" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <div className="greeting-add-action-line">
                     <button type="submit" className="btn-add-greeting-submit">
                       <span className="btn-add-greeting-icon">💬</span>
                       <span>+ Tambah Kartu Ucapan ke Feed</span>

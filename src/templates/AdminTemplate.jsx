@@ -5,7 +5,7 @@ import './admin-mobile.css';
 export default function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment', sidebar }) {
   useBodyClass('admin-page');
   useDocumentTitle(title);
-  useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css?v=20261021-mobile-v7', '/assets/css/admin-withdrawals.css?v=20261022-status-v2', '/assets/css/admin-commissions.css?v=20261021-mobile-v7', '/assets/css/admin-orders.css?v=20261022-1', '/assets/css/admin-free-orders.css?v=20261022-1', '/assets/css/admin-feedback.css?v=20261022-1', '/assets/css/admin-notifications.css?v=20261022-2', '/assets/css/admin-customer-access.css?v=20261023-editor-v3', '/assets/css/admin-cover-adjuster.css?v=20261023-1', '/assets/css/admin-dashboard-summary.css?v=20261028-profit-v1', '/assets/css/admin-template-editor.css?v=20261029-v7']);
+  useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css?v=20261021-mobile-v7', '/assets/css/admin-withdrawals.css?v=20261022-status-v2', '/assets/css/admin-commissions.css?v=20261021-mobile-v7', '/assets/css/admin-orders.css?v=20261022-1', '/assets/css/admin-free-orders.css?v=20261022-1', '/assets/css/admin-feedback.css?v=20261022-1', '/assets/css/admin-notifications.css?v=20261022-2', '/assets/css/admin-customer-access.css?v=20261023-editor-v3', '/assets/css/admin-cover-adjuster.css?v=20261023-1', '/assets/css/admin-dashboard-summary.css?v=20261028-profit-v1', '/assets/css/admin-template-editor.css?v=20261030-select-v6']);
   useEffect(() => {
     window.showToast = (message, type = 'success') => {
       const region = document.getElementById('toastRegion');
