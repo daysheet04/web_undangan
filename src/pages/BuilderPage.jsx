@@ -16,6 +16,12 @@ export default function BuilderPage({token}){
   useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
   const [pdfWorking,setPdfWorking]=useState(false);
+  const [selectedTemplateCode, setSelectedTemplateCode] = useState(null);
+  const [selectedTemplateName, setSelectedTemplateName] = useState(null);
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [isChangingTheme, setIsChangingTheme] = useState(false);
+  const [themeChangeToast, setThemeChangeToast] = useState(null);
+
   useEffect(()=>{
     if(!showPaymentSuccess||state.loading||state.error)return undefined;
     const cleanUrl=new URL(window.location.href);
@@ -37,7 +43,94 @@ export default function BuilderPage({token}){
     }
     return <ErrorState error={state.error}/>;
   }
-  const {invitation:i,media,giftAccounts,invitees,appUrl}=state.data;
+  const {invitation:i,media,giftAccounts,invitees,appUrl,availableTemplates}=state.data;
+  const currentTemplateCode = selectedTemplateCode || i.template_code;
+  const currentTemplateName = selectedTemplateName || i.template_name;
+
+  const fallbackTemplates = [
+    {
+      code: 'java_vibes',
+      name: 'Java Vibes',
+      category: 'Javanese Template',
+      description: 'Romansa Jawa kontemporer dengan lanskap gunung, gapura ukir, dan puspa watercolor.',
+      thumbnail: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
+    },
+    {
+      code: 'lunara_azure',
+      name: 'Butterfly Blum',
+      category: 'Colorful Template',
+      description: 'Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, dan frame editorial.',
+      thumbnail: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+    },
+    {
+      code: 'aurelia_grande',
+      name: 'Luxury Vibes',
+      category: 'Interactive 3D',
+      description: 'Ballroom ivory-champagne mewah yang dapat dijelajahi, lengkap dengan pasangan 3D interaktif.',
+      thumbnail: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
+    },
+    {
+      code: 'verdant_vow',
+      name: 'Modern Javanese',
+      category: 'Javanese Template',
+      description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik dengan pasangan dan kabut.',
+      thumbnail: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+    },
+  ];
+
+  const templateList = (availableTemplates && availableTemplates.length > 0)
+    ? availableTemplates
+    : fallbackTemplates;
+
+  const handleChangeTemplate = async (targetTemplateCode) => {
+    if (targetTemplateCode === currentTemplateCode || isChangingTheme) return;
+    setIsChangingTheme(true);
+    try {
+      const res = await fetch('/api/invitation/change-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          editor_token: token,
+          template_code: targetTemplateCode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || 'Gagal mengubah tema');
+      }
+
+      setSelectedTemplateCode(data.template_code);
+      setSelectedTemplateName(data.template_name);
+
+      const appEl = document.getElementById('builderApp');
+      if (appEl) {
+        appEl.dataset.template = data.template_code;
+      }
+
+      const previewIframe = document.getElementById('livePreview');
+      if (previewIframe) {
+        previewIframe.src = `/template/${data.template_code}?embed=1&token=${encodeURIComponent(token)}&_t=${Date.now()}`;
+      }
+
+      const previewNameEl = document.getElementById('previewTemplateName');
+      if (previewNameEl) {
+        previewNameEl.textContent = data.template_name;
+      }
+
+      setShowThemeModal(false);
+      setThemeChangeToast(`✓ Tema berhasil diubah ke ${data.template_name}!`);
+      setTimeout(() => setThemeChangeToast(null), 4000);
+      if (typeof window.showToast === 'function') {
+        window.showToast(`✓ Tema berhasil diubah ke ${data.template_name}!`);
+      }
+    } catch (err) {
+      console.error('Change theme error:', err);
+      alert(err.message || 'Gagal mengubah tema.');
+    } finally {
+      setIsChangingTheme(false);
+    }
+  };
+
   const customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple'));
   const customCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null);
   const galleryMedia = media.filter(m => !m.file_path?.includes('custom-couple'));
@@ -62,8 +155,8 @@ export default function BuilderPage({token}){
       const latest = form ? Object.fromEntries(new FormData(form).entries()) : {};
       await downloadInvitationPdf({
         invitation: { ...i, ...latest },
-        templateCode: i.template_code,
-        templateName: i.template_name,
+        templateCode: currentTemplateCode,
+        templateName: currentTemplateName,
         orderCode: i.order_code,
       });
       if (typeof window.showToast === 'function') {
@@ -76,9 +169,25 @@ export default function BuilderPage({token}){
       setPdfWorking(false);
     }
   };
-  return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={i.template_code} data-gallery-limit={galleryLimit} data-published={published?'true':'false'} data-personal-links={personalLinksAvailable?'true':'false'} data-app-url={String(appUrl||location.origin).replace(/\/$/,'')} data-custom-couple={customCoupleUrl||''}>
+  return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={currentTemplateCode} data-gallery-limit={galleryLimit} data-published={published?'true':'false'} data-personal-links={personalLinksAvailable?'true':'false'} data-app-url={String(appUrl||location.origin).replace(/\/$/,'')} data-custom-couple={customCoupleUrl||''}>
     {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang dapat digunakan.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
-    <div className="builder-topbar"><div><a href="/" className="builder-brand" aria-label="Daymoment, kembali ke beranda"><img className="brand-logo builder-brand-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="128" height="46"/></a><span className="order-label">{i.order_code} · {i.package_name}</span></div><div className="save-state" id="saveState" data-state="saved"><i/><span>Tersimpan</span></div></div>
+    <div className="builder-topbar">
+      <div className="builder-topbar-brand-wrap">
+        <a href="/" className="builder-brand" aria-label="Daymoment, kembali ke beranda">
+          <img className="brand-logo builder-brand-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="128" height="46"/>
+        </a>
+        <span className="order-label">{i.order_code} · {i.package_name}</span>
+      </div>
+      <div className="builder-topbar-action-wrap">
+        <button type="button" className="btn-topbar-change-theme" onClick={()=>setShowThemeModal(true)}>
+          <span className="btn-theme-icon">🎨</span>
+          <span className="btn-theme-text">Ganti Tema</span>
+        </button>
+      </div>
+      <div className="save-state" id="saveState" data-state="saved">
+        <i/><span>Tersimpan</span>
+      </div>
+    </div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
     <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div><nav className="builder-step-pills" aria-label="Navigasi langkah editor"><button type="button" className="btn-step-pill active" data-step-target="0">1. Pengantin</button><button type="button" className="btn-step-pill" data-step-target="1">2. Orang Tua</button><button type="button" className="btn-step-pill" data-step-target="2">3. Acara</button><button type="button" className="btn-step-pill" data-step-target="3">4. Lokasi</button><button type="button" className="btn-step-pill" data-step-target="4">5. Cerita &amp; Foto</button>{(hasGift||hasMusic)&&<button type="button" className="btn-step-pill" data-step-target="5">6. {hasGift?'Hadiah & Musik':'Musik'}</button>}<button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'6':'5'}>Daftar Tamu</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'7':'6'}>URL Undangan</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'8':'7'}>Publish</button></nav>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
       <form id="invitationForm" autoComplete="off">
@@ -100,7 +209,7 @@ export default function BuilderPage({token}){
           </Card>
         </section>
         <section className="form-step" data-step="4" data-title="Cerita dan Foto"><Intro icon="✦" title="Hidupkan ceritamu" copy="Tambahkan cerita singkat dan foto pilihan. Gambar akan dikompres sebelum diunggah."/><Card><label className="field full"><span>Kisah singkat pasangan <b>*</b></span><textarea name="love_story" rows="6" maxLength="3000" required defaultValue={i.love_story||''}/><small><span data-char-count="love_story">0</span>/3000 karakter</small></label><TextField full label="Instagram pasangan (opsional)" name="instagram" value={i.instagram} placeholder="andindanisa"/></Card>
-        {['verdant_vow', 'aurelia_grande'].includes(i.template_code) && (
+        {['verdant_vow', 'aurelia_grande'].includes(currentTemplateCode) && (
           <div className="form-section-card upload-section verdant-couple-card" id="verdantCoupleStudio">
             <div className="upload-heading">
               <div>
@@ -230,7 +339,7 @@ export default function BuilderPage({token}){
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
         <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover elegan, profil mempelai, rangkaian acara, keluarga yang turut mengundang, serta petunjuk lokasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
       </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
-      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{i.template_name}</small></div><button type="button" data-refresh-preview>↻</button></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${i.template_code}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
+      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions"><button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button><button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
     <dialog className="publish-activation-dialog" id="publishActivationDialog"><div className="publish-activation-card"><span className="publish-activation-icon">✓</span><span className="eyebrow">Undangan berhasil diterbitkan</span><h2>Link aktif selama 2 bulan</h2><p>Masa aktif dimulai hari ini. Tamu dapat membuka undangan sampai:</p><strong className="publish-active-until" id="publishActiveUntil">-</strong><small>Tanggal berakhir ini tidak berubah saat undangan diedit ulang.</small><button className="button button-primary button-wide" id="continueAfterPublish" type="button">Lihat tautan undangan →</button></div></dialog>
     <dialog className="invitee-edit-dialog" id="inviteeEditDialog">
@@ -328,6 +437,64 @@ export default function BuilderPage({token}){
         </footer>
       </form>
     </dialog>
+    {showThemeModal && (
+      <div className="theme-modal-overlay" role="dialog" aria-modal="true" onClick={() => !isChangingTheme && setShowThemeModal(false)}>
+        <div className="theme-modal-card" onClick={(e) => e.stopPropagation()}>
+          <header className="theme-modal-header">
+            <div className="theme-modal-title-wrap">
+              <h2>
+                Pilih Tema Undangan
+                <span className="theme-modal-badge">Paket {i.package_name}</span>
+              </h2>
+              <p className="theme-modal-subtitle">
+                Kamu dapat berganti ke tema lain sesuai paket yang kamu beli (<strong>{i.package_name}</strong>). Seluruh isi data undanganmu tetap tersimpan aman.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="theme-modal-close-btn"
+              onClick={() => !isChangingTheme && setShowThemeModal(false)}
+              aria-label="Tutup"
+            >
+              ×
+            </button>
+          </header>
+          <div className="theme-modal-body">
+            <div className="theme-grid">
+              {templateList.map((tpl) => {
+                const isCurrent = tpl.code === currentTemplateCode;
+                return (
+                  <div key={tpl.code} className={`theme-card ${isCurrent ? 'is-active' : ''}`}>
+                    <div className="theme-card-thumb-wrap">
+                      <img src={tpl.thumbnail} alt={tpl.name} className="theme-card-thumb" loading="lazy" />
+                      {isCurrent && <span className="theme-badge-current">✓ Tema Aktif</span>}
+                    </div>
+                    <div className="theme-card-content">
+                      <span className="theme-card-category">{tpl.category}</span>
+                      <h3 className="theme-card-name">{tpl.name}</h3>
+                      <p className="theme-card-desc">{tpl.description}</p>
+                      <button
+                        type="button"
+                        className={`theme-card-btn ${isCurrent ? 'btn-current' : 'btn-apply'}`}
+                        disabled={isCurrent || isChangingTheme}
+                        onClick={() => handleChangeTemplate(tpl.code)}
+                      >
+                        {isCurrent ? '✓ Sedang Digunakan' : isChangingTheme ? 'Menerapkan...' : 'Gunakan Tema Ini →'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    {themeChangeToast && (
+      <div className="builder-theme-toast">
+        {themeChangeToast}
+      </div>
+    )}
     <div className="toast-region" id="toastRegion"/>
   </div>;
 }

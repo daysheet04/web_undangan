@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
-import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras } from '../lib/repositories.js';
+import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras, activeTemplates, canonicalTemplateCode } from '../lib/repositories.js';
 
 const editor = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -98,6 +98,21 @@ editor.get('/editor/:token', async (c) => {
       return c.json({ ok: false, message: 'Pesanan ini telah dibatalkan.', code: 'ORDER_CANCELLED' }, 403);
     }
     invitation = await ensurePublishedActiveUntil(c.env, invitation);
+    const allTpls = await activeTemplates(c.env);
+    const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
+    const availableTemplates = allTpls
+      .filter((t) => t.is_active !== false)
+      .map((t) => ({
+        id: t.id,
+        code: t.code,
+        name: t.name,
+        category: t.category,
+        description: t.description,
+        thumbnail: t.thumbnail,
+        is_current: t.code === invitation.template_code,
+        supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
+      }));
+
     return c.json({
       ok: true,
       invitation,
@@ -106,13 +121,107 @@ editor.get('/editor/:token', async (c) => {
       greetings: [],
       invitees: [],
       inviteeCount: 0,
+      availableTemplates,
       appUrl: c.env.APP_URL,
     });
   }
   let invitation = await invitationByToken(c.env, c.req.param('token'));
   invitation = await ensurePublishedActiveUntil(c.env, invitation);
   const extras = await invitationExtras(c.env, invitation.id);
-  return c.json({ ok: true, invitation, ...extras, appUrl: c.env.APP_URL });
+
+  const allTpls = await activeTemplates(c.env);
+  const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
+  const availableTemplates = allTpls
+    .filter((t) => t.is_active !== false)
+    .map((t) => ({
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      category: t.category,
+      description: t.description,
+      thumbnail: t.thumbnail,
+      is_current: t.code === invitation.template_code,
+      supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
+    }));
+
+  return c.json({ ok: true, invitation, ...extras, availableTemplates, appUrl: c.env.APP_URL });
+});
+
+editor.post('/invitation/change-template', async (c) => {
+  const input = await c.req.json();
+  const token = cleanText(input.editor_token, 128);
+  const targetCode = cleanText(input.template_code, 64);
+
+  if (!token || !targetCode) {
+    return c.json({ ok: false, message: 'Parameter tidak lengkap.' }, 400);
+  }
+
+  const invitation = await invitationByToken(c.env, token);
+  const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
+
+  const allTpls = await activeTemplates(c.env);
+  const targetClean = canonicalTemplateCode(targetCode);
+  const targetTemplate = allTpls.find(
+    (t) => canonicalTemplateCode(t.code) === targetClean || t.code === targetCode
+  );
+
+  if (!targetTemplate) {
+    return c.json({ ok: false, message: 'Tema yang dipilih tidak ditemukan.' }, 404);
+  }
+
+  // Find matching package tier on the target template matching current package code
+  const matchingPkg = (targetTemplate.packages || targetTemplate.template_packages || []).find(
+    (p) => String(p.code || '').toLowerCase().trim() === currentPkgCode
+  );
+
+  if (!matchingPkg) {
+    return c.json({
+      ok: false,
+      message: `Tema ${targetTemplate.name} tidak mendukung paket ${invitation.package_name}.`,
+    }, 400);
+  }
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    if (order) {
+      order.template_id = targetTemplate.id;
+      order.template_code = targetTemplate.code;
+      order.template_name = targetTemplate.name;
+      order.template_category = targetTemplate.category;
+      order.package_id = matchingPkg.id;
+      order.package_code = matchingPkg.code;
+      order.package_name = matchingPkg.name;
+      order.gallery_limit = matchingPkg.gallery_limit || order.gallery_limit;
+    }
+  } else {
+    const db = database(c.env);
+    const { error: updateError } = await db
+      .from('orders')
+      .update({
+        template_id: targetTemplate.id,
+        package_id: matchingPkg.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', invitation.order_id);
+
+    if (updateError) {
+      console.error('Failed to change template on order:', updateError);
+      return c.json({ ok: false, message: 'Gagal memperbarui tema di database.' }, 500);
+    }
+  }
+
+  if (invitation.slug) {
+    await purgeInvitationCache(invitation.slug);
+  }
+
+  return c.json({
+    ok: true,
+    message: `Tema berhasil diganti menjadi ${targetTemplate.name}.`,
+    template_code: targetTemplate.code,
+    template_name: targetTemplate.name,
+    package_code: matchingPkg.code,
+    package_name: matchingPkg.name,
+  });
 });
 
 editor.post('/invitation/autosave', async (c) => {
