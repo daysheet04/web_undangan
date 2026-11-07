@@ -135,8 +135,24 @@ export default function TemplatePreviewPage({ code }) {
         {!isMobile && (
           <div className="preview-phone-wrap preview-phone-wrap--desktop">
             <div className="preview-phone-label">
-              <span>Preview <b>{active.name}</b></span>
-              <small>Klik “Buka Undangan” di dalam layar</small>
+              <div className="preview-phone-label-info">
+                <span>Preview <b>{active.name}</b></span>
+                <small>Klik “Buka Undangan” di dalam layar</small>
+              </div>
+              <a
+                href={`${templatePreviewPath(template)}?embed=1&package=${encodeURIComponent(active.code)}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="preview-direct-link"
+                title={`Buka preview paket ${active.name} tanpa mockup di tab baru`}
+              >
+                <span>Buka link preview</span>
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
             </div>
             <PreviewPhone template={template} active={active} />
           </div>
@@ -153,9 +169,23 @@ export default function TemplatePreviewPage({ code }) {
         >
           <div className="mobile-preview-dialog" onClick={(event) => event.stopPropagation()}>
             <div className="mobile-preview-toolbar">
-              <div>
+              <div className="mobile-preview-toolbar-info">
                 <small>Sedang melihat</small>
                 <strong>{active.name}</strong>
+                <a
+                  href={`${templatePreviewPath(template)}?embed=1&package=${encodeURIComponent(active.code)}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="preview-direct-link"
+                  title={`Buka preview paket ${active.name} tanpa mockup di tab baru`}
+                >
+                  <span>Buka link preview</span>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
               </div>
               <button
                 type="button"
