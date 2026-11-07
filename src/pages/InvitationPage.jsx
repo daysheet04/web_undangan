@@ -54,7 +54,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     window.addEventListener('daymoment:greeting-sent',receiveGreeting);
     return ()=>window.removeEventListener('daymoment:greeting-sent',receiveGreeting);
   },[preview]);
-  const resolvedCode=templateCode||state.data?.invitation?.template_code||state.data?.template?.code||null;
+  const resolvedCode=state.data?.invitation?.template_code||state.data?.template?.code||templateCode||null;
   const canonicalResolved=canonicalCode(resolvedCode);
   const activeCode=canonicalResolved||'java_vibes';
   const runtime=TEMPLATE_RUNTIME[activeCode]||TEMPLATE_RUNTIME.java_vibes;

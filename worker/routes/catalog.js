@@ -81,6 +81,7 @@ catalog.get('/templates/:code', async (c) => {
   const activePackageCode = requestedPackage || 'signature';
   const activePackagePhotos = Array.isArray(demoData.gallery?.[activePackageCode]) ? demoData.gallery[activePackageCode] : [];
   const currentPkg = (template.packages || []).find((p) => p.code === activePackageCode) || template.packages?.[0];
+  const pkgHasMusic = Boolean(currentPkg?.has_music);
   const pkgHasGift = Boolean(currentPkg?.has_gift);
   const pkgHasWishes = Boolean(currentPkg?.has_wishes);
 
@@ -98,6 +99,14 @@ catalog.get('/templates/:code', async (c) => {
 
   const activeInvitation = {
     ...demoData.invitation,
+    template_code: template.code,
+    template_name: template.name,
+    package_code: currentPkg?.code || activePackageCode,
+    package_name: currentPkg?.name || '',
+    gallery_limit: Number(currentPkg?.gallery_limit || 2),
+    has_music: pkgHasMusic,
+    has_gift: pkgHasGift,
+    has_wishes: pkgHasWishes,
     cover_image: activeCover,
     stage_photo: activeStagePhoto,
     custom_couple_image: activeStagePhoto,

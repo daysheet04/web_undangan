@@ -50,6 +50,7 @@ export default function AureliaGrandeTemplate({
     groom = i.groom_nickname || "Andi",
     cover = mediaUrl(i.cover_image),
     [entered, setEntered] = useState(false),
+    [musicPlaying, setMusicPlaying] = useState(false),
     [panel, setPanel] = useState(null),
     [near, setNear] = useState(""),
     customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple')),
@@ -65,10 +66,39 @@ export default function AureliaGrandeTemplate({
     [rsvpAttendance, setRsvpAttendance] = useState('attending'),
     [rsvpMessage, setRsvpMessage] = useState('');
   const touchStartX = useRef(0);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     setWishes(Array.isArray(greetings) ? greetings : []);
   }, [greetings]);
+  const playMusic = async () => {
+    const audio = audioRef.current;
+    if (!audio || !i.has_music || !i.music_file) return;
+    try {
+      await audio.play();
+      setMusicPlaying(true);
+    } catch {
+      setMusicPlaying(false);
+    }
+  };
+
+  const enterBallroom = () => {
+    setEntered(true);
+    setPanel("help");
+    playMusic();
+  };
+
+  const toggleMusic = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (musicPlaying) {
+      audio.pause();
+      setMusicPlaying(false);
+      return;
+    }
+    playMusic();
+  };
+
 
   const openPhoto = (photo) => {
     setLightbox({
@@ -440,7 +470,7 @@ export default function AureliaGrandeTemplate({
               <AgIcon name="ag-zoom" />
               <span>Lihat Foto Sampul</span>
             </button>
-            <button className="ag-enter-ballroom-btn" onClick={() => { setEntered(true); setPanel("help"); }}>
+            <button className="ag-enter-ballroom-btn" onClick={enterBallroom}>
               Masuk ke Ballroom <b>→</b>
             </button>
           </div>
@@ -500,10 +530,10 @@ export default function AureliaGrandeTemplate({
         </div>
       )}
       {i.has_music && i.music_file && (
-        <audio data-wedding-audio loop src={mediaUrl(i.music_file)} />
+        <audio ref={audioRef} data-wedding-audio loop preload="metadata" src={mediaUrl(i.music_file)} />
       )}{" "}
-      {entered && i.has_music && (
-        <button className="ag-music" data-music-controller>
+      {entered && i.has_music && i.music_file && (
+        <button type="button" className={`ag-music ${musicPlaying ? 'is-playing' : ''}`} data-music-controller onClick={toggleMusic} aria-label={musicPlaying ? 'Matikan musik' : 'Putar musik'} aria-pressed={musicPlaying}>
           ♫
         </button>
       )}

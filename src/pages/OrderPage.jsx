@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
+import { templatePreviewPath } from '../lib/templateSlug.js';
 
 export default function OrderPage() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -51,7 +52,7 @@ export default function OrderPage() {
     }
   };
 
-  const previewUrl = `/template/${template.code}${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''}`;
+  const previewUrl = `${templatePreviewPath(template)}${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''}`;
   return <Layout className="order-page" title="Data Pemesan — Daymoment">
     <section className="flow-page">
       <a className="back-link" href="/#templates">← Kembali memilih template</a>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
+import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 
 function PreviewPhone({ template, active }) {
   return (
@@ -11,7 +12,7 @@ function PreviewPhone({ template, active }) {
         key={active.code}
         className="preview-iframe"
         title={`Preview ${template.name} paket ${active.name}`}
-        src={`/template/${template.code}?embed=1&package=${active.code}`}
+        src={`${templatePreviewPath(template)}?embed=1&package=${active.code}`}
       />
     </div>
   );
@@ -126,7 +127,7 @@ export default function TemplatePreviewPage({ code }) {
             })}
           </div>
 
-          <a className="button button-primary preview-order-button" href={`/order?template=${template.code}&package=${active.code}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}>
+          <a className="button button-primary preview-order-button" href={`/order?template=${encodeURIComponent(templateSlug(template))}&package=${active.code}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}>
             Pilih Paket {active.name}
           </a>
         </div>

@@ -17,6 +17,27 @@ export function canonicalTemplateCode(rawCode) {
   }
   return code;
 }
+export function templateUrlSlug(value) {
+  const source = typeof value === 'object' ? (value?.name || value?.code || '') : value;
+  return String(source || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function matchesTemplateIdentifier(item, target) {
+  const itemCode = String(item?.code || '').toLowerCase().trim();
+  const targetCode = String(target || '').toLowerCase().trim();
+  const canonical = canonicalTemplateCode(targetCode);
+  return (
+    itemCode === targetCode ||
+    canonicalTemplateCode(itemCode) === canonical ||
+    templateUrlSlug(item?.name) === templateUrlSlug(targetCode)
+  );
+}
 
 const FALLBACK_TEMPLATES = [
   {
@@ -77,6 +98,7 @@ function normalizeTemplates(templates, { includeInactivePackages = false } = {})
     return {
       ...template,
       packages,
+      url_slug: templateUrlSlug(template),
       package_count: packages.length,
       starting_price: packages.length ? Math.min(...packages.map((item) => Number(item.price))) : null,
     };
@@ -117,25 +139,17 @@ export async function activeTemplates(env) {
 
 export async function templateByCode(env, code) {
   const target = String(code || '').toLowerCase().trim();
-  const canonical = canonicalTemplateCode(target);
   const templates = await activeTemplates(env);
-  const template = templates.find((item) => {
-    const itemCode = String(item.code || '').toLowerCase().trim();
-    return itemCode === target || canonicalTemplateCode(itemCode) === canonical;
-  });
+  const template = templates.find((item) => matchesTemplateIdentifier(item, target));
   if (template) return template;
 
   let exists = false;
   if (!hasRealSupabaseConfig(env)) {
-    exists = demoTemplates().some((item) => {
-      const itemCode = String(item.code || '').toLowerCase().trim();
-      return itemCode === target || canonicalTemplateCode(itemCode) === canonical;
-    });
+    exists = demoTemplates().some((item) => matchesTemplateIdentifier(item, target));
   } else {
-    const codesToTry = Array.from(new Set([target, canonical].filter(Boolean)));
-    const { data, error: readError } = await database(env).from('templates').select('id').in('code', codesToTry).limit(1).maybeSingle();
+    const { data, error: readError } = await database(env).from('templates').select('id,code,name').limit(100);
     if (readError) throw readError;
-    exists = Boolean(data);
+    exists = (data || []).some((item) => matchesTemplateIdentifier(item, target));
   }
   const error = new Error(exists ? 'Template ini sedang maintenance dan belum dapat dipesan.' : 'Template tidak ditemukan.');
   error.status = exists ? 503 : 404;

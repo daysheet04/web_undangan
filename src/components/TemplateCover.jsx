@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MAIN_APP_URL } from '../lib/urls.js';
+import { templatePreviewPath } from '../lib/templateSlug.js';
 
 const DEFAULT_COVERS = {
   java_vibes: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
@@ -63,7 +64,7 @@ export function DesktopTemplatePreview({ template, eager, source, fallback, setS
     };
   }, []);
 
-  const iframeSrc = `/template/${template.code}?embed=1&cover_only=1`;
+  const iframeSrc = `${templatePreviewPath(template)}?embed=1&cover_only=1`;
 
   return (
     <div

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { get } from './api.js';
 
 const REMOTE_CACHE_PREFIX = 'daymoment:remote:';
-const cacheLifetime = (path) => path.startsWith('/api/templates') && !path.includes('?ref=') ? 30 * 60 * 1000 : 0;
+const cacheLifetime = (path) => {
+  const resource = String(path || '').split('?')[0];
+  return resource === '/api/templates' ? 30 * 60 * 1000 : 0;
+};
 const readRemoteCache = (path) => {
   const lifetime = cacheLifetime(path);
   if (!lifetime || typeof sessionStorage === 'undefined') return null;

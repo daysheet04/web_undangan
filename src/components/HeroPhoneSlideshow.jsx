@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { templatePhoneCoverUrl, defaultTemplateCover } from './TemplateCover.jsx';
+import { templatePreviewPath } from '../lib/templateSlug.js';
 
 const FALLBACK_HERO_TEMPLATES = [
   {
@@ -38,7 +39,7 @@ function HeroSlideItem({ slide, isActive, eager }) {
       aria-hidden={!isActive}
     >
       <a
-        href={`/template/${slide.code}`}
+        href={templatePreviewPath(slide)}
         className="hero-phone-slide-link"
         tabIndex={isActive ? 0 : -1}
         aria-label={`Buka preview template ${slide.name}`}
@@ -140,7 +141,7 @@ export default function HeroPhoneSlideshow({ templates = [], interval = 3500 }) 
       {currentSlide && (
         <div className="hero-phone-overlay">
           <a
-            href={`/template/${currentSlide.code}`}
+            href={templatePreviewPath(currentSlide)}
             className="hero-phone-badge"
             aria-label={`Lihat preview template ${currentSlide.name}`}
           >
