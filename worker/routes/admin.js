@@ -80,7 +80,7 @@ function affiliateAppUrl(c, path = '/') {
   const local = ['localhost', '127.0.0.1'].includes(requestUrl.hostname);
   const base = local
     ? `${requestUrl.protocol}//${requestUrl.hostname}:8082`
-    : String(c.env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '');
+    : String(c.env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '');
   return `${base}${String(path).startsWith('/') ? path : `/${path}`}`;
 }
 

@@ -376,7 +376,7 @@ export async function sendAffiliateAccountStatusEmail(env, affiliate, status) {
 
   const activated = status === 'active';
   const fullName = escapeHtml(affiliate.full_name);
-  const appUrl = String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '');
+  const appUrl = String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '');
   const loginUrl = `${appUrl}/login`;
   const safeLoginUrl = escapeHtml(loginUrl);
   const subject = activated
@@ -428,7 +428,7 @@ export async function sendAffiliateReviewEmail(env, affiliate, decision, reviewN
   const fullName = escapeHtml(affiliate.full_name);
   const note = String(reviewNote || '').trim();
   const safeNote = escapeHtml(note);
-  const loginUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '')}/login`;
+  const loginUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '')}/login`;
   const safeLoginUrl = escapeHtml(loginUrl);
   const safeCorrectionUrl = escapeHtml(correctionUrl);
   const subject = approved ? 'Pendaftaran Affiliate Daymoment disetujui' : 'Hasil review pendaftaran Affiliate Daymoment';
@@ -477,7 +477,7 @@ export async function sendAffiliateProUpgradeReviewEmail(env, affiliate, decisio
   const fullName = escapeHtml(affiliate.full_name);
   const note = String(reviewNote || '').trim();
   const safeNote = escapeHtml(note);
-  const appUrl = String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '');
+  const appUrl = String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '');
   const withdrawalUrl = `${appUrl}/withdrawals`;
   const safeWithdrawalUrl = escapeHtml(withdrawalUrl);
   const subject = approved
@@ -534,7 +534,7 @@ export async function sendAffiliateWithdrawalRequestedEmail(env, affiliate, with
   const fee = rupiah(withdrawal.fee_amount);
   const netAmount = rupiah(withdrawal.net_amount);
   const feePercent = Number(withdrawal.fee_percent || 0).toLocaleString('id-ID');
-  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '')}/withdrawals`;
+  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '')}/withdrawals`;
   const safeAppUrl = escapeHtml(appUrl);
 
   return sendSmtpEmail(env, {
@@ -696,7 +696,7 @@ export async function sendAffiliateWithdrawalStatusEmail(env, affiliate, withdra
   const hasFee = Number(withdrawal.fee_amount || 0) > 0 || Number(withdrawal.fee_percent || 0) > 0;
   const sender = [withdrawal.sender_bank_name, withdrawal.sender_account_number, withdrawal.sender_account_name].filter(Boolean).join(' · ');
   const safeSender = escapeHtml(sender);
-  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id').replace(/\/$/, '')}/withdrawals`;
+  const appUrl = `${String(env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id').replace(/\/$/, '')}/withdrawals`;
   const safeAppUrl = escapeHtml(appUrl);
   const updatedAtDate = withdrawal.processed_at || withdrawal.updated_at ? new Date(withdrawal.processed_at || withdrawal.updated_at) : new Date();
   const updatedAtFormatted = !Number.isNaN(updatedAtDate.getTime())

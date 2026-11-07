@@ -8,4 +8,4 @@ Disallow: /admin/
 Disallow: /api/
 Disallow: /order
 
-Sitemap: https://daymoment.biz.id/sitemap.xml
+Sitemap: https://daymoment.id/sitemap.xml

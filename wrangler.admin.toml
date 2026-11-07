@@ -6,8 +6,8 @@ keep_vars = true
 
 [vars]
 SUPABASE_URL = "https://jhdzitzatdudigapxpff.supabase.co"
-PUBLIC_APP_URL = "https://daymoment.biz.id"
-AFFILIATE_APP_URL = "https://affiliate.daymoment.biz.id"
+PUBLIC_APP_URL = "https://daymoment.id"
+AFFILIATE_APP_URL = "https://affiliate.daymoment.id"
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 AFFILIATE_SMTP_FROM_NAME = "Daymoment Verifikasi"

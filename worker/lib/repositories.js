@@ -90,6 +90,14 @@ const FALLBACK_TEMPLATES = [
   },
 ];
 
+function templateMediaUrl(source) {
+  if (!source) return null;
+  const raw = String(source).trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) return raw;
+  return `/media/${raw.replace(/^\/+/, '')}`;
+}
+
 function normalizeTemplates(templates, { includeInactivePackages = false } = {}) {
   return templates.map((template) => {
     const packages = (template.template_packages || [])
@@ -97,6 +105,8 @@ function normalizeTemplates(templates, { includeInactivePackages = false } = {})
       .sort((a, b) => a.sort_order - b.sort_order);
     return {
       ...template,
+      thumbnail_url: template.thumbnail_url || templateMediaUrl(template.thumbnail),
+      phone_cover_url: template.phone_cover_url || templateMediaUrl(template.phone_cover),
       packages,
       url_slug: templateUrlSlug(template),
       package_count: packages.length,

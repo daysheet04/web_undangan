@@ -2291,7 +2291,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
           const target = catalog?.onboarding_required ? '/products' : menu.path;
           const isActive = catalog?.onboarding_required ? menu.path === '/products' : menu.path === path;
           return <DashboardLink className={isActive ? 'active' : ''} to={target} key={menu.path}><i>{menu.icon}</i><span>{menu.label}</span>{menu.soon && <small>Segera</small>}</DashboardLink>;
-        })}</nav><div className="affiliate-sidebar-help"><small>BUTUH BANTUAN?</small><p>Hubungi tim Daymoment apabila ada kendala dengan akun affiliate.</p><a href="mailto:support@daymoment.biz.id">Hubungi support</a></div></aside>
+        })}</nav><div className="affiliate-sidebar-help"><small>BUTUH BANTUAN?</small><p>Hubungi tim Daymoment apabila ada kendala dengan akun affiliate.</p><a href="mailto:support@daymoment.id">Hubungi support</a></div></aside>
         <section className="affiliate-dashboard-main">
           <header className="affiliate-dashboard-topbar">
             <button className="affiliate-mobile-menu" type="button" aria-label="Buka menu">☰</button>

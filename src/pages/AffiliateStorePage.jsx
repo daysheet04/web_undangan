@@ -122,9 +122,9 @@ export default function AffiliateStorePage({ referralCode }) {
       <a className="brand brand-light brand-wordmark-footer" href={referralPath} aria-label="Daymoment, kembali ke beranda etalase partner"><img className="brand-logo brand-logo-wordmark" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" width="175" height="42" loading="lazy" decoding="async"/></a>
       <p>Undangan digital yang dibuat untuk merayakan setiap cerita.</p>
       <div className="footer-socials" aria-label="Media sosial Daymoment">
-        <a className="footer-social-link" href="https://instagram.com/daymoment.biz.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment"><SocialIcon type="instagram"/><span>Instagram</span></a>
-        <a className="footer-social-link" href="https://tiktok.com/@daymoment.biz.id" target="_blank" rel="noopener noreferrer" aria-label="TikTok Daymoment"><SocialIcon type="tiktok"/><span>TikTok</span></a>
-        <a className="footer-social-link" href="https://facebook.com/daymoment.biz.id" target="_blank" rel="noopener noreferrer" aria-label="Facebook Daymoment"><SocialIcon type="facebook"/><span>Facebook</span></a>
+        <a className="footer-social-link" href="https://instagram.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment"><SocialIcon type="instagram"/><span>Instagram</span></a>
+        <a className="footer-social-link" href="https://tiktok.com/@daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="TikTok Daymoment"><SocialIcon type="tiktok"/><span>TikTok</span></a>
+        <a className="footer-social-link" href="https://facebook.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Facebook Daymoment"><SocialIcon type="facebook"/><span>Facebook</span></a>
         <a className="footer-social-link" href="https://wa.me/6285111451135" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Daymoment"><SocialIcon type="whatsapp"/><span>WhatsApp</span></a>
         <a className="footer-social-link" href="mailto:daymoment7@gmail.com" aria-label="Email Daymoment"><SocialIcon type="email"/><span>Email</span></a>
       </div>

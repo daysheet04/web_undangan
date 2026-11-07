@@ -80,7 +80,7 @@ export default function HomePage() {
         <img className="brand-logo brand-logo-wordmark" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" width="136" height="48" loading="lazy" decoding="async" />
       </a>
       <div className="footer-socials" aria-label="Media sosial Daymoment">
-        <a className="footer-social-link" href="https://instagram.com/daymoment.biz.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment">
+        <a className="footer-social-link" href="https://instagram.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
@@ -88,7 +88,7 @@ export default function HomePage() {
           </svg>
           <span>Instagram</span>
         </a>
-        <a className="footer-social-link" href="https://tiktok.com/@daymoment.biz.id" target="_blank" rel="noopener noreferrer" aria-label="TikTok Daymoment">
+        <a className="footer-social-link" href="https://tiktok.com/@daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="TikTok Daymoment">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.48 6.3 6.3 0 0 0 1.86-4.48V8.72a8.16 8.16 0 0 0 4.91 1.63V6.9a4.85 4.85 0 0 1-1-.21z" />
           </svg>

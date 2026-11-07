@@ -69,6 +69,7 @@ app.get('/media/*', async (c) => {
   headers.set('etag', object.httpEtag);
   headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
   headers.set('access-control-allow-origin', '*');
+  headers.set('cross-origin-resource-policy', 'cross-origin');
   return new Response(object.body, { headers });
 });
 
@@ -84,6 +85,7 @@ app.get('/api/admin/media/*', async (c) => {
   headers.set('etag', object.httpEtag);
   headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
   headers.set('access-control-allow-origin', '*');
+  headers.set('cross-origin-resource-policy', 'cross-origin');
   return new Response(object.body, { headers });
 });
 

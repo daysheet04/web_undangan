@@ -19,6 +19,9 @@ export function templateCoverUrl(template) {
   const fallback = defaultTemplateCover(template?.code);
   if (!source || (!source.includes('/') && !/\.(avif|jpe?g|png|webp)$/i.test(source))) return fallback;
   if (/^(https?:|data:|blob:)/i.test(source) || source.startsWith('/')) return source;
+  if (typeof window !== 'undefined' && !window.location.hostname.startsWith('affiliate.')) {
+    return `/media/${source.replace(/^\/+/, '')}`;
+  }
   return `${MAIN_APP_URL}/media/${source.replace(/^\/+/, '')}`;
 }
 
@@ -26,6 +29,9 @@ export function templatePhoneCoverUrl(template) {
   const source = String(template?.phone_cover_url || template?.phone_cover || '').trim();
   if (source && (source.includes('/') || /\.(avif|jpe?g|png|webp)$/i.test(source))) {
     if (/^(https?:|data:|blob:)/i.test(source) || source.startsWith('/')) return source;
+    if (typeof window !== 'undefined' && !window.location.hostname.startsWith('affiliate.')) {
+      return `/media/${source.replace(/^\/+/, '')}`;
+    }
     return `${MAIN_APP_URL}/media/${source.replace(/^\/+/, '')}`;
   }
   return templateCoverUrl(template);

@@ -26,7 +26,7 @@ export default function AffiliateLandingPage() {
         <div className="affiliate-ticket">
           <span>DAYMOMENT PARTNER</span>
           <strong>Temukan cerita.<br/>Bagikan bahagia.</strong>
-          <div><small>LINK REFERRAL</small><b>daymoment.biz.id/?ref=KODEMU</b></div>
+          <div><small>LINK REFERRAL</small><b>daymoment.id/?ref=KODEMU</b></div>
         </div>
         <div className="affiliate-float float-sale"><b>+1</b><span>Referral berhasil</span></div>
         <div className="affiliate-float float-commission"><b>Rp</b><span>Komisi tercatat</span></div>

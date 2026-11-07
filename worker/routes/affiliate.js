@@ -101,7 +101,7 @@ function sessionCookie(request, value, maxAge) {
 function affiliateAppUrl(c, path = '/') {
   const origin = String(c.req.header('Origin') || '');
   const localOrigin = /^http:\/\/(?:localhost|127\.0\.0\.1):8082$/.test(origin) ? origin : '';
-  const base = (localOrigin || String(c.env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.biz.id')).replace(/\/$/, '');
+  const base = (localOrigin || String(c.env.AFFILIATE_APP_URL || 'https://affiliate.daymoment.id')).replace(/\/$/, '');
   return `${base}${String(path).startsWith('/') ? path : `/${path}`}`;
 }
 
@@ -195,7 +195,7 @@ function publicAppUrl(c, path = '/') {
   const localBase = /^http:\/\/(?:localhost|127\.0\.0\.1):8082$/.test(origin)
     ? origin.replace(/:8082$/, ':8080')
     : '';
-  const base = (localBase || String(c.env.PUBLIC_APP_URL || 'https://daymoment.biz.id')).replace(/\/$/, '');
+  const base = (localBase || String(c.env.PUBLIC_APP_URL || 'https://daymoment.id')).replace(/\/$/, '');
   return `${base}${String(path).startsWith('/') ? path : `/${path}`}`;
 }
 

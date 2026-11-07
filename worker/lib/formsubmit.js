@@ -18,7 +18,7 @@ export async function sendFeedbackToFormSubmit(env, { name, message, ip, origin,
     referer ||
     env?.PUBLIC_APP_URL ||
     env?.APP_URL ||
-    'https://daymoment.biz.id'
+    'https://daymoment.id'
   ).trim().replace(/\/+$/, '');
 
   const refererUrl = `${siteOrigin}/`;

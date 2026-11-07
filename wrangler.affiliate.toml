@@ -4,13 +4,13 @@ compatibility_date = "2026-09-16"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 routes = [
-  { pattern = "affiliate.daymoment.biz.id", custom_domain = true }
+  { pattern = "affiliate.daymoment.id", custom_domain = true }
 ]
 
 [vars]
 SUPABASE_URL = "https://jhdzitzatdudigapxpff.supabase.co"
-AFFILIATE_APP_URL = "https://affiliate.daymoment.biz.id"
-PUBLIC_APP_URL = "https://daymoment.biz.id"
+AFFILIATE_APP_URL = "https://affiliate.daymoment.id"
+PUBLIC_APP_URL = "https://daymoment.id"
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 AFFILIATE_SMTP_FROM_NAME = "Daymoment Verifikasi"

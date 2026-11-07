@@ -5,8 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 
 [vars]
-PUBLIC_APP_URL = "https://daymoment.biz.id"
-APP_URL = "https://daymoment.biz.id"
+PUBLIC_APP_URL = "https://daymoment.id"
+APP_URL = "https://daymoment.id"
 FEEDBACK_NOTIF_EMAIL = "daymoment7@gmail.com"
 
 [assets]
