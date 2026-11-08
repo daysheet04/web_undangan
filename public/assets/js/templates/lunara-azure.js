@@ -1,1 +1,156 @@
-(async()=>{"use strict";const r=await new Promise(e=>{let a=0;const t=()=>{const n=document.querySelector(".lunara-azure");if(n||a>=240){e(n);return}a+=1,requestAnimationFrame(t)};t()});if(!r||r.dataset.lunaraRuntimeReady==="true")return;r.dataset.lunaraRuntimeReady="true";const m=matchMedia("(prefers-reduced-motion: reduce)").matches,l=matchMedia("(max-width: 900px)").matches,k=Number(navigator.deviceMemory||8),q=Number(navigator.hardwareConcurrency||8),h=navigator.connection||navigator.mozConnection||navigator.webkitConnection,$=!!(h!=null&&h.saveData)||/(^|-)2g$/.test(h?.effectiveType||"");let v="high";l&&($||k<=3||q<=4)?v="low":l&&(k<=6||q<=6||h?.effectiveType==="3g")&&(v="balanced"),l&&r.classList.add(`lunara-mobile-${v}`);const w=r.querySelector("[data-open-invitation]"),x=r.querySelector(".invitation-content");x?.setAttribute("aria-hidden","true");const z=[...r.querySelectorAll(".opening-garden img")],Y=Promise.allSettled(z.map(e=>{var a;return e.complete&&e.naturalWidth?((a=e.decode)==null?void 0:a.call(e))||Promise.resolve():new Promise(t=>{e.addEventListener("load",t,{once:!0}),e.addEventListener("error",t,{once:!0})}).then(()=>{var t;return((t=e.decode)==null?void 0:t.call(e).catch(()=>{}))||void 0})}));requestAnimationFrame(()=>{r.classList.add("lunara-opening-ready"),window.setTimeout(()=>{r.classList.add("lunara-opening-complete"),w?.removeAttribute("disabled")},m?80:l?1200:7500)});const S=r.querySelectorAll("[data-lunara-reveal]"),p=r.querySelectorAll("[data-lunara-scene]"),H=!m&&"IntersectionObserver"in window,T=new WeakMap;let C=!1;const N=matchMedia("(max-width: 620px)").matches,V="/assets/images/templates/lunara-azure/",b=e=>{if(e.classList.contains("is-near")||e.dataset.lunaraBackgroundLoading==="true")return;const a=e.dataset.lunaraBg;if(!a){e.classList.add("is-near");return}e.dataset.lunaraBackgroundLoading="true";const t=new Image;t.decoding="async",t.src=`${V}${a}${N?"-mobile":""}.webp`,(t.decode?t.decode().catch(()=>{}):new Promise(n=>{t.addEventListener("load",n,{once:!0}),t.addEventListener("error",n,{once:!0})})).finally(()=>requestAnimationFrame(()=>{e.classList.add("is-near"),delete e.dataset.lunaraBackgroundLoading}))};if("IntersectionObserver"in window){const e=v==="low"?1.5:v==="balanced"?2:2.5,a=new IntersectionObserver(t=>{t.forEach(n=>{n.isIntersecting&&(b(n.target),a.unobserve(n.target))})},{threshold:0,rootMargin:`${Math.round(innerHeight*e)}px 0px`});p.forEach(t=>a.observe(t))}else p.forEach(b);(()=>{let e=0;const a=[...p],t=()=>{e>=a.length||(b(a[e++]),"requestIdleCallback"in window?requestIdleCallback(t,{timeout:400}):window.setTimeout(t,80))};"requestIdleCallback"in window?requestIdleCallback(t,{timeout:600}):window.setTimeout(t,200)})();const W=(e,a)=>{if(window.clearTimeout(T.get(e)),e.classList.toggle("is-bloomed",a),e.classList.remove("is-settled"),!a)return;const t=l?3200:5200,n=window.setTimeout(()=>{e.classList.contains("is-bloomed")&&e.classList.add("is-settled")},t);T.set(e,n)},I=()=>{if(!C)if(C=!0,H){r.classList.add("lunara-motion");const e=new IntersectionObserver(t=>{t.forEach(n=>{n.target.classList.toggle("is-visible",n.isIntersecting)})},{threshold:l?.05:.1,rootMargin:l?"8% 0px -4% 0px":"-7% 0px -9% 0px"});S.forEach((t,n)=>{t.style.setProperty("--reveal-delay",`${Math.min(n%7,6)*(l?95:170)}ms`),e.observe(t)});const a=new IntersectionObserver(t=>{t.forEach(n=>{const s=n.isIntersecting&&n.intersectionRatio>=(l?.04:.12);n.target.classList.toggle("is-in-view",s),s&&b(n.target),n.target.querySelectorAll("[data-lunara-garden]").forEach(i=>W(i,s))})},{threshold:l?[0,.04,.2]:[0,.12,.28],rootMargin:l?"10% 0px 8% 0px":"-6% 0px -8% 0px"});p.forEach(t=>a.observe(t))}else S.forEach(e=>e.classList.add("is-visible")),p.forEach(e=>{e.classList.add("is-in-view"),e.querySelectorAll("[data-lunara-garden]").forEach(a=>{a.classList.add("is-bloomed","is-settled")})})},M=()=>{window.setTimeout(()=>r.classList.add("lunara-hero-sequence"),m?40:720),window.setTimeout(()=>r.classList.add("lunara-hero-settled"),m?80:5700)};let O=!1;const j=e=>{if(e.preventDefault(),e.stopImmediatePropagation(),O)return;O=!0;const a=m?80:1650;r.classList.add("lunara-is-opening"),w?.setAttribute("disabled",""),w?.setAttribute("aria-busy","true"),window.setTimeout(()=>{const t=w?.querySelector("span");t&&(t.textContent="Membuka..."),document.body.style.overflow="hidden",F()},8),window.setTimeout(M,Math.max(0,a-300)),window.setTimeout(()=>{r.classList.add("invitation-open"),document.body.style.overflow="",x?.setAttribute("aria-hidden","false"),I(),window.setTimeout(()=>r.classList.remove("lunara-is-opening"),m?0:900)},a)};w?.addEventListener("click",j,{once:!0,capture:!0}),r.classList.contains("invitation-open")&&(I(),M()),!m&&matchMedia("(hover: hover) and (pointer: fine)").matches&&p.forEach(e=>{let a=0,t=0,n=0;const s=()=>{e.style.setProperty("--scene-x",t.toFixed(3)),e.style.setProperty("--scene-y",n.toFixed(3)),a=0};e.addEventListener("pointermove",i=>{const o=e.getBoundingClientRect();t=((i.clientX-o.left)/o.width-.5)*2,n=((i.clientY-o.top)/o.height-.5)*2,a||(a=requestAnimationFrame(s))},{passive:!0}),e.addEventListener("pointerleave",()=>{t=0,n=0,a||(a=requestAnimationFrame(s))},{passive:!0})});const c=r.querySelector("[data-lunara-bank-picker]"),g=c?.querySelector("[data-lunara-bank-trigger]"),P=c?.querySelector("[data-lunara-bank-label]"),L=()=>{!c||!g||(c.classList.remove("is-open"),g.setAttribute("aria-expanded","false"))};g?.addEventListener("click",()=>{const e=!c.classList.contains("is-open");c.classList.toggle("is-open",e),g.setAttribute("aria-expanded",String(e))}),c?.querySelectorAll("[data-lunara-bank-option]").forEach(e=>e.addEventListener("click",()=>{const a=e.dataset.lunaraBankOption;c.querySelectorAll("[data-lunara-bank-option]").forEach(t=>t.setAttribute("aria-selected",String(t===e))),P&&(P.textContent=[...e.querySelectorAll("strong,small")].map(t=>t.textContent.trim()).filter(Boolean).join(" \u2014 ")),r.querySelectorAll("[data-lunara-bank-card]").forEach(t=>{t.hidden=t.dataset.lunaraBankCard!==a}),L(),g?.focus()})),r.addEventListener("click",e=>{c&&!c.contains(e.target)&&L()}),c?.addEventListener("keydown",e=>{e.key==="Escape"&&(L(),g?.focus())});const A=[...r.querySelectorAll("[data-lunara-select]")],f=e=>{var a;e.classList.remove("is-open"),(a=e.querySelector("[data-lunara-select-trigger]"))==null||a.setAttribute("aria-expanded","false")};A.forEach(e=>{const a=e.querySelector("[data-lunara-select-trigger]"),t=e.querySelector("[data-lunara-select-label]"),n=e.querySelector("[data-lunara-select-input]"),s=[...e.querySelectorAll("[data-lunara-select-option]")];a?.addEventListener("click",()=>{const i=!e.classList.contains("is-open");A.forEach(o=>f(o)),e.classList.toggle("is-open",i),a.setAttribute("aria-expanded",String(i))}),a?.addEventListener("keydown",i=>{var o;i.key==="ArrowDown"&&(i.preventDefault(),e.classList.add("is-open"),a.setAttribute("aria-expanded","true"),(o=s[0])==null||o.focus())}),s.forEach((i,o)=>i.addEventListener("click",()=>{s.forEach(y=>y.setAttribute("aria-selected",String(y===i))),n&&(n.value=i.dataset.lunaraSelectOption||"",n.dispatchEvent(new Event("change",{bubbles:!0}))),t&&(t.textContent=i.textContent.trim()),f(e),a?.focus()})),e.addEventListener("keydown",i=>{var o;if(i.key==="Escape"&&(f(e),a?.focus()),i.key==="ArrowDown"||i.key==="ArrowUp"){const y=s.indexOf(document.activeElement);if(y<0)return;i.preventDefault();const X=i.key==="ArrowDown"?1:-1;(o=s[(y+X+s.length)%s.length])==null||o.focus()}})}),r.addEventListener("click",e=>{A.forEach(a=>{a.contains(e.target)||f(a)})}),r.querySelectorAll("[data-copy-account]").forEach(e=>e.addEventListener("click",async()=>{var a,t;const n=((t=(a=e.closest("[data-lunara-bank-card]"))==null?void 0:a.querySelector("[data-account-number]"))==null?void 0:t.textContent.replace(/\s/g,""))||"";try{await navigator.clipboard.writeText(n);const s=e.innerHTML;e.textContent="Nomor Tersalin",window.setTimeout(()=>{e.innerHTML=s},1800)}catch{window.prompt("Salin nomor rekening:",n)}}));const u=r.querySelector("[data-music-controller]"),E=r.querySelector("[data-wedding-audio]");let d,B,G=0;const R=[293.66,369.99,440,554.37,440,369.99,329.63,415.3],D=()=>{if(!d)return;const e=d.createOscillator(),a=d.createGain();e.type="sine",e.frequency.value=R[G++%R.length],a.gain.setValueAtTime(1e-4,d.currentTime),a.gain.exponentialRampToValueAtTime(.018,d.currentTime+.12),a.gain.exponentialRampToValueAtTime(1e-4,d.currentTime+1.8),e.connect(a).connect(d.destination),e.start(),e.stop(d.currentTime+1.85)},F=async()=>{if(!(!u||u.getAttribute("aria-pressed")==="true")){if(E){try{await E.play(),u.setAttribute("aria-pressed","true")}catch{u.setAttribute("aria-pressed","false")}return}d||(d=new(window.AudioContext||window.webkitAudioContext)),await d.resume(),D(),B=window.setInterval(D,1900),u.setAttribute("aria-pressed","true")}};u?.addEventListener("click",async()=>{if(u.getAttribute("aria-pressed")==="true"){E?.pause(),window.clearInterval(B),u.setAttribute("aria-pressed","false");return}await F()})})();
+(function(){var i=document.querySelector(".lunara-azure");if(!i||i.dataset.lunaraInitialized==="true")return;i.dataset.lunaraInitialized="true";var b=i.querySelector(".lunara-cover"),Y=i.querySelector("[data-open-invitation]"),g=i.querySelector("[data-wedding-audio]"),w=i.querySelector("[data-music-controller]"),f=i.querySelector("[data-countdown]"),y=i.querySelector("[data-greeting-form]"),I=i.querySelector("[data-greeting-list]"),d=i.querySelector("[data-form-feedback]"),M=i.querySelector('textarea[name="message"]'),L=i.querySelector("[data-message-count]"),S=window.matchMedia("(prefers-reduced-motion: reduce)").matches,ie=window.matchMedia("(max-width: 900px)").matches,z=ie?"-mobile.webp":".webp",U="/assets/images/templates/lunara-azure/",P=!1,q=!1,v=!1,E=!0,F=window.scrollY||window.pageYOffset||0,O=0,m={};i.classList.add("lunara-motion");// One trailing scroll timer; no repeated frame sampler or per-event timer recreation.
+var lastScrollAt = 0;
+function finishScroll() {
+  var remaining = 140 - (performance.now() - lastScrollAt);
+  if (remaining > 0) { O = window.setTimeout(finishScroll, remaining); return; }
+  O = 0;
+  v = false;
+  i.classList.remove("is-scrolling");
+  scheduleSettledCleanup();
+}
+window.addEventListener("scroll", function() {
+  if (!i.isConnected) return;
+  var position = window.scrollY || window.pageYOffset || 0;
+  if (Math.abs(position - F) > 2) { E = position >= F; F = position; }
+  if (!v) { v = true; i.classList.add("is-scrolling"); }
+  lastScrollAt = performance.now();
+  if (!O) O = window.setTimeout(finishScroll, 140);
+}, { passive: true });
+// Share deferred cleanup instead of polling once per completed element while scrolling.
+var settledQueue = [], settledFrame = 0;
+function settleNode(node) {
+  node.classList.remove("is-animating", "is-reveal-ready");
+  node.classList.add("is-motion-settled");
+}
+function scheduleSettledCleanup() {
+  if (v || settledFrame || !settledQueue.length) return;
+  settledFrame = window.requestAnimationFrame(function() {
+    settledFrame = 0;
+    if (v) return;
+    var node = settledQueue.shift();
+    if (node && node.isConnected) {
+      settleNode(node);
+    }
+    scheduleSettledCleanup();
+  });
+}
+function se(node, duration) {
+  var finished = false, timer;
+  function finish() {
+    if (finished) return;
+    finished = true;
+    window.clearTimeout(timer);
+    node.removeEventListener("transitionend", onEnd);
+    // Completed layers outside the viewport need not wait for the end of a long scroll.
+    if (!node.closest(".lunara-section.is-viewport-active")) settleNode(node);
+    else { settledQueue.push(node); scheduleSettledCleanup(); }
+  }
+  function onEnd(event) {
+    if (event.target === node && event.propertyName === "transform") finish();
+  }
+  node.addEventListener("transitionend", onEnd);
+  timer = window.setTimeout(finish, duration);
+}
+function V(e,a){if(!e)return Promise.resolve();e.loading==="lazy"&&(e.loading="eager");var n=e.currentSrc||e.src||"";return n&&m[n]&&e.complete&&e.naturalWidth>0?Promise.resolve():e.complete&&e.naturalWidth>0?typeof e.decode=="function"?Promise.race([e.decode().then(function(){n&&(m[n]=!0)}).catch(function(){}),new Promise(function(r){window.setTimeout(r,a||180)})]):(n&&(m[n]=!0),Promise.resolve()):new Promise(function(r){var o=!1,t=function(){o||(o=!0,typeof e.decode=="function"?e.decode().then(function(){n&&(m[n]=!0)}).catch(function(){}).finally(r):r())};e.addEventListener("load",t,{once:!0}),e.addEventListener("error",t,{once:!0}),window.setTimeout(t,a||240)})}function W(e,a){return!e||m[e]?Promise.resolve():new Promise(function(n){var r=new Image;r.decoding="async";var o=!1,t=function(){o||(o=!0,m[e]=!0,typeof r.decode=="function"?r.decode().catch(function(){}).finally(n):n())};r.addEventListener("load",t,{once:!0}),r.addEventListener("error",t,{once:!0}),r.src=e,window.setTimeout(t,a||220)})}function ce(){if(S){i.classList.add("lunara-opening-ready");return}var e=U+"lunara-opening-aurora-contour-v1"+z,a=U+"lunara-hero-aurora-collage-v1"+z,n=Array.prototype.slice.call(i.querySelectorAll(".lunara-cover img, .lunara-hero-photo img, .lunara-mirror-bottom-frame img")),r=document.fonts&&document.fonts.ready?Promise.race([document.fonts.ready.catch(function(){}),new Promise(function(o){window.setTimeout(o,240)})]):Promise.resolve();Promise.all(n.map(function(o){return V(o,160)}).concat([W(e,180),W(a,200),r])).finally(function(){window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){i.classList.add("lunara-opening-ready")})})})}ce();function B(e){w&&(w.classList.toggle("is-playing",!!e),w.setAttribute("aria-pressed",e?"true":"false"))}function G(){g&&g.play().then(function(){B(!0)}).catch(function(){B(!1)})}function le(){var e=window.location.hash;if(!e||e==="#")return null;try{return i.querySelector(e)}catch{return null}}var Q=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-reveal]")),R=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-garden]")),J=Array.prototype.slice.call(i.querySelectorAll(".lunara-section")),_=null,D=null,K=null,X=!1;function k(e,a){e&&(e.classList.remove("is-animating","is-reveal-ready"),e.classList.add("no-reveal-transition",a?"is-bloomed":"is-visible","is-motion-settled"))}function Z() {
+  if (X) return;
+  X = true;
+  if (S || !("IntersectionObserver" in window)) {
+    Q.forEach(function(node) { node.classList.add("is-visible", "is-motion-settled"); });
+    R.forEach(function(node) { node.classList.add("is-bloomed", "is-motion-settled"); });
+    J.forEach(function(node) { node.classList.add("is-in-view", "is-viewport-active"); });
+    return;
+  }
+  var revealQueue = [], timer = 0, frame = 0;
+  // Prepare only nearby hidden elements, one per frame, without changing reveal timing.
+  var warmQueue = new Set(), warmFrame = 0;
+  function prepareNext() {
+    warmFrame = 0;
+    if (!i.isConnected) { warmQueue.clear(); warmObserver.disconnect(); return; }
+    var node = warmQueue.values().next().value;
+    if (node) {
+      warmQueue.delete(node);
+      if (!node.classList.contains("is-visible") && !node.classList.contains("is-bloomed")) {
+        node.classList.add("is-reveal-ready");
+      }
+    }
+    if (warmQueue.size) warmFrame = window.requestAnimationFrame(prepareNext);
+  }
+  var warmObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      var node = entry.target;
+      if (entry.isIntersecting) warmQueue.add(node);
+      else {
+        warmQueue.delete(node);
+        if (!node.classList.contains("is-animating")) node.classList.remove("is-reveal-ready");
+      }
+    });
+    if (warmQueue.size && !warmFrame) warmFrame = window.requestAnimationFrame(prepareNext);
+  }, { rootMargin: "160px 0px 160px 0px", threshold: 0 });
+  Q.concat(R).forEach(function(node) { warmObserver.observe(node); });
+  function schedule() {
+    if (!timer && !frame && revealQueue.length && i.isConnected) {
+      frame = window.requestAnimationFrame(drain);
+    }
+  }
+  function drain() {
+    frame = 0;
+    if (!i.isConnected) return;
+    // Read positions together before any class writes can invalidate layout.
+    var positions = revealQueue.map(function(item) { return item.node.getBoundingClientRect(); });
+    while (revealQueue.length) {
+      var item = revealQueue.shift(), rect = positions.shift();
+      var node = item.node, visibleClass = item.isGarden ? "is-bloomed" : "is-visible";
+      if (node.classList.contains(visibleClass)) continue;
+      if (rect.bottom < 40 || (!E && rect.top < 0)) {
+        k(node, item.isGarden);
+        continue;
+      }
+      // Preserve v14 choreography and its 115ms entry cadence on every device.
+      node.classList.add("is-animating", visibleClass);
+      se(node, item.isGarden ? 3250 : 2500);
+      break;
+    }
+    if (revealQueue.length) {
+      timer = window.setTimeout(function() {
+        timer = 0;
+        schedule();
+      }, 115);
+    }
+  }
+  function observeEntries(entries, isGarden, observer) {
+    entries.forEach(function(entry) {
+      var node = entry.target;
+      var passed = entry.boundingClientRect.top < 0 || entry.boundingClientRect.bottom < 0;
+      if (!entry.isIntersecting && !passed) return;
+      observer.unobserve(node);
+      warmObserver.unobserve(node);
+      warmQueue.delete(node);
+      if (node.classList.contains(isGarden ? "is-bloomed" : "is-visible")) return;
+      if (!entry.isIntersecting || !E || entry.boundingClientRect.bottom < 40) k(node, isGarden);
+      else revealQueue.push({ node: node, isGarden: isGarden });
+    });
+    schedule();
+  }
+  _ = new IntersectionObserver(function(entries) { observeEntries(entries, false, _); }, {
+    threshold: .06, rootMargin: "0px 0px -3% 0px"
+  });
+  D = new IntersectionObserver(function(entries) { observeEntries(entries, true, D); }, {
+    threshold: .08, rootMargin: "0px 0px -4% 0px"
+  });
+  Q.forEach(function(node) { _.observe(node); });
+  R.forEach(function(node) { D.observe(node); });
+  K = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) entry.target.classList.add("is-in-view", "is-viewport-active");
+      else {
+        entry.target.classList.remove("is-viewport-active");
+        settledQueue = settledQueue.filter(function(node) {
+          if (entry.target.contains(node)) { settleNode(node); return false; }
+          return true;
+        });
+      }
+    });
+  }, { threshold: .01, rootMargin: "80px 0px 80px 0px" });
+  J.forEach(function(node) { K.observe(node); });
+}
+function ue(e){if(e){var a=e.querySelectorAll("[data-lunara-reveal]"),n=e.querySelectorAll("[data-lunara-garden]");e.classList.add("no-reveal-transition","is-in-view","is-viewport-active"),a.forEach(function(r){r.classList.add("is-visible","is-motion-settled")}),n.forEach(function(r){r.classList.add("is-bloomed","is-motion-settled")}),window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){e.classList.remove("no-reveal-transition")})})}}function $(){var e=i.querySelector(".lunara-hero");if(e&&e.classList.add("is-in-view","is-viewport-active"),S){i.classList.add("lunara-hero-sequence","lunara-hero-clean");return}window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){i.classList.add("lunara-hero-sequence"),window.setTimeout(function(){var a=function(){if(v){window.setTimeout(a,180);return}i.classList.add("lunara-hero-clean")};a()},3650)})})}function de(){if(!(P||q)){P=!0,q=!0;var e=le(),a=Array.prototype.slice.call(i.querySelectorAll(".lunara-hero img"));Promise.all(a.map(function(n){return V(n,130)})).finally(function(){window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){i.classList.add("lunara-is-opening","invitation-open"),document.body.classList.remove("lunara-locked"),document.body.style.overflow="",e?ue(e):window.scrollTo({top:0,behavior:"auto"}),window.setTimeout(function(){$()},180),window.setTimeout(function(){b&&(b.setAttribute("aria-hidden","true"),b.style.display="none"),i.classList.remove("lunara-is-opening"),i.classList.add("lunara-cover-closed"),P=!1,Z(),e&&e.scrollIntoView({behavior:S?"auto":"smooth",block:"start"})},1280),G()})})})}}if(b&&Y?(document.body.classList.add("lunara-locked"),Y.addEventListener("click",de)):(q=!0,i.classList.add("invitation-open","lunara-cover-closed"),$(),Z()),w&&g&&w.addEventListener("click",function(){g.paused?G():(g.pause(),B(!1))}),f){var ee=f.closest(".lunara-section"),te=new Date(f.getAttribute("data-countdown")||"").getTime(),x={days:f.querySelector("[data-days]"),hours:f.querySelector("[data-hours]"),minutes:f.querySelector("[data-minutes]"),seconds:f.querySelector("[data-seconds]")},ae=function(){if(!(!q||v)&&!(ee&&!ee.classList.contains("is-viewport-active"))&&Number.isFinite(te)){var e=Math.max(0,te-Date.now()),a={days:Math.floor(e/864e5),hours:Math.floor(e/36e5%24),minutes:Math.floor(e/6e4%60),seconds:Math.floor(e/1e3%60)};Object.keys(x).forEach(function(n){if(x[n]){var r=String(a[n]).padStart(2,"0");x[n].textContent!==r&&(x[n].textContent=r)}})}};ae(),window.setInterval(ae,1e3)}var p=i.querySelector("[data-lunara-bank-picker]"),h=i.querySelector("[data-lunara-bank-trigger]"),ne=i.querySelector("[data-lunara-bank-label]"),re=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-bank-option]")),fe=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-bank-card]"));function H(){!p||!h||(p.classList.remove("is-open"),h.setAttribute("aria-expanded","false"))}function ve(e){fe.forEach(function(a,n){a.hidden=n!==e}),re.forEach(function(a,n){var r=n===e;if(a.setAttribute("aria-selected",r?"true":"false"),r&&ne){var o=a.querySelector("strong"),t=a.querySelector("small");ne.textContent=o?o.textContent+(t?" \u2014 "+t.textContent:""):""}}),H()}p&&h&&(h.addEventListener("click",function(){var e=!p.classList.contains("is-open");p.classList.toggle("is-open",e),h.setAttribute("aria-expanded",e?"true":"false")}),re.forEach(function(e){e.addEventListener("click",function(){var a=Number(e.getAttribute("data-lunara-bank-option")||0);ve(a)})}),document.addEventListener("click",function(e){p.contains(e.target)||H()}),document.addEventListener("keydown",function(e){e.key==="Escape"&&H()}));var C=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-select]"));function T(e){var a=e.querySelector("[data-lunara-select-trigger]");e.classList.remove("is-open"),a&&a.setAttribute("aria-expanded","false")}C.forEach(function(e){var a=e.querySelector("[data-lunara-select-input]"),n=e.querySelector("[data-lunara-select-trigger]"),r=e.querySelector("[data-lunara-select-label]"),o=Array.prototype.slice.call(e.querySelectorAll("[data-lunara-select-option]"));!a||!n||!r||(n.addEventListener("click",function(){var t=!e.classList.contains("is-open");C.forEach(T),e.classList.toggle("is-open",t),n.setAttribute("aria-expanded",t?"true":"false")}),o.forEach(function(t){t.addEventListener("click",function(){var l=t.getAttribute("data-lunara-select-option")||"",c=t.textContent?t.textContent.trim():"";a.value=l,r.textContent=c||"Pilih",o.forEach(function(s){s.setAttribute("aria-selected",s===t?"true":"false")}),T(e)})}))}),document.addEventListener("click",function(e){C.forEach(function(a){a.contains(e.target)||T(a)})}),document.addEventListener("keydown",function(e){e.key==="Escape"&&C.forEach(T)}),i.querySelectorAll("[data-copy-account]").forEach(function(e){e.addEventListener("click",function(){var a=e.closest("[data-lunara-bank-card]"),n=a?a.querySelector("[data-account-number]"):null,r=n?n.textContent.trim():"";!r||!navigator.clipboard||navigator.clipboard.writeText(r).then(function(){var o=e.innerHTML;e.textContent="Nomor Tersalin",window.setTimeout(function(){e.innerHTML=o},1600)})})}),M&&L&&M.addEventListener("input",function(){L.textContent=String(M.value.length)});function me(e){return e==="attending"?"Hadir":e==="not_attending"?"Tidak Hadir":"Masih Ragu"}y&&y.addEventListener("submit",function(e){e.preventDefault();var a=new FormData(y),n={slug:String(a.get("slug")||i.getAttribute("data-slug")||"").trim(),guest_name:String(a.get("guest_name")||"").trim(),attendance_status:String(a.get("attendance_status")||"unsure").trim()||"unsure",message:String(a.get("message")||"").trim()};if(!n.guest_name||!n.message){d&&(d.textContent="Nama dan ucapan wajib diisi.");return}d&&(d.textContent="Mengirim ucapan..."),fetch("/api/public/greetings",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(n)}).then(function(r){return r.json().then(function(o){if(!r.ok||!o.ok)throw new Error(o.message||"Ucapan belum berhasil dikirim.");return o})}).then(function(){if(I){var r=I.querySelector("[data-empty-greeting]");r&&r.remove();var o=document.createElement("article");o.className="greeting-item";var t=document.createElement("div");t.className="greeting-head";var l=document.createElement("strong");l.textContent=n.guest_name;var c=document.createElement("small");c.textContent=me(n.attendance_status);var s=document.createElement("p");s.textContent=n.message,t.appendChild(l),t.appendChild(c),o.appendChild(t),o.appendChild(s),I.prepend(o)}y.reset(),L&&(L.textContent="0"),d&&(d.textContent="Terima kasih, doa hangat Anda sudah tercatat.")}).catch(function(r){d&&(d.textContent=r.message||"Terjadi kendala saat mengirim ucapan.")})})})();
