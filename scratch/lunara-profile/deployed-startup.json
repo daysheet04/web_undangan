@@ -1,0 +1,79 @@
+{
+  "ready": true,
+  "root": "invitation-page lunara-azure lunara-motion lunara-opening-ready",
+  "msSinceNavigation": 6172.299999982119,
+  "scripts": [
+    "https://daymoment.id/assets/index-DJjYP-eE.js",
+    "https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092",
+    "https://daymoment.id/assets/js/preview.js?v=20261108-1&react=1",
+    "https://daymoment.id/assets/js/greeting.js?v=20260927-1&react=1",
+    "https://daymoment.id/assets/js/templates/lunara-azure.js?v=20261108-smooth-v17&react=1"
+  ],
+  "images": [
+    {
+      "complete": true,
+      "width": 270
+    },
+    {
+      "complete": true,
+      "width": 260
+    },
+    {
+      "complete": true,
+      "width": 250
+    },
+    {
+      "complete": true,
+      "width": 210
+    },
+    {
+      "complete": true,
+      "width": 270
+    },
+    {
+      "complete": true,
+      "width": 135
+    },
+    {
+      "complete": true,
+      "width": 136
+    },
+    {
+      "complete": true,
+      "width": 136
+    },
+    {
+      "complete": true,
+      "width": 270
+    },
+    {
+      "complete": true,
+      "width": 260
+    },
+    {
+      "complete": true,
+      "width": 250
+    },
+    {
+      "complete": true,
+      "width": 210
+    },
+    {
+      "complete": true,
+      "width": 270
+    },
+    {
+      "complete": true,
+      "width": 135
+    },
+    {
+      "complete": true,
+      "width": 136
+    },
+    {
+      "complete": true,
+      "width": 136
+    }
+  ],
+  "errors": []
+}

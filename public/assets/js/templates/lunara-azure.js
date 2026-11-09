@@ -51,7 +51,78 @@ function se(node, duration) {
   node.addEventListener("transitionend", onEnd);
   timer = window.setTimeout(finish, duration);
 }
-function V(e,a){if(!e)return Promise.resolve();e.loading==="lazy"&&(e.loading="eager");var n=e.currentSrc||e.src||"";return n&&m[n]&&e.complete&&e.naturalWidth>0?Promise.resolve():e.complete&&e.naturalWidth>0?typeof e.decode=="function"?Promise.race([e.decode().then(function(){n&&(m[n]=!0)}).catch(function(){}),new Promise(function(r){window.setTimeout(r,a||180)})]):(n&&(m[n]=!0),Promise.resolve()):new Promise(function(r){var o=!1,t=function(){o||(o=!0,typeof e.decode=="function"?e.decode().then(function(){n&&(m[n]=!0)}).catch(function(){}).finally(r):r())};e.addEventListener("load",t,{once:!0}),e.addEventListener("error",t,{once:!0}),window.setTimeout(t,a||240)})}function W(e,a){return!e||m[e]?Promise.resolve():new Promise(function(n){var r=new Image;r.decoding="async";var o=!1,t=function(){o||(o=!0,m[e]=!0,typeof r.decode=="function"?r.decode().catch(function(){}).finally(n):n())};r.addEventListener("load",t,{once:!0}),r.addEventListener("error",t,{once:!0}),r.src=e,window.setTimeout(t,a||220)})}function ce(){if(S){i.classList.add("lunara-opening-ready");return}var e=U+"lunara-opening-aurora-contour-v1"+z,a=U+"lunara-hero-aurora-collage-v1"+z,n=Array.prototype.slice.call(i.querySelectorAll(".lunara-cover img, .lunara-hero-photo img, .lunara-mirror-bottom-frame img")),r=document.fonts&&document.fonts.ready?Promise.race([document.fonts.ready.catch(function(){}),new Promise(function(o){window.setTimeout(o,240)})]):Promise.resolve();Promise.all(n.map(function(o){return V(o,160)}).concat([W(e,180),W(a,200),r])).finally(function(){window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){i.classList.add("lunara-opening-ready")})})})}ce();function B(e){w&&(w.classList.toggle("is-playing",!!e),w.setAttribute("aria-pressed",e?"true":"false"))}function G(){g&&g.play().then(function(){B(!0)}).catch(function(){B(!1)})}function le(){var e=window.location.hash;if(!e||e==="#")return null;try{return i.querySelector(e)}catch{return null}}var Q=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-reveal]")),R=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-garden]")),J=Array.prototype.slice.call(i.querySelectorAll(".lunara-section")),_=null,D=null,K=null,X=!1;function k(e,a){e&&(e.classList.remove("is-animating","is-reveal-ready"),e.classList.add("no-reveal-transition",a?"is-bloomed":"is-visible","is-motion-settled"))}function Z() {
+// The deadline covers BOTH loading and decoding, including a decode that never settles.
+// A slow optional image must never hold the cover or the open button hostage.
+var imageDecodeTasks = {};
+function V(img, budget) {
+  if (!img) return Promise.resolve();
+  if (img.loading === "lazy") img.loading = "eager";
+  var src = img.currentSrc || img.src || "";
+  if (src && m[src] && img.complete && img.naturalWidth > 0) return Promise.resolve();
+  return new Promise(function(resolve) {
+    var finished = false, decoding = false;
+    var deadline = window.setTimeout(finish, budget || 180);
+    function finish() {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(deadline);
+      img.removeEventListener("load", loaded);
+      img.removeEventListener("error", finish);
+      resolve();
+    }
+    function loaded() {
+      if (finished || decoding) return;
+      if (!img.naturalWidth) { finish(); return; }
+      decoding = true;
+      if (typeof img.decode !== "function") {
+        if (src) m[src] = true;
+        finish();
+        return;
+      }
+      // Repeated flower images share a decode request instead of starting in parallel.
+      var task = src && imageDecodeTasks[src];
+      if (!task) {
+        task = Promise.resolve().then(function() { return img.decode(); }).then(function() {
+          if (src) { m[src] = true; delete imageDecodeTasks[src]; }
+        }, function() {
+          if (src) delete imageDecodeTasks[src];
+        });
+        if (src) imageDecodeTasks[src] = task;
+      }
+      task.then(finish, finish);
+    }
+    img.addEventListener("load", loaded);
+    img.addEventListener("error", finish);
+    if (img.complete) loaded();
+  });
+}
+function W(src, budget) {
+  if (!src || m[src]) return Promise.resolve();
+  var img = new Image();
+  img.decoding = "async";
+  img.src = src;
+  return V(img, budget || 180);
+}
+function ce() {
+  if (S) { i.classList.add("lunara-opening-ready"); return; }
+  // Hero assets are prepared when opening; only the cover participates in its readiness.
+  var images = Array.prototype.slice.call(i.querySelectorAll(".lunara-cover img"));
+  var ready = false;
+  function showCover() {
+    if (ready || !i.isConnected) return;
+    ready = true;
+    window.clearTimeout(deadline);
+    window.requestAnimationFrame(function() {
+      window.requestAnimationFrame(function() { i.classList.add("lunara-opening-ready"); });
+    });
+  }
+  var deadline = window.setTimeout(showCover, 260);
+  var fonts = document.fonts && document.fonts.ready ? document.fonts.ready.catch(function() {}) : Promise.resolve();
+  Promise.all(images.map(function(img) { return V(img, 160); }).concat([
+    W(U + "lunara-opening-aurora-contour-v1" + z, 180), fonts
+  ])).then(showCover, showCover);
+}
+ce();function B(e){w&&(w.classList.toggle("is-playing",!!e),w.setAttribute("aria-pressed",e?"true":"false"))}function G(){g&&g.play().then(function(){B(!0)}).catch(function(){B(!1)})}function le(){var e=window.location.hash;if(!e||e==="#")return null;try{return i.querySelector(e)}catch{return null}}var Q=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-reveal]")),R=Array.prototype.slice.call(i.querySelectorAll("[data-lunara-garden]")),J=Array.prototype.slice.call(i.querySelectorAll(".lunara-section")),_=null,D=null,K=null,X=!1;function k(e,a){e&&(e.classList.remove("is-animating","is-reveal-ready"),e.classList.add("no-reveal-transition",a?"is-bloomed":"is-visible","is-motion-settled"))}function Z() {
   if (X) return;
   X = true;
   if (S || !("IntersectionObserver" in window)) {
@@ -95,15 +166,16 @@ function V(e,a){if(!e)return Promise.resolve();e.loading==="lazy"&&(e.loading="e
   function drain() {
     frame = 0;
     if (!i.isConnected) return;
-    // Read positions together before any class writes can invalidate layout.
-    var positions = revealQueue.map(function(item) { return item.node.getBoundingClientRect(); });
     while (revealQueue.length) {
-      var item = revealQueue.shift(), rect = positions.shift();
+      var item = revealQueue.shift();
       var node = item.node, visibleClass = item.isGarden ? "is-bloomed" : "is-visible";
       if (node.classList.contains(visibleClass)) continue;
+      // At most one geometry read per frame; no write/read layout flush loop.
+      var rect = node.getBoundingClientRect();
       if (rect.bottom < 40 || (!E && rect.top < 0)) {
         k(node, item.isGarden);
-        continue;
+        schedule();
+        return;
       }
       // Preserve v14 choreography and its 115ms entry cadence on every device.
       node.classList.add("is-animating", visibleClass);

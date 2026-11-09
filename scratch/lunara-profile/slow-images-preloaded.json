@@ -1,0 +1,76 @@
+{
+  "ready": true,
+  "root": "invitation-page lunara-azure lunara-motion lunara-opening-ready",
+  "msSinceNavigation": 1297.1000000238419,
+  "scripts": [
+    "http://127.0.0.1:64678/assets/js/templates/lunara-azure.js"
+  ],
+  "images": [
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    },
+    {
+      "complete": false,
+      "width": 0
+    }
+  ],
+  "errors": [],
+  "opened": true
+}

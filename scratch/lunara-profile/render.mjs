@@ -10,19 +10,28 @@ import { tmpdir } from 'node:os';
 
 // Local render fixture: actual template + local assets, no API writes or remote data.
 const label = process.argv[2] || 'before';
+const mode = process.argv[3] || 'scroll';
 console.log(`${label}: preparing isolated local render`);
 const dir = resolve('scratch/lunara-profile');
 await build({ entryPoints: ['src/templates/LunaraAzureTemplate.jsx'], bundle: true, platform: 'node', format: 'cjs', packages: 'external', define: { 'import.meta.env': '{}' }, outfile: `${dir}/template.cjs`, logLevel: 'silent' });
 const Template = createRequire(import.meta.url)(`${dir}/template.cjs`).default;
-const fixture = renderToStaticMarkup(React.createElement(Template, {
+const fixtureProps = {
   invitation: { reception_date: '2026-12-25', akad_date: '2026-12-25', reception_start_time: '11:00', akad_start_time: '09:00', has_gift: true, has_wishes: true, gallery_limit: 6 },
   media: [], giftAccounts: [{ provider: 'BCA', account_number: '123456789', account_name: 'Andi & Nisa' }], greetings: [], guestName: 'Tamu', guestSalutation: 'Kepada Yth.', preview: true
-}));
+};
+const fixture = renderToStaticMarkup(React.createElement(Template, fixtureProps));
+if (mode === 'react-startup') {
+  await build({ stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import InvitationPage from './src/pages/InvitationPage.jsx'; createRoot(document.getElementById('root')).render(React.createElement(InvitationPage,{templateCode:'butterfly-blum',preview:true}));`, resolveDir: process.cwd(), loader: 'jsx' }, bundle: true, platform: 'browser', format: 'esm', define: { 'import.meta.env': '{}' }, outfile: `${dir}/page-fixture.js`, external: ['/assets/*'], logLevel: 'silent', minify: true, target: 'chrome90' });
+}
 const styles = ['base.css', 'lunara-azure.css', 'daymoment-shared.css', 'mobile-template-fixes.css'];
-const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">${styles.map(s => `<link rel="stylesheet" href="/assets/css/templates/${s}">`).join('')}</head><body>${fixture}<script src="/assets/js/templates/lunara-azure.js"></script></body></html>`;
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="preload" as="script" href="/assets/js/templates/lunara-azure.js" fetchpriority="high">${styles.map(s => `<link rel="stylesheet" href="/assets/css/templates/${s}">`).join('')}</head><body>${fixture}<script src="/assets/js/templates/lunara-azure.js"></script></body></html>`;
 const server = createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
-  if (pathname === '/') { res.setHeader('Content-Type', 'text/html'); res.end(html); return; }
+  if (pathname === '/') { res.setHeader('Content-Type', 'text/html'); res.end(mode === 'react-startup' ? '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/react-fixture.js"></script></body></html>' : html); return; }
+  if (pathname === '/react-fixture.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(await readFile(`${dir}/page-fixture.js`)); return; }
+  if (pathname === '/api/templates/butterfly-blum') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ok:true,template:{code:'butterfly_blum',packages:[{code:'prestige',has_gift:true,has_wishes:true,gallery_limit:6}]},invitation:fixtureProps.invitation,media:[],giftAccounts:fixtureProps.giftAccounts})); return; }
+  if (mode === 'react-startup' && /\/(preview|greeting)\.js$/.test(pathname)) await new Promise(r => setTimeout(r, 6000));
+  if (mode === 'slow-images' && /\.(webp|svg)$/.test(pathname)) await new Promise(r => setTimeout(r, 6000));
   const file = resolve('public', '.' + pathname);
   if (!file.startsWith(resolve('public') + '\\')) { res.writeHead(403).end(); return; }
   try {
@@ -49,9 +58,11 @@ try {
   socket = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
   await new Promise((r, reject) => { const timer = setTimeout(() => reject(new Error('Chrome connection timed out')), 5000); socket.onopen = () => { clearTimeout(timer); r(); }; socket.onerror = reject; });
   const pending = new Map();
+  const errors = [];
   let id = 0;
   socket.onmessage = ({ data }) => {
     const message = JSON.parse(data);
+    if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
     const task = pending.get(message.id);
     if (!task) return;
     pending.delete(message.id);
@@ -65,13 +76,31 @@ try {
     return result.result.value;
   };
   await cdp('Page.enable');
+  await cdp('Runtime.enable');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await cdp('Emulation.setCPUThrottlingRate', { rate: 4 });
-  await cdp('Page.navigate', { url: `http://127.0.0.1:${port}/` });
+  if (mode === 'stalled-decode') {
+    await cdp('Page.addScriptToEvaluateOnNewDocument', { source: 'HTMLImageElement.prototype.decode = function() { return new Promise(function() {}); }; Object.defineProperty(document.fonts, "ready", {value:new Promise(function(){})});' });
+  }
+  await cdp('Page.navigate', { url: mode === 'live' ? process.argv[4] : `http://127.0.0.1:${port}/` });
   for (let n = 0; n < 80; n++) {
     if (await evaluate('!!document.querySelector(".lunara-opening-ready")')) break;
     await sleep(100);
   }
+  if (mode !== 'scroll') {
+    const startup = await evaluate(`({ready:!!document.querySelector('.lunara-opening-ready'),root:document.querySelector('.lunara-azure')?.className,msSinceNavigation:performance.now(),scripts:[...document.scripts].map(s=>s.src).filter(Boolean),images:[...document.querySelectorAll('.lunara-cover img')].map(n=>({complete:n.complete,width:n.naturalWidth}))})`);
+    startup.errors = errors;
+    if (mode !== 'live') {
+      await evaluate('document.querySelector("[data-open-invitation]").click()');
+      await sleep(700);
+      startup.opened = await evaluate('!!document.querySelector(".invitation-open")');
+    }
+    const shot = await cdp('Page.captureScreenshot', { format: 'png' });
+    await writeFile(`${dir}/${label}.png`, Buffer.from(shot.data, 'base64'));
+    await writeFile(`${dir}/${label}.json`, JSON.stringify(startup, null, 2));
+    console.log(JSON.stringify(startup));
+    await cdp('Browser.close');
+  } else {
   await evaluate('document.querySelector("[data-open-invitation]").click()');
   await sleep(5500);
   const animationSnapshot = `Array.from(document.querySelectorAll('.lunara-section .garden-butterfly')).map(node => ({ section: node.closest('.lunara-section').className, opacity: getComputedStyle(node).opacity, display: getComputedStyle(node).display, names: getComputedStyle(node).animationName, durations: getComputedStyle(node).animationDuration, delays: getComputedStyle(node).animationDelay, easing: getComputedStyle(node).animationTimingFunction, state: getComputedStyle(node).animationPlayState }))`;
@@ -90,6 +119,7 @@ try {
   await writeFile(`${dir}/${label}.json`, JSON.stringify(result, null, 2));
   console.log(JSON.stringify({ ...result, butterflies: undefined, gift: undefined }));
   await cdp('Browser.close');
+  }
 } finally {
   socket?.close();
   chrome.kill();

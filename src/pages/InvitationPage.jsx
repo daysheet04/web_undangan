@@ -21,8 +21,8 @@ function canonicalCode(c) {
 const TEMPLATE_RUNTIME={
   java_vibes:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261104-smooth-v13',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
   puspa_jawi:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261104-smooth-v13',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
-  lunara_azure:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261108-smooth-v17',script:'/assets/js/templates/lunara-azure.js?v=20261108-smooth-v17'},
-  butterfly_blum:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261108-smooth-v17',script:'/assets/js/templates/lunara-azure.js?v=20261108-smooth-v17'}
+  lunara_azure:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261109-smooth-v18',script:'/assets/js/templates/lunara-azure.js?v=20261109-smooth-v18'},
+  butterfly_blum:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261109-smooth-v18',script:'/assets/js/templates/lunara-azure.js?v=20261109-smooth-v18'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261019-01',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
   ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261019-01',script:null}
 };
@@ -87,7 +87,23 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     image.src=mediaUrl(coverPath);
     return()=>{ image.onload=null; image.onerror=null; };
   },[activeCode,state.data?.invitation?.cover_image]);
-  useLegacyScripts(runtime?.script?['/assets/js/preview.js?v=20261108-1','/assets/js/greeting.js?v=20260927-1',runtime.script]:[],!state.loading&&!state.error&&templateStylesReady);
+  const isLunaraRuntime = activeCode === 'lunara_azure' || activeCode === 'butterfly_blum';
+  useEffect(() => {
+    if (!isLunaraRuntime || !runtime?.script) return undefined;
+    // Fetch alongside data/styles, then execute only after the template is mounted.
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'script';
+    link.fetchPriority = 'high';
+    link.href = `${runtime.script}${runtime.script.includes('?') ? '&' : '?'}react=1`;
+    document.head.appendChild(link);
+    return () => link.remove();
+  }, [isLunaraRuntime, runtime?.script]);
+  const supportingScripts = ['/assets/js/preview.js?v=20261108-1', '/assets/js/greeting.js?v=20260927-1'];
+  const legacyScripts = !runtime?.script ? [] : isLunaraRuntime
+    ? [runtime.script, ...supportingScripts]
+    : [...supportingScripts, runtime.script];
+  useLegacyScripts(legacyScripts, !state.loading && !state.error && templateStylesReady);
   useInvitationRealtime(state.data?.invitation?.id, state.reload, !preview && !state.loading && !state.error);
 
   if(state.error) {
