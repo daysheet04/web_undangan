@@ -434,45 +434,91 @@ export default function AureliaGrandeTemplate({
       />}
       {!entered && (
         <section className="ag-game-cover">
-          <img src={cover} alt="" fetchPriority="high" decoding="async" />
+          <img
+            className="ag-cover-ambient"
+            src={cover}
+            alt=""
+            aria-hidden="true"
+          />
           <div className="ag-cover-vignette" />
-          <div className="ag-cover-card">
-            <span>DAYMOMENT MEMPERSEMBAHKAN</span>
-            <em
-              style={{
-                display: "block",
-                marginTop: 9,
-                color: "#fff",
-                font: "600 .48rem var(--ag-sans)",
-                fontStyle: "normal",
-                letterSpacing: ".18em",
+          <div className="ag-cover-layout">
+            <div
+              className="ag-cover-portrait-frame ag-clickable-photo"
+              onClick={() =>
+                openPhoto({
+                  src: cover,
+                  title: `${groom} & ${bride}`,
+                  caption: 'Foto Sampul — The Wedding Celebration',
+                })
+              }
+              role="button"
+              tabIndex={0}
+              aria-label="Lihat foto sampul ukuran penuh"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  openPhoto({
+                    src: cover,
+                    title: `${groom} & ${bride}`,
+                    caption: 'Foto Sampul — The Wedding Celebration',
+                  });
+                }
               }}
             >
-              AN INTERACTIVE 3D WEDDING EXPERIENCE
-            </em>
-            <small>The Wedding Celebration of</small>
-            <h1>
-              {bride}
-              <i>&amp;</i>
-              {groom}
-            </h1>
-            <time>{dateText(i.reception_date)}</time>
-            <div>
-              <small>{guestSalutation}</small>
-              <strong>{guestName}</strong>
+              <img
+                src={cover}
+                alt={`${groom} & ${bride}`}
+                fetchPriority="high"
+                decoding="async"
+              />
+              <div className="ag-photo-zoom-hint" aria-hidden="true">
+                <AgIcon name="ag-zoom" />
+              </div>
             </div>
-            <button
-              type="button"
-              className="ag-cover-photo-btn ag-clickable-photo"
-              onClick={() => openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — The Wedding Celebration' })}
-              aria-label="Lihat foto sampul ukuran penuh"
-            >
-              <AgIcon name="ag-zoom" />
-              <span>Lihat Foto Sampul</span>
-            </button>
-            <button className="ag-enter-ballroom-btn" onClick={enterBallroom}>
-              Masuk ke Ballroom <b>→</b>
-            </button>
+            <div className="ag-cover-card">
+              <span>DAYMOMENT MEMPERSEMBAHKAN</span>
+              <em
+                style={{
+                  display: "block",
+                  marginTop: 9,
+                  color: "#fff",
+                  font: "600 .48rem var(--ag-sans)",
+                  fontStyle: "normal",
+                  letterSpacing: ".18em",
+                }}
+              >
+                AN INTERACTIVE 3D WEDDING EXPERIENCE
+              </em>
+              <small>The Wedding Celebration of</small>
+              <h1>
+                {bride}
+                <i>&amp;</i>
+                {groom}
+              </h1>
+              <time>{dateText(i.reception_date)}</time>
+              <div>
+                <small>{guestSalutation}</small>
+                <strong>{guestName}</strong>
+              </div>
+              <button
+                type="button"
+                className="ag-cover-photo-btn ag-clickable-photo"
+                onClick={() =>
+                  openPhoto({
+                    src: cover,
+                    title: `${groom} & ${bride}`,
+                    caption: 'Foto Sampul — The Wedding Celebration',
+                  })
+                }
+                aria-label="Lihat foto sampul ukuran penuh"
+              >
+                <AgIcon name="ag-zoom" />
+                <span>Lihat Foto Sampul</span>
+              </button>
+              <button className="ag-enter-ballroom-btn" onClick={enterBallroom}>
+                Masuk ke Ballroom <b>→</b>
+              </button>
+            </div>
           </div>
         </section>
       )}
