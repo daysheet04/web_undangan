@@ -38,7 +38,10 @@ async function minifyFile(filePath, loader, targets) {
   const result = await transform(src, {
     loader,
     minify: true,
-    target: targets,
+    // Keep Lunara's standalone runtime within the same browser targets as Vite.
+    target: loader === 'js' && filePath.endsWith('lunara-azure.js')
+      ? ['es2020', 'chrome90', 'firefox88', 'safari14', 'edge90']
+      : targets,
   });
   const saved = src.length - result.code.length;
   const pct = ((saved / src.length) * 100).toFixed(1);
@@ -54,9 +57,7 @@ async function run() {
 
   // CSS: target doesn't matter for CSS minification
   const CSS_TARGETS = ['chrome90', 'firefox88', 'safari14'];
-  // JS: use esnext to avoid esbuild trying to downgrade syntax it can't transform
-  // These files already run in modern browsers (the invitation template pages),
-  // so targeting esnext is safe and avoids destructuring transform errors.
+  // Retain existing targets for the other templates; Lunara is targeted above.
   const JS_TARGETS = ['esnext'];
 
   let errors = 0;

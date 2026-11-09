@@ -1,0 +1,220 @@
+{
+  "frames": 674,
+  "framesOver34ms": 68,
+  "p95ms": 50,
+  "longTasks": 9,
+  "longTaskMs": 545,
+  "scrollY": 10023,
+  "distance": 10024,
+  "offscreenRunning": 0,
+  "butterflies": [
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-left",
+      "durations": "2.25s, 11.8s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-right",
+      "durations": "2.25s, 13.2s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-greeting is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-greeting",
+      "durations": "2.35s, 10.6s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-couple is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-couple",
+      "durations": "2.35s, 12.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-events is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-events",
+      "durations": "2.35s, 9.8s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-story is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-story",
+      "durations": "2.35s, 13.8s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gallery is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gallery",
+      "durations": "2.35s, 11.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gift is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gift",
+      "durations": "2.35s, 15s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-rsvp is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-rsvp",
+      "durations": "2.35s, 10.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-closing is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-closing",
+      "durations": "2.35s, 14.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    }
+  ],
+  "hiddenGardens": 0,
+  "cpuRate": 8,
+  "memoryPressure": "critical notification",
+  "layers": 0,
+  "layerReasons": [],
+  "errors": [],
+  "gift": [
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-left",
+      "durations": "2.25s, 11.8s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-right",
+      "durations": "2.25s, 13.2s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-greeting is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-greeting",
+      "durations": "2.35s, 10.6s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-couple is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-couple",
+      "durations": "2.35s, 12.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-events is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-events",
+      "durations": "2.35s, 9.8s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-story is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-story",
+      "durations": "2.35s, 13.8s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gallery is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gallery",
+      "durations": "2.35s, 11.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    },
+    {
+      "section": "lunara-section lunara-gift is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gift",
+      "durations": "2.35s, 15s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    },
+    {
+      "section": "lunara-section lunara-rsvp is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-rsvp",
+      "durations": "2.35s, 10.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-closing is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-closing",
+      "durations": "2.35s, 14.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    }
+  ]
+}

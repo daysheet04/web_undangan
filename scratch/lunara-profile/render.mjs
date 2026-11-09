@@ -1,4 +1,4 @@
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
@@ -11,6 +11,9 @@ import { tmpdir } from 'node:os';
 // Local render fixture: actual template + local assets, no API writes or remote data.
 const label = process.argv[2] || 'before';
 const mode = process.argv[3] || 'scroll';
+const stress = mode === 'stress-scroll';
+const legacy = mode === 'legacy-scroll';
+const cpuRate = stress ? 8 : 4;
 console.log(`${label}: preparing isolated local render`);
 const dir = resolve('scratch/lunara-profile');
 await build({ entryPoints: ['src/templates/LunaraAzureTemplate.jsx'], bundle: true, platform: 'node', format: 'cjs', packages: 'external', define: { 'import.meta.env': '{}' }, outfile: `${dir}/template.cjs`, logLevel: 'silent' });
@@ -35,7 +38,9 @@ const server = createServer(async (req, res) => {
   const file = resolve('public', '.' + pathname);
   if (!file.startsWith(resolve('public') + '\\')) { res.writeHead(403).end(); return; }
   try {
-    const data = await readFile(file);
+    let data = await readFile(file);
+    if (label.startsWith('v18-') && pathname === '/assets/js/templates/lunara-azure.js') data = await readFile(`${dir}/v18-baseline.js`);
+    if (legacy && pathname === '/assets/js/templates/lunara-azure.js') data = (await transform(data.toString(), {loader:'js',minify:true,target:['es2020','chrome90','firefox88','safari14','edge90']})).code;
     res.setHeader('Content-Type', ({ '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.webp': 'image/webp' })[extname(file)] || 'application/octet-stream');
     res.end(data);
   } catch { res.writeHead(404).end(); }
@@ -59,9 +64,11 @@ try {
   await new Promise((r, reject) => { const timer = setTimeout(() => reject(new Error('Chrome connection timed out')), 5000); socket.onopen = () => { clearTimeout(timer); r(); }; socket.onerror = reject; });
   const pending = new Map();
   const errors = [];
+  let layers = [];
   let id = 0;
   socket.onmessage = ({ data }) => {
     const message = JSON.parse(data);
+    if (message.method === 'LayerTree.layerTreeDidChange') layers = message.params.layers || [];
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
     const task = pending.get(message.id);
     if (!task) return;
@@ -77,17 +84,21 @@ try {
   };
   await cdp('Page.enable');
   await cdp('Runtime.enable');
+  await cdp('LayerTree.enable');
+  await cdp('Performance.enable');
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
-  await cdp('Emulation.setCPUThrottlingRate', { rate: 4 });
+  await cdp('Emulation.setCPUThrottlingRate', { rate: cpuRate });
   if (mode === 'stalled-decode') {
     await cdp('Page.addScriptToEvaluateOnNewDocument', { source: 'HTMLImageElement.prototype.decode = function() { return new Promise(function() {}); }; Object.defineProperty(document.fonts, "ready", {value:new Promise(function(){})});' });
   }
+  await cdp('Page.addScriptToEvaluateOnNewDocument', {source: `window.revealGeometryReads=0;const original=Element.prototype.getBoundingClientRect;Element.prototype.getBoundingClientRect=function(){if(this.hasAttribute('data-lunara-reveal')||this.hasAttribute('data-lunara-garden'))window.revealGeometryReads++;return original.call(this);};`});
+  if (legacy) await cdp('Page.addScriptToEvaluateOnNewDocument', {source:'HTMLImageElement.prototype.decode=undefined;window.requestIdleCallback=undefined;'});
   await cdp('Page.navigate', { url: mode === 'live' ? process.argv[4] : `http://127.0.0.1:${port}/` });
   for (let n = 0; n < 80; n++) {
     if (await evaluate('!!document.querySelector(".lunara-opening-ready")')) break;
     await sleep(100);
   }
-  if (mode !== 'scroll') {
+  if (mode !== 'scroll' && !stress && !legacy) {
     const startup = await evaluate(`({ready:!!document.querySelector('.lunara-opening-ready'),root:document.querySelector('.lunara-azure')?.className,msSinceNavigation:performance.now(),scripts:[...document.scripts].map(s=>s.src).filter(Boolean),images:[...document.querySelectorAll('.lunara-cover img')].map(n=>({complete:n.complete,width:n.naturalWidth}))})`);
     startup.errors = errors;
     if (mode !== 'live') {
@@ -103,21 +114,53 @@ try {
   } else {
   await evaluate('document.querySelector("[data-open-invitation]").click()');
   await sleep(5500);
+  if (stress) await cdp('Memory.simulatePressureNotification', { level: 'critical' });
   const animationSnapshot = `Array.from(document.querySelectorAll('.lunara-section .garden-butterfly')).map(node => ({ section: node.closest('.lunara-section').className, opacity: getComputedStyle(node).opacity, display: getComputedStyle(node).display, names: getComputedStyle(node).animationName, durations: getComputedStyle(node).animationDuration, delays: getComputedStyle(node).animationDelay, easing: getComputedStyle(node).animationTimingFunction, state: getComputedStyle(node).animationPlayState }))`;
   await evaluate(`window.profileFrames=[];window.profileLongTasks=[];window.profileOn=true;new PerformanceObserver(list=>profileLongTasks.push(...list.getEntries().map(e=>e.duration))).observe({type:'longtask'});let prev;function sample(t){if(prev)profileFrames.push(t-prev);prev=t;if(profileOn)requestAnimationFrame(sample)}requestAnimationFrame(sample)`);
+  const metricsBefore = await cdp('Performance.getMetrics');
   const distance = await evaluate('document.documentElement.scrollHeight - innerHeight');
-  console.log(`${label}: rendering mobile scroll, CPU 4x, ${distance}px`);
+  console.log(`${label}: rendering mobile scroll, CPU ${cpuRate}x, ${distance}px, memory pressure ${stress ? 'critical' : 'normal'}`);
   await cdp('Input.synthesizeScrollGesture', { x: 190, y: 660, yDistance: -distance, speed: 650, gestureSourceType: 'mouse' });
   await sleep(4000);
   const result = await evaluate(`(() => {profileOn=false;const sorted=profileFrames.slice().sort((a,b)=>a-b);return {frames:sorted.length,framesOver34ms:sorted.filter(x=>x>34).length,p95ms:sorted[Math.floor(sorted.length*.95)],longTasks:profileLongTasks.length,longTaskMs:profileLongTasks.reduce((a,b)=>a+b,0),scrollY, distance:document.documentElement.scrollHeight-innerHeight,offscreenRunning:document.getAnimations().filter(a=>a.playState==='running'&&a.effect?.target?.closest('.lunara-section:not(.is-viewport-active)')).length,butterflies:${animationSnapshot},hiddenGardens:[...document.querySelectorAll('[data-lunara-garden]')].filter(n=>!n.classList.contains('is-bloomed')).length}})()`);
   if (result.scrollY < distance * .9) throw new Error(`Scroll incomplete: ${result.scrollY}/${distance}`);
+  result.revealGeometryReads = await evaluate('window.revealGeometryReads');
+  const metricsAfter = await cdp('Performance.getMetrics');
+  result.workMs = Object.fromEntries(['LayoutDuration','RecalcStyleDuration','ScriptDuration','TaskDuration'].map(name=>[name,1000*((metricsAfter.metrics.find(m=>m.name===name)?.value||0)-(metricsBefore.metrics.find(m=>m.name===name)?.value||0))]));
+  result.cpuRate = cpuRate;
+  result.memoryPressure = stress ? 'critical notification' : 'none';
+  result.layers = layers.length;
+  result.layerReasons = [];
+  for (const layer of layers.filter(l => l.drawsContent)) {
+    try {
+      const reasons = await cdp('LayerTree.compositingReasons', { layerId: layer.layerId });
+      result.layerReasons.push({ width: layer.width, height: layer.height, backendNodeId: layer.backendNodeId, reasons: reasons.compositingReasonIds });
+    } catch { /* A live animation can retire a layer after the snapshot. */ }
+  }
+  result.errors = errors;
   await evaluate(`document.querySelector('.lunara-gift').scrollIntoView({behavior:'instant',block:'start'})`);
   await sleep(3500);
   result.gift = await evaluate(animationSnapshot);
+  // Freeze ambient phases only in the local fixture to compare exact geometry/pixels.
+  if (stress) {
+    await evaluate(`document.getAnimations().forEach(a=>{a.pause();a.currentTime=5000;})`);
+    await sleep(200);
+    const geometry = `Array.from(document.querySelectorAll('[data-lunara-reveal].is-motion-settled,.section-garden.is-motion-settled .garden-piece:not(.garden-butterfly)')).map(n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return {className:n.className,x:r.x,y:r.y,width:r.width,height:r.height,transform:s.transform,opacity:s.opacity}})`;
+    result.restingGeometry = await evaluate(geometry);
+    const shot = await cdp('Page.captureScreenshot', { format: 'png' });
+    await writeFile(`${dir}/${label}-frozen.png`, Buffer.from(shot.data, 'base64'));
+    const baselineCss = await readFile(`${dir}/v18-baseline.css`, 'utf8');
+    await evaluate(`document.querySelector('link[href="/assets/css/templates/lunara-azure.css"]').disabled=true;var comparisonStyle=document.createElement('style');comparisonStyle.textContent=${JSON.stringify(baselineCss)};document.querySelector('link[href="/assets/css/templates/lunara-azure.css"]').after(comparisonStyle)`);
+    await sleep(200);
+    result.baselineRestingGeometry = await evaluate(geometry);
+    const baselineShot = await cdp('Page.captureScreenshot', { format: 'png' });
+    await writeFile(`${dir}/${label}-baseline-frozen.png`, Buffer.from(baselineShot.data, 'base64'));
+    await evaluate(`comparisonStyle.remove();document.querySelector('link[href="/assets/css/templates/lunara-azure.css"]').disabled=false`);
+  }
   const shot = await cdp('Page.captureScreenshot', { format: 'png' });
   await writeFile(`${dir}/${label}-gift.png`, Buffer.from(shot.data, 'base64'));
   await writeFile(`${dir}/${label}.json`, JSON.stringify(result, null, 2));
-  console.log(JSON.stringify({ ...result, butterflies: undefined, gift: undefined }));
+  console.log(JSON.stringify({ ...result, butterflies: undefined, gift: undefined, layerReasons: undefined, restingGeometry:undefined,baselineRestingGeometry:undefined }));
   await cdp('Browser.close');
   }
 } finally {

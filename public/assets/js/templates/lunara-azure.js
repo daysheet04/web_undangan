@@ -170,12 +170,18 @@ ce();function B(e){w&&(w.classList.toggle("is-playing",!!e),w.setAttribute("aria
       var item = revealQueue.shift();
       var node = item.node, visibleClass = item.isGarden ? "is-bloomed" : "is-visible";
       if (node.classList.contains(visibleClass)) continue;
-      // At most one geometry read per frame; no write/read layout flush loop.
-      var rect = node.getBoundingClientRect();
-      if (rect.bottom < 40 || (!E && rect.top < 0)) {
-        k(node, item.isGarden);
-        schedule();
-        return;
+      // The observer already measured this hidden element. Adjust that snapshot for
+      // scrolling, so starting a visible reveal never forces synchronous layout.
+      var scrollDelta = (window.scrollY || window.pageYOffset || 0) - item.scrollY;
+      var mayHavePassed = item.bottom - scrollDelta < 40 || (!E && item.top - scrollDelta < 0);
+      if (mayHavePassed) {
+        // Confirm before skipping: a late image or a resize may have moved the element.
+        var rect = node.getBoundingClientRect();
+        if (rect.bottom < 40 || (!E && rect.top < 0)) {
+          k(node, item.isGarden);
+          schedule();
+          return;
+        }
       }
       // Preserve v14 choreography and its 115ms entry cadence on every device.
       node.classList.add("is-animating", visibleClass);
@@ -199,7 +205,11 @@ ce();function B(e){w&&(w.classList.toggle("is-playing",!!e),w.setAttribute("aria
       warmQueue.delete(node);
       if (node.classList.contains(isGarden ? "is-bloomed" : "is-visible")) return;
       if (!entry.isIntersecting || !E || entry.boundingClientRect.bottom < 40) k(node, isGarden);
-      else revealQueue.push({ node: node, isGarden: isGarden });
+      else revealQueue.push({
+        node: node, isGarden: isGarden,
+        top: entry.boundingClientRect.top, bottom: entry.boundingClientRect.bottom,
+        scrollY: window.scrollY || window.pageYOffset || 0
+      });
     });
     schedule();
   }
