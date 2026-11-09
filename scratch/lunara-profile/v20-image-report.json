@@ -1,0 +1,392 @@
+[
+  {
+    "path": "template-gallery/lunara_azure/essential/slot-1-fa4ba23d-93da-4703-ae53-66df7fdac268.jpg",
+    "originalBytes": 2658013,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 57974
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 110982
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 188426
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/essential/slot-2-7fdca453-6f2b-4112-a1ab-a9d200b0d0f0.jpg",
+    "originalBytes": 2635345,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 48324
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 95438
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 168314
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/prestige/slot-1-97e86a40-f65f-41f3-a508-4fd6bc508a9a.jpg",
+    "originalBytes": 2635345,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 48324
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 95438
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 168314
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/prestige/slot-2-eb0dcecd-dd28-4ed8-a55c-96a061d665ac.jpg",
+    "originalBytes": 2437354,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 40906
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 77520
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 131808
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/prestige/slot-3-a00a732a-61f3-448a-9232-10bf5f88e84e.jpg",
+    "originalBytes": 2562437,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 53094
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 101726
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 166632
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/prestige/slot-4-98728b4f-b3af-4758-88ac-b033ca933ccd.jpg",
+    "originalBytes": 2741517,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 64184
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 120932
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 200366
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/prestige/slot-5-4298bd8e-8a65-4fb7-a4a3-a4fecb520a67.jpg",
+    "originalBytes": 2658013,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 57974
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 110982
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 188426
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/signature/slot-1-2b27843d-3821-413c-9e8d-041b4c68f61f.jpg",
+    "originalBytes": 2437354,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 40906
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 77520
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 131808
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/signature/slot-2-3c6719b7-491a-4fa4-9d30-d0744afb4805.jpg",
+    "originalBytes": 2658013,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 57974
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 110982
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 188426
+      }
+    ]
+  },
+  {
+    "path": "template-gallery/lunara_azure/signature/slot-3-7360cfb5-e0f7-4d40-a921-d3908a73227f.jpg",
+    "originalBytes": 2854333,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 51314
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 108378
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 204012
+      }
+    ]
+  },
+  {
+    "path": "template-photos/lunara_azure/bride_photo-d9efd273-6641-48f7-b9b9-6566cfd9f7a5.jpg",
+    "originalBytes": 2613654,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 46722
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 95328
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 165514
+      }
+    ]
+  },
+  {
+    "path": "template-photos/lunara_azure/essential-cover_image-885ea7bb-0b60-46b8-af55-b66dfba8afe3.jpg",
+    "originalBytes": 2562437,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 53094
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 101726
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 166632
+      }
+    ]
+  },
+  {
+    "path": "template-photos/lunara_azure/groom_photo-ad154443-8960-4c5a-a63f-d0c0dd039d1b.jpg",
+    "originalBytes": 381096,
+    "originalWidth": 1433,
+    "originalHeight": 2229,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-480.webp",
+        "width": 480,
+        "height": 747,
+        "bytes": 29252
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-800.webp",
+        "width": 800,
+        "height": 1244,
+        "bytes": 54184
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-1200.webp",
+        "width": 1200,
+        "height": 1867,
+        "bytes": 92332
+      }
+    ]
+  },
+  {
+    "path": "template-photos/lunara_azure/prestige-cover_image-31fea96f-10d9-4214-98e4-36961993aea2.jpg",
+    "originalBytes": 2854333,
+    "originalWidth": 1792,
+    "originalHeight": 2400,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-480.webp",
+        "width": 480,
+        "height": 643,
+        "bytes": 51314
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+        "width": 800,
+        "height": 1071,
+        "bytes": 108378
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-1200.webp",
+        "width": 1200,
+        "height": 1607,
+        "bytes": 204012
+      }
+    ]
+  },
+  {
+    "path": "template-photos/lunara_azure/signature-cover_image-501bdf20-a023-45c1-92f3-0e1cb50213c7.jpg",
+    "originalBytes": 2635345,
+    "originalWidth": 1696,
+    "originalHeight": 2528,
+    "variants": [
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+        "width": 480,
+        "height": 715,
+        "bytes": 48324
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+        "width": 800,
+        "height": 1192,
+        "bytes": 95438
+      },
+      {
+        "src": "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+        "width": 1200,
+        "height": 1789,
+        "bytes": 168314
+      }
+    ]
+  }
+]

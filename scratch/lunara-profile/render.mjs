@@ -13,6 +13,7 @@ const label = process.argv[2] || 'before';
 const mode = process.argv[3] || 'scroll';
 const stress = mode === 'stress-scroll';
 const legacy = mode === 'legacy-scroll';
+const photoFixture = mode === 'photo-scroll';
 const cpuRate = stress ? 8 : 4;
 console.log(`${label}: preparing isolated local render`);
 const dir = resolve('scratch/lunara-profile');
@@ -22,14 +23,25 @@ const fixtureProps = {
   invitation: { reception_date: '2026-12-25', akad_date: '2026-12-25', reception_start_time: '11:00', akad_start_time: '09:00', has_gift: true, has_wishes: true, gallery_limit: 6 },
   media: [], giftAccounts: [{ provider: 'BCA', account_number: '123456789', account_name: 'Andi & Nisa' }], greetings: [], guestName: 'Tamu', guestSalutation: 'Kepada Yth.', preview: true
 };
+if (photoFixture) {
+  const photos = Object.keys(JSON.parse(await readFile(resolve('src/templates/lunara-demo-images.json'), 'utf8')));
+  Object.assign(fixtureProps.invitation, {
+    cover_image: photos.find(path => path.includes('prestige-cover_image')),
+    bride_photo: photos.find(path => path.includes('bride_photo')),
+    groom_photo: photos.find(path => path.includes('groom_photo')),
+  });
+  fixtureProps.media = photos.filter(path => path.includes('/prestige/')).map((file_path, id) => ({ id, file_path }));
+}
 const fixture = renderToStaticMarkup(React.createElement(Template, fixtureProps));
 if (mode === 'react-startup') {
   await build({ stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import InvitationPage from './src/pages/InvitationPage.jsx'; createRoot(document.getElementById('root')).render(React.createElement(InvitationPage,{templateCode:'butterfly-blum',preview:true}));`, resolveDir: process.cwd(), loader: 'jsx' }, bundle: true, platform: 'browser', format: 'esm', define: { 'import.meta.env': '{}' }, outfile: `${dir}/page-fixture.js`, external: ['/assets/*'], logLevel: 'silent', minify: true, target: 'chrome90' });
 }
 const styles = ['base.css', 'lunara-azure.css', 'daymoment-shared.css', 'mobile-template-fixes.css'];
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="preload" as="script" href="/assets/js/templates/lunara-azure.js" fetchpriority="high">${styles.map(s => `<link rel="stylesheet" href="/assets/css/templates/${s}">`).join('')}</head><body>${fixture}<script src="/assets/js/templates/lunara-azure.js"></script></body></html>`;
+const originalPhotoRequests = [];
 const server = createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
+  if (pathname.startsWith('/media/')) originalPhotoRequests.push(pathname);
   if (pathname === '/') { res.setHeader('Content-Type', 'text/html'); res.end(mode === 'react-startup' ? '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/react-fixture.js"></script></body></html>' : html); return; }
   if (pathname === '/react-fixture.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(await readFile(`${dir}/page-fixture.js`)); return; }
   if (pathname === '/api/templates/butterfly-blum') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ok:true,template:{code:'butterfly_blum',packages:[{code:'prestige',has_gift:true,has_wishes:true,gallery_limit:6}]},invitation:fixtureProps.invitation,media:[],giftAccounts:fixtureProps.giftAccounts})); return; }
@@ -98,7 +110,7 @@ try {
     if (await evaluate('!!document.querySelector(".lunara-opening-ready")')) break;
     await sleep(100);
   }
-  if (mode !== 'scroll' && !stress && !legacy) {
+  if (mode !== 'scroll' && !stress && !legacy && !photoFixture) {
     const startup = await evaluate(`({ready:!!document.querySelector('.lunara-opening-ready'),root:document.querySelector('.lunara-azure')?.className,msSinceNavigation:performance.now(),scripts:[...document.scripts].map(s=>s.src).filter(Boolean),images:[...document.querySelectorAll('.lunara-cover img')].map(n=>({complete:n.complete,width:n.naturalWidth}))})`);
     startup.errors = errors;
     if (mode !== 'live') {
@@ -138,6 +150,13 @@ try {
     } catch { /* A live animation can retire a layer after the snapshot. */ }
   }
   result.errors = errors;
+  if (photoFixture) {
+    result.photos = await evaluate(`Array.from(document.querySelectorAll('.lunara-section img[srcset]')).map(n=>({alt:n.alt,src:n.currentSrc,complete:n.complete,naturalWidth:n.naturalWidth,loading:n.loading}))`);
+    result.originalPhotoRequests = originalPhotoRequests.slice();
+    if (result.photos.length !== 9 || result.photos.some(photo => !photo.complete || !photo.naturalWidth) || result.originalPhotoRequests.length) {
+      throw new Error('Responsive photo delivery failed: ' + JSON.stringify({photos:result.photos, originals:result.originalPhotoRequests}));
+    }
+  }
   await evaluate(`document.querySelector('.lunara-gift').scrollIntoView({behavior:'instant',block:'start'})`);
   await sleep(3500);
   result.gift = await evaluate(animationSnapshot);

@@ -70,6 +70,310 @@ function TemplateFooter({ className = "" }) {
   ), /* @__PURE__ */ import_react.default.createElement("p", null, "Semoga setiap momen bahagiamu selalu dipenuhi berkah dan kebahagiaan."));
 }
 
+// src/templates/lunara-demo-images.json
+var lunara_demo_images_default = {
+  "template-gallery/lunara_azure/essential/slot-1-fa4ba23d-93da-4703-ae53-66df7fdac268.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 57974
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 110982
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 188426
+    }
+  ],
+  "template-gallery/lunara_azure/essential/slot-2-7fdca453-6f2b-4112-a1ab-a9d200b0d0f0.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 48324
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 95438
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 168314
+    }
+  ],
+  "template-gallery/lunara_azure/prestige/slot-1-97e86a40-f65f-41f3-a508-4fd6bc508a9a.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 48324
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 95438
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 168314
+    }
+  ],
+  "template-gallery/lunara_azure/prestige/slot-2-eb0dcecd-dd28-4ed8-a55c-96a061d665ac.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 40906
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 77520
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 131808
+    }
+  ],
+  "template-gallery/lunara_azure/prestige/slot-3-a00a732a-61f3-448a-9232-10bf5f88e84e.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 53094
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 101726
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 166632
+    }
+  ],
+  "template-gallery/lunara_azure/prestige/slot-4-98728b4f-b3af-4758-88ac-b033ca933ccd.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 64184
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 120932
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 200366
+    }
+  ],
+  "template-gallery/lunara_azure/prestige/slot-5-4298bd8e-8a65-4fb7-a4a3-a4fecb520a67.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 57974
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 110982
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 188426
+    }
+  ],
+  "template-gallery/lunara_azure/signature/slot-1-2b27843d-3821-413c-9e8d-041b4c68f61f.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 40906
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 77520
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 131808
+    }
+  ],
+  "template-gallery/lunara_azure/signature/slot-2-3c6719b7-491a-4fa4-9d30-d0744afb4805.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 57974
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 110982
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 188426
+    }
+  ],
+  "template-gallery/lunara_azure/signature/slot-3-7360cfb5-e0f7-4d40-a921-d3908a73227f.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 51314
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 108378
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 204012
+    }
+  ],
+  "template-photos/lunara_azure/bride_photo-d9efd273-6641-48f7-b9b9-6566cfd9f7a5.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 46722
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 95328
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 165514
+    }
+  ],
+  "template-photos/lunara_azure/essential-cover_image-885ea7bb-0b60-46b8-af55-b66dfba8afe3.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 53094
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 101726
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/fce640160110d6212657-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 166632
+    }
+  ],
+  "template-photos/lunara_azure/groom_photo-ad154443-8960-4c5a-a63f-d0c0dd039d1b.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-480.webp",
+      width: 480,
+      height: 747,
+      bytes: 29252
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-800.webp",
+      width: 800,
+      height: 1244,
+      bytes: 54184
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-1200.webp",
+      width: 1200,
+      height: 1867,
+      bytes: 92332
+    }
+  ],
+  "template-photos/lunara_azure/prestige-cover_image-31fea96f-10d9-4214-98e4-36961993aea2.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-480.webp",
+      width: 480,
+      height: 643,
+      bytes: 51314
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+      width: 800,
+      height: 1071,
+      bytes: 108378
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-1200.webp",
+      width: 1200,
+      height: 1607,
+      bytes: 204012
+    }
+  ],
+  "template-photos/lunara_azure/signature-cover_image-501bdf20-a023-45c1-92f3-0e1cb50213c7.jpg": [
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-480.webp",
+      width: 480,
+      height: 715,
+      bytes: 48324
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+      width: 800,
+      height: 1192,
+      bytes: 95438
+    },
+    {
+      src: "/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-1200.webp",
+      width: 1200,
+      height: 1789,
+      bytes: 168314
+    }
+  ]
+};
+
 // src/templates/LunaraAzureTemplate.jsx
 var ASSET = "/assets/images/templates/lunara-azure/";
 var LAYER_ASSET = `${ASSET}layers/`;
@@ -86,6 +390,31 @@ var idDate = (value, day = true) => {
 };
 var timeRange = (start, end) => `${String(start || "").slice(0, 5)}${end ? ` \u2013 ${String(end).slice(0, 5)}` : ""} WIB`;
 var attendance = (value) => ({ attending: "Hadir", not_attending: "Tidak Hadir", unsure: "Masih Ragu" })[value] || "Masih Ragu";
+function LunaraPhoto({ src, ...props }) {
+  const key = String(src || "").split(/[?#]/)[0].replace(/^https?:\/\/[^/]+/, "").replace(/^\/(?:api\/admin\/)?media\//, "");
+  const variants = lunara_demo_images_default[key];
+  if (!variants) return /* @__PURE__ */ import_react2.default.createElement("img", { src, decoding: "async", ...props });
+  const fallback = variants.find((image) => image.width === 800) || variants[variants.length - 1];
+  return /* @__PURE__ */ import_react2.default.createElement(
+    "img",
+    {
+      src: fallback.src,
+      srcSet: variants.map((image) => `${image.src} ${image.width}w`).join(", "),
+      sizes: "(max-width: 600px) calc(100vw - 48px), (max-width: 900px) 50vw, 440px",
+      width: fallback.width,
+      height: fallback.height,
+      decoding: "async",
+      ...props,
+      onError: (event) => {
+        const image = event.currentTarget;
+        if (!image.hasAttribute("srcset")) return;
+        image.removeAttribute("srcset");
+        image.removeAttribute("sizes");
+        image.src = src;
+      }
+    }
+  );
+}
 function LunaraAzureTemplate({ invitation: i, media, giftAccounts, greetings, guestName, guestSalutation, preview }) {
   const bride = i.bride_nickname || "Nisa";
   const groom = i.groom_nickname || "Andi";
@@ -156,7 +485,7 @@ function LunaraAzureTemplate({ invitation: i, media, giftAccounts, greetings, gu
         }
       }
     },
-    /* @__PURE__ */ import_react2.default.createElement("img", { src: cover, alt: "Foto pasangan", decoding: "async" }),
+    /* @__PURE__ */ import_react2.default.createElement(LunaraPhoto, { src: cover, alt: "Foto pasangan", fetchPriority: "high" }),
     /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-photo-zoom-hint", "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement(AzureIcon, { name: "azure-zoom" })),
     /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-photo-label", "data-hero-caption": true }, "Our beautiful moment")
   ))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "lunara-countdown", "data-hero-step": "countdown", "data-countdown": `${eventDate}T${eventTime}:00+07:00` }, [["days", "Hari"], ["hours", "Jam"], ["minutes", "Menit"], ["seconds", "Detik"]].map(([key, label]) => /* @__PURE__ */ import_react2.default.createElement("div", { key }, /* @__PURE__ */ import_react2.default.createElement("strong", { ...{ [`data-${key}`]: "" } }, "00"), /* @__PURE__ */ import_react2.default.createElement("span", null, label)))), /* @__PURE__ */ import_react2.default.createElement("a", { className: "lunara-button lunara-save-date", "data-hero-step": "button", href: calendar, target: "_blank", rel: "noreferrer" }, "Simpan Tanggal ", /* @__PURE__ */ import_react2.default.createElement(AzureIcon, { name: "azure-arrow" }))), /* @__PURE__ */ import_react2.default.createElement("section", { className: "lunara-section lunara-greeting", "data-lunara-scene": true, "data-lunara-bg": "lunara-wedding-aurora-ceremony-v1" }, /* @__PURE__ */ import_react2.default.createElement(SceneTransition, null), /* @__PURE__ */ import_react2.default.createElement("div", { className: "lunara-stars", "aria-hidden": "true" }, Array.from({ length: 9 }, (_, index) => /* @__PURE__ */ import_react2.default.createElement("i", { key: index }))), /* @__PURE__ */ import_react2.default.createElement(MotionGarden, { className: "section-garden garden-greeting", choreo: "orbit" }), /* @__PURE__ */ import_react2.default.createElement("div", { className: "lunara-greeting-inner", "data-lunara-reveal": "tilt" }, /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-eyebrow" }, "Dengan penuh rasa syukur"), /* @__PURE__ */ import_react2.default.createElement("h2", null, "The Wedding"), /* @__PURE__ */ import_react2.default.createElement("p", { className: "lunara-arabic" }, "\u0627\u0644\u0633\u064E\u0651\u0644\u064E\u0627\u0645\u064F \u0639\u064E\u0644\u064E\u064A\u0652\u0643\u064F\u0645\u0652 \u0648\u064E\u0631\u064E\u062D\u0652\u0645\u064E\u0629\u064F \u0627\u0644\u0644\u0647\u0650 \u0648\u064E\u0628\u064E\u0631\u064E\u0643\u064E\u0627\u062A\u064F\u0647\u064F"), /* @__PURE__ */ import_react2.default.createElement("p", null, "Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud menyelenggarakan pernikahan putra-putri kami."), /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-signature" }, bride, " ", /* @__PURE__ */ import_react2.default.createElement("i", null, "&"), " ", groom))), /* @__PURE__ */ import_react2.default.createElement("section", { className: "lunara-section lunara-couple", "data-lunara-scene": true, "data-lunara-bg": "lunara-couple-editorial-collage-v1" }, /* @__PURE__ */ import_react2.default.createElement(SceneTransition, null), /* @__PURE__ */ import_react2.default.createElement(MotionGarden, { className: "section-garden garden-couple", choreo: "bloom" }), /* @__PURE__ */ import_react2.default.createElement(SectionHeading, { eyebrow: "Dua hati, satu tujuan", title: "Mempelai" }), /* @__PURE__ */ import_react2.default.createElement("div", { className: "lunara-couple-grid" }, /* @__PURE__ */ import_react2.default.createElement(
@@ -195,7 +524,7 @@ function LunaraAzureTemplate({ invitation: i, media, giftAccounts, greetings, gu
         }
       }
     },
-    /* @__PURE__ */ import_react2.default.createElement("img", { src: cover, alt: "Kisah pasangan", decoding: "async" }),
+    /* @__PURE__ */ import_react2.default.createElement(LunaraPhoto, { src: cover, alt: "Kisah pasangan", loading: "lazy" }),
     /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-photo-zoom-hint", "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement(AzureIcon, { name: "azure-zoom" }))
   ), /* @__PURE__ */ import_react2.default.createElement("div", { className: "lunara-story-copy", "data-lunara-reveal": "tilt" }, /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-eyebrow" }, "Kisah kami"), /* @__PURE__ */ import_react2.default.createElement("h2", null, "Written in", /* @__PURE__ */ import_react2.default.createElement("br", null), "the moonlight"), /* @__PURE__ */ import_react2.default.createElement("p", { "data-live": "love_story" }, i.love_story || "Berawal dari pertemuan sederhana, tumbuh menjadi persahabatan, lalu keyakinan untuk berjalan bersama."))), /* @__PURE__ */ import_react2.default.createElement("section", { className: "lunara-section lunara-gallery", "data-lunara-scene": true, "data-lunara-bg": "lunara-gallery-zine-collage-v1" }, /* @__PURE__ */ import_react2.default.createElement(SceneTransition, null), /* @__PURE__ */ import_react2.default.createElement(MotionGarden, { className: "section-garden garden-gallery", choreo: "cascade" }), /* @__PURE__ */ import_react2.default.createElement(SectionHeading, { eyebrow: "Kumpulan Momen Indah", title: "Our Memories" }), /* @__PURE__ */ import_react2.default.createElement("div", { className: `lunara-gallery-deck gallery-count-${Math.min(photos.length || limit, 5)}` }, photos.length ? photos.map((photo, index) => /* @__PURE__ */ import_react2.default.createElement(
     "figure",
@@ -215,7 +544,7 @@ function LunaraAzureTemplate({ invitation: i, media, giftAccounts, greetings, gu
         }
       }
     },
-    /* @__PURE__ */ import_react2.default.createElement("img", { src: mediaUrl(photo.file_path), alt: `Momen pasangan ${index + 1}`, decoding: "async" }),
+    /* @__PURE__ */ import_react2.default.createElement(LunaraPhoto, { src: mediaUrl(photo.file_path), alt: `Momen pasangan ${index + 1}`, loading: "lazy" }),
     /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-photo-zoom-hint", "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement(AzureIcon, { name: "azure-zoom" })),
     /* @__PURE__ */ import_react2.default.createElement("figcaption", null, "Memory \xB7 ", String(index + 1).padStart(2, "0"))
   )) : Array.from({ length: limit }, (_, index) => /* @__PURE__ */ import_react2.default.createElement(
@@ -365,7 +694,7 @@ function PersonCard({ type, photo, full, father, mother, onPhotoClick }) {
       }
     },
     /* @__PURE__ */ import_react2.default.createElement("span", null),
-    /* @__PURE__ */ import_react2.default.createElement("img", { src: photo, alt: `Foto mempelai ${type === "bride" ? "wanita" : "pria"}`, decoding: "async" }),
+    /* @__PURE__ */ import_react2.default.createElement(LunaraPhoto, { src: photo, alt: `Foto mempelai ${type === "bride" ? "wanita" : "pria"}`, loading: "lazy" }),
     /* @__PURE__ */ import_react2.default.createElement("span", { className: "lunara-photo-zoom-hint", "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement(AzureIcon, { name: "azure-zoom" }))
   ), /* @__PURE__ */ import_react2.default.createElement("small", null, type === "bride" ? "Mempelai Wanita" : "Mempelai Pria"), /* @__PURE__ */ import_react2.default.createElement("h3", { "data-live": `${type}_full_name` }, full), /* @__PURE__ */ import_react2.default.createElement("p", null, type === "bride" ? "Putri" : "Putra", " dari"), /* @__PURE__ */ import_react2.default.createElement("strong", null, /* @__PURE__ */ import_react2.default.createElement("span", { "data-live": `${type}_father` }, father), /* @__PURE__ */ import_react2.default.createElement("br", null), "& ", /* @__PURE__ */ import_react2.default.createElement("span", { "data-live": `${type}_mother` }, mother)));
 }

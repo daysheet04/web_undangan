@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { mediaUrl } from '../lib/api.js';
 import TemplateFooter from '../components/TemplateFooter.jsx';
+import demoImages from './lunara-demo-images.json';
 
 const ASSET = '/assets/images/templates/lunara-azure/';
 const LAYER_ASSET = `${ASSET}layers/`;
@@ -18,6 +19,32 @@ const idDate = (value, day = true) => {
 };
 const timeRange = (start, end) => `${String(start || '').slice(0, 5)}${end ? ` – ${String(end).slice(0, 5)}` : ''} WIB`;
 const attendance = (value) => ({ attending: 'Hadir', not_attending: 'Tidak Hadir', unsure: 'Masih Ragu' }[value] || 'Masih Ragu');
+
+// Responsive copies apply only to these exact public demo assets. New uploads
+// and invitation photos keep their own source; lightboxes still use the original.
+function LunaraPhoto({ src, ...props }) {
+  const key = String(src || '').split(/[?#]/)[0]
+    .replace(/^https?:\/\/[^/]+/, '').replace(/^\/(?:api\/admin\/)?media\//, '');
+  const variants = demoImages[key];
+  if (!variants) return <img src={src} decoding="async" {...props} />;
+  const fallback = variants.find(image => image.width === 800) || variants[variants.length - 1];
+  return <img
+    src={fallback.src}
+    srcSet={variants.map(image => `${image.src} ${image.width}w`).join(', ')}
+    sizes="(max-width: 600px) calc(100vw - 48px), (max-width: 900px) 50vw, 440px"
+    width={fallback.width}
+    height={fallback.height}
+    decoding="async"
+    {...props}
+    onError={event => {
+      const image = event.currentTarget;
+      if (!image.hasAttribute('srcset')) return;
+      image.removeAttribute('srcset');
+      image.removeAttribute('sizes');
+      image.src = src;
+    }}
+  />;
+}
 
 export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts, greetings, guestName, guestSalutation, preview }) {
   const bride = i.bride_nickname || 'Nisa';
@@ -132,7 +159,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
                 aria-label="Lihat foto sampul ukuran penuh"
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Foto Sampul — Our beautiful moment' }); } }}
               >
-                <img src={cover} alt="Foto pasangan" decoding="async" />
+              <LunaraPhoto src={cover} alt="Foto pasangan" fetchPriority="high" />
                 <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
                 <span className="lunara-photo-label" data-hero-caption>Our beautiful moment</span>
               </div>
@@ -205,7 +232,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
             aria-label="Lihat foto kisah ukuran penuh"
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto({ src: cover, title: `${groom} & ${bride}`, caption: 'Written in the moonlight — Kisah Kami' }); } }}
           >
-            <img src={cover} alt="Kisah pasangan" decoding="async" />
+            <LunaraPhoto src={cover} alt="Kisah pasangan" loading="lazy" />
             <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
           </div>
           <div className="lunara-story-copy" data-lunara-reveal="tilt">
@@ -232,7 +259,7 @@ export default function LunaraAzureTemplate({ invitation: i, media, giftAccounts
                 aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGalleryPhoto(index); } }}
               >
-                <img src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index + 1}`} decoding="async" />
+                <LunaraPhoto src={mediaUrl(photo.file_path)} alt={`Momen pasangan ${index + 1}`} loading="lazy" />
                 <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
                 <figcaption>Memory · {String(index + 1).padStart(2, '0')}</figcaption>
               </figure>
@@ -420,7 +447,7 @@ function PersonCard({ type, photo, full, father, mother, onPhotoClick }) {
       onKeyDown={(e) => { if (onPhotoClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPhotoClick(); } }}
     >
       <span />
-      <img src={photo} alt={`Foto mempelai ${type === 'bride' ? 'wanita' : 'pria'}`} decoding="async" />
+      <LunaraPhoto src={photo} alt={`Foto mempelai ${type === 'bride' ? 'wanita' : 'pria'}`} loading="lazy" />
       <span className="lunara-photo-zoom-hint" aria-hidden="true"><AzureIcon name="azure-zoom" /></span>
     </div>
     <small>{type === 'bride' ? 'Mempelai Wanita' : 'Mempelai Pria'}</small>
