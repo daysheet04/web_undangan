@@ -30,7 +30,7 @@ function getTemplateCover(tpl) {
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261023-3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261110-island-v3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261023-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
