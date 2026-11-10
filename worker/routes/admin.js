@@ -590,6 +590,437 @@ admin.get('/admin/affiliates', async (c) => {
   });
 });
 
+function jakartaCurrentYear() {
+  return Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric' }).format(new Date())) || new Date().getFullYear();
+}
+
+function mergeTrafficYears(rawYears = []) {
+  const years = new Set([String(jakartaCurrentYear())]);
+  for (const yr of rawYears || []) {
+    const str = String(yr || '').trim();
+    if (/^\d{4}$/.test(str)) years.add(str);
+  }
+  return [...years].sort((a, b) => Number(b) - Number(a));
+}
+
+function parseAdminTrafficFilter(c) {
+  const yearPattern = /^\d{4}$/;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const rawYear = String(c.req.query('year') || '').trim();
+  const year = yearPattern.test(rawYear) && Number(rawYear) >= 2000 && Number(rawYear) <= 2100 ? rawYear : '';
+  const rawFrom = datePattern.test(c.req.query('from') || '') ? c.req.query('from') : '';
+  const rawTo = datePattern.test(c.req.query('to') || '') ? c.req.query('to') : '';
+
+  if (!year && rawFrom && rawTo && rawFrom > rawTo) {
+    return { error: 'Tanggal awal tidak boleh melewati tanggal akhir.' };
+  }
+
+  return {
+    year,
+    effectiveFrom: year ? `${year}-01-01` : (rawFrom || null),
+    effectiveTo: year ? `${year}-12-31` : (rawTo || null),
+  };
+}
+
+function isMissingTrafficRelationError(error) {
+  if (!error) return false;
+  return ['42P01', 'PGRST205'].includes(error.code) || /affiliate_traffic_events/i.test(error.message || '');
+}
+
+function isMissingTrafficRpcError(error) {
+  if (!error) return false;
+  return ['PGRST202', '42883'].includes(error.code)
+    || /get_admin_affiliate_traffic|get_affiliate_traffic_analytics|affiliate_traffic_events|schema cache/i.test(error.message || '');
+}
+
+async function fallbackAdminAffiliateTraffic(db, effectiveFrom, effectiveTo) {
+  const { data: accounts, error: accountError } = await db.from('affiliate_accounts')
+    .select('id,full_name,email,referral_code,status,account_tier,created_at')
+    .in('status', ['active', 'suspended'])
+    .order('full_name', { ascending: true })
+    .limit(1000);
+  if (accountError) throw accountError;
+
+  const accountList = accounts || [];
+  let eventsQuery = db.from('affiliate_traffic_events')
+    .select('affiliate_id,event_type,page_type,visitor_hash,event_date,created_at')
+    .order('created_at', { ascending: false })
+    .limit(20000);
+  if (effectiveFrom) eventsQuery = eventsQuery.gte('event_date', effectiveFrom);
+  if (effectiveTo) eventsQuery = eventsQuery.lte('event_date', effectiveTo);
+
+  const [eventsResult, yearsResult] = await Promise.all([
+    eventsQuery,
+    db.from('affiliate_traffic_events').select('event_date').order('event_date', { ascending: false }).limit(5000),
+  ]);
+
+  if (eventsResult.error) {
+    if (isMissingTrafficRelationError(eventsResult.error) || /schema cache/i.test(eventsResult.error.message || '')) {
+      return {
+        schema_pending: true,
+        available_years: mergeTrafficYears([]),
+        totals: {
+          views: 0,
+          clicks: 0,
+          storefront_views: 0,
+          template_views: 0,
+          unique_viewers: 0,
+          unique_clickers: 0,
+          total_affiliates: accountList.length,
+          affiliates_with_traffic: 0,
+        },
+        affiliates: accountList.map((account) => ({
+          id: account.id,
+          full_name: account.full_name,
+          email: account.email,
+          referral_code: account.referral_code,
+          status: account.status,
+          account_tier: account.account_tier || 'basic',
+          created_at: account.created_at,
+          views: 0,
+          clicks: 0,
+          storefront_views: 0,
+          template_views: 0,
+          unique_viewers: 0,
+          unique_clickers: 0,
+          last_event_at: null,
+        })),
+      };
+    }
+    throw eventsResult.error;
+  }
+
+  const perAffiliate = new Map();
+  accountList.forEach((account) => {
+    perAffiliate.set(String(account.id), {
+      id: account.id,
+      full_name: account.full_name,
+      email: account.email,
+      referral_code: account.referral_code,
+      status: account.status,
+      account_tier: account.account_tier || 'basic',
+      created_at: account.created_at,
+      views: 0,
+      clicks: 0,
+      storefront_views: 0,
+      template_views: 0,
+      viewerHashes: new Set(),
+      clickerHashes: new Set(),
+      last_event_at: null,
+    });
+  });
+
+  const totalViewerHashes = new Set();
+  const totalClickerHashes = new Set();
+  let totalViews = 0;
+  let totalClicks = 0;
+  let totalStorefrontViews = 0;
+  let totalTemplateViews = 0;
+
+  (eventsResult.data || []).forEach((row) => {
+    const entry = perAffiliate.get(String(row.affiliate_id));
+    if (!entry) return;
+    if (row.event_type === 'view') {
+      entry.views += 1;
+      totalViews += 1;
+      if (row.page_type === 'storefront') {
+        entry.storefront_views += 1;
+        totalStorefrontViews += 1;
+      } else if (row.page_type === 'template') {
+        entry.template_views += 1;
+        totalTemplateViews += 1;
+      }
+      if (row.visitor_hash) {
+        entry.viewerHashes.add(row.visitor_hash);
+        totalViewerHashes.add(row.visitor_hash);
+      }
+    } else if (row.event_type === 'click') {
+      entry.clicks += 1;
+      totalClicks += 1;
+      if (row.visitor_hash) {
+        entry.clickerHashes.add(row.visitor_hash);
+        totalClickerHashes.add(row.visitor_hash);
+      }
+    }
+    if (row.created_at && (!entry.last_event_at || new Date(row.created_at) > new Date(entry.last_event_at))) {
+      entry.last_event_at = row.created_at;
+    }
+  });
+
+  const affiliates = [...perAffiliate.values()]
+    .map(({ viewerHashes, clickerHashes, ...rest }) => ({
+      ...rest,
+      unique_viewers: viewerHashes.size,
+      unique_clickers: clickerHashes.size,
+    }))
+    .sort((a, b) => (b.views - a.views) || (b.clicks - a.clicks) || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'id'));
+
+  const availableYears = mergeTrafficYears(
+    (yearsResult.data || []).map((row) => String(row.event_date || '').slice(0, 4)).filter(Boolean)
+  );
+
+  return {
+    schema_pending: false,
+    available_years: availableYears,
+    totals: {
+      views: totalViews,
+      clicks: totalClicks,
+      storefront_views: totalStorefrontViews,
+      template_views: totalTemplateViews,
+      unique_viewers: totalViewerHashes.size,
+      unique_clickers: totalClickerHashes.size,
+      total_affiliates: affiliates.length,
+      affiliates_with_traffic: affiliates.filter((item) => item.views > 0 || item.clicks > 0).length,
+    },
+    affiliates,
+  };
+}
+
+admin.get('/admin/affiliate-traffic', async (c) => {
+  const filter = parseAdminTrafficFilter(c);
+  if (filter.error) return c.json({ ok: false, message: filter.error }, 422);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const demoAccounts = await adminAffiliateOptions(c.env);
+    return c.json({
+      ok: true,
+      schema_pending: false,
+      filter: {
+        year: filter.year || 'all',
+        from: filter.effectiveFrom || '',
+        to: filter.effectiveTo || '',
+      },
+      available_years: mergeTrafficYears([]),
+      totals: {
+        views: 0,
+        clicks: 0,
+        storefront_views: 0,
+        template_views: 0,
+        unique_viewers: 0,
+        unique_clickers: 0,
+        total_affiliates: demoAccounts.length,
+        affiliates_with_traffic: 0,
+      },
+      affiliates: demoAccounts.map((account) => ({
+        ...account,
+        account_tier: 'basic',
+        created_at: null,
+        views: 0,
+        clicks: 0,
+        storefront_views: 0,
+        template_views: 0,
+        unique_viewers: 0,
+        unique_clickers: 0,
+        last_event_at: null,
+      })),
+    });
+  }
+
+  const db = database(c.env);
+  const { data, error } = await db.rpc('get_admin_affiliate_traffic', {
+    p_from: filter.effectiveFrom,
+    p_to: filter.effectiveTo,
+  });
+
+  if (error) {
+    if (isMissingTrafficRpcError(error) || isMissingTrafficRelationError(error)) {
+      const fallback = await fallbackAdminAffiliateTraffic(db, filter.effectiveFrom, filter.effectiveTo);
+      return c.json({
+        ok: true,
+        schema_pending: fallback.schema_pending,
+        filter: {
+          year: filter.year || 'all',
+          from: filter.effectiveFrom || '',
+          to: filter.effectiveTo || '',
+        },
+        available_years: fallback.available_years,
+        totals: fallback.totals,
+        affiliates: fallback.affiliates,
+      });
+    }
+    throw error;
+  }
+
+  const affiliates = (Array.isArray(data?.affiliates) ? data.affiliates : []).map((item) => ({
+    ...item,
+    account_tier: item.account_tier || 'basic',
+    views: Number(item.views || 0),
+    clicks: Number(item.clicks || 0),
+    storefront_views: Number(item.storefront_views || 0),
+    template_views: Number(item.template_views || 0),
+    unique_viewers: Number(item.unique_viewers || 0),
+    unique_clickers: Number(item.unique_clickers || 0),
+  }));
+
+  return c.json({
+    ok: true,
+    schema_pending: false,
+    filter: {
+      year: filter.year || 'all',
+      from: filter.effectiveFrom || '',
+      to: filter.effectiveTo || '',
+    },
+    available_years: mergeTrafficYears(data?.available_years || []),
+    totals: {
+      views: Number(data?.totals?.views || 0),
+      clicks: Number(data?.totals?.clicks || 0),
+      storefront_views: Number(data?.totals?.storefront_views || 0),
+      template_views: Number(data?.totals?.template_views || 0),
+      unique_viewers: Number(data?.totals?.unique_viewers || 0),
+      unique_clickers: Number(data?.totals?.unique_clickers || 0),
+      total_affiliates: Number(data?.totals?.total_affiliates ?? affiliates.length),
+      affiliates_with_traffic: Number(
+        data?.totals?.affiliates_with_traffic ?? affiliates.filter((item) => item.views > 0 || item.clicks > 0).length
+      ),
+    },
+    affiliates,
+  });
+});
+
+admin.get('/admin/affiliate-traffic/:affiliateId', async (c) => {
+  const filter = parseAdminTrafficFilter(c);
+  if (filter.error) return c.json({ ok: false, message: filter.error }, 422);
+  const affiliateId = String(c.req.param('affiliateId') || '').trim();
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    return c.json({
+      ok: true,
+      schema_pending: false,
+      affiliate: { id: affiliateId, full_name: 'Affiliate Demo', email: '', referral_code: '-', status: 'active', account_tier: 'basic' },
+      available_years: mergeTrafficYears([]),
+      totals: { views: 0, clicks: 0, storefront_views: 0, template_views: 0, unique_viewers: 0, unique_clickers: 0 },
+      daily: [],
+      targets: [],
+    });
+  }
+
+  const db = database(c.env);
+  const { data: account, error: accountError } = await db.from('affiliate_accounts')
+    .select('id,full_name,email,referral_code,status,account_tier')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (accountError) throw accountError;
+  if (!account) return c.json({ ok: false, message: 'Akun affiliate tidak ditemukan.' }, 404);
+
+  const { data, error } = await db.rpc('get_affiliate_traffic_analytics', {
+    p_affiliate_id: affiliateId,
+    p_from: filter.effectiveFrom,
+    p_to: filter.effectiveTo,
+  });
+
+  if (error) {
+    if (isMissingTrafficRpcError(error) || isMissingTrafficRelationError(error)) {
+      let eventsQuery = db.from('affiliate_traffic_events')
+        .select('event_type,page_type,target_type,target_label,template_code,package_code,visitor_hash,event_date,created_at')
+        .eq('affiliate_id', affiliateId)
+        .order('event_date', { ascending: true })
+        .limit(20000);
+      if (filter.effectiveFrom) eventsQuery = eventsQuery.gte('event_date', filter.effectiveFrom);
+      if (filter.effectiveTo) eventsQuery = eventsQuery.lte('event_date', filter.effectiveTo);
+      const { data: eventRows, error: eventError } = await eventsQuery;
+      if (eventError) {
+        if (isMissingTrafficRelationError(eventError) || /schema cache/i.test(eventError.message || '')) {
+          return c.json({
+            ok: true,
+            schema_pending: true,
+            affiliate: account,
+            available_years: mergeTrafficYears([]),
+            totals: { views: 0, clicks: 0, storefront_views: 0, template_views: 0, unique_viewers: 0, unique_clickers: 0 },
+            daily: [],
+            targets: [],
+          });
+        }
+        throw eventError;
+      }
+
+      const viewerHashes = new Set();
+      const clickerHashes = new Set();
+      const dailyMap = new Map();
+      const targetMap = new Map();
+      let views = 0;
+      let clicks = 0;
+      let storefrontViews = 0;
+      let templateViews = 0;
+
+      (eventRows || []).forEach((row) => {
+        const dayKey = String(row.event_date || '');
+        if (dayKey && !dailyMap.has(dayKey)) {
+          dailyMap.set(dayKey, { date: dayKey, views: 0, clicks: 0, storefront_views: 0, template_views: 0 });
+        }
+        const dayEntry = dayKey ? dailyMap.get(dayKey) : null;
+        if (row.event_type === 'view') {
+          views += 1;
+          if (dayEntry) dayEntry.views += 1;
+          if (row.page_type === 'storefront') {
+            storefrontViews += 1;
+            if (dayEntry) dayEntry.storefront_views += 1;
+          } else if (row.page_type === 'template') {
+            templateViews += 1;
+            if (dayEntry) dayEntry.template_views += 1;
+          }
+          if (row.visitor_hash) viewerHashes.add(row.visitor_hash);
+        } else if (row.event_type === 'click') {
+          clicks += 1;
+          if (dayEntry) dayEntry.clicks += 1;
+          if (row.visitor_hash) clickerHashes.add(row.visitor_hash);
+        }
+
+        const label = String(row.target_label || '').trim() || row.target_type || '-';
+        const tpl = String(row.template_code || '').trim() || null;
+        const pkg = String(row.package_code || '').trim() || null;
+        const tKey = `${row.event_type}|${row.page_type}|${row.target_type}|${label}|${tpl || ''}|${pkg || ''}`;
+        const existingTarget = targetMap.get(tKey) || {
+          event_type: row.event_type,
+          page_type: row.page_type,
+          target_type: row.target_type,
+          target_label: label,
+          template_code: tpl,
+          package_code: pkg,
+          count: 0,
+        };
+        existingTarget.count += 1;
+        targetMap.set(tKey, existingTarget);
+      });
+
+      return c.json({
+        ok: true,
+        schema_pending: false,
+        affiliate: account,
+        available_years: mergeTrafficYears((eventRows || []).map((row) => String(row.event_date || '').slice(0, 4)).filter(Boolean)),
+        totals: {
+          views,
+          clicks,
+          storefront_views: storefrontViews,
+          template_views: templateViews,
+          unique_viewers: viewerHashes.size,
+          unique_clickers: clickerHashes.size,
+        },
+        daily: [...dailyMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+        targets: [...targetMap.values()].sort((a, b) => b.count - a.count).slice(0, 50),
+      });
+    }
+    throw error;
+  }
+
+  return c.json({
+    ok: true,
+    schema_pending: false,
+    affiliate: account,
+    available_years: mergeTrafficYears(data?.available_years || []),
+    totals: {
+      views: Number(data?.totals?.views || 0),
+      clicks: Number(data?.totals?.clicks || 0),
+      storefront_views: Number(data?.totals?.storefront_views || 0),
+      template_views: Number(data?.totals?.template_views || 0),
+      unique_viewers: Number(data?.totals?.unique_viewers || 0),
+      unique_clickers: Number(data?.totals?.unique_clickers || 0),
+    },
+    daily: Array.isArray(data?.daily) ? data.daily : [],
+    targets: Array.isArray(data?.targets) ? data.targets : [],
+  });
+});
+
 async function issueAffiliateCorrection(c, db, account, reviewNote) {
   const token = randomToken(32);
   const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toISOString();

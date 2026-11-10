@@ -618,6 +618,65 @@ async function copyText(value) {
 }
 
 const emptyDashboardFilters = { year: '', from: '', to: '' };
+const TRAFFIC_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+function shiftDateKey(dateKey, deltaDays) {
+  const [year, month, day] = String(dateKey || '').split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const shifted = new Date(Date.UTC(year, month - 1, day + deltaDays));
+  return shifted.toISOString().slice(0, 10);
+}
+
+function monthLastDateKey(yearMonth) {
+  const [year, month] = String(yearMonth || '').split('-').map(Number);
+  if (!year || !month) return '';
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+}
+
+function niceTrafficMax(rawMax) {
+  const peak = Math.max(0, Number(rawMax || 0));
+  if (peak <= 4) return 4;
+  if (peak <= 8) return 8;
+  const stepBase = peak / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(stepBase));
+  const fraction = stepBase / magnitude;
+  const niceFraction = fraction <= 1 ? 1 : fraction <= 1.25 ? 1.25 : fraction <= 1.5 ? 1.5 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+  return Math.max(4, Math.ceil(niceFraction * magnitude) * 4);
+}
+
+function enumerateTrafficDays(fromKey, toKey) {
+  const result = [];
+  if (!fromKey || !toKey || fromKey > toKey) return result;
+  let cursor = fromKey;
+  for (let index = 0; index < 45 && cursor <= toKey; index += 1) {
+    const [, month, day] = cursor.split('-').map(Number);
+    const monthLabel = TRAFFIC_MONTH_NAMES[month - 1] || '';
+    result.push({
+      key: cursor,
+      startKey: cursor,
+      endKey: cursor,
+      dayLabel: String(day),
+      monthLabel,
+      label: `${day} ${monthLabel}`,
+      fullLabel: new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${cursor}T12:00:00+07:00`)),
+      daily: true,
+    });
+    cursor = shiftDateKey(cursor, 1);
+  }
+  return result;
+}
+
+function formatTrafficTargetMeta(item) {
+  const parts = [];
+  parts.push(item.page_type === 'template' ? 'Link Template' : 'Etalase /ref');
+  if (item.target_type === 'whatsapp') parts.push('Kontak WA');
+  else if (item.target_type === 'package_order') parts.push('Tombol Pilih/Order');
+  else if (item.target_type === 'template_preview' || item.target_type === 'direct_preview') parts.push('Preview Desain');
+  else if (item.target_type === 'package_switch') parts.push('Cek Variasi Paket');
+  else if (item.target_type === 'hero_cta') parts.push('CTA Hero');
+  return parts.join(' · ');
+}
 
 function storedDashboardFilters(affiliateId) {
   try {
@@ -629,7 +688,7 @@ function storedDashboardFilters(affiliateId) {
   }
 }
 
-function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) {
+function DashboardOverview({ affiliate, catalog, orderData, initialTrafficData, refreshTick = 0, onReloadOverview }) {
   const templates = catalog?.templates || [];
   const products = templates.flatMap((template) => template.products || []);
   const visibleProducts = templates.flatMap((template) => (template.products || []).filter((product) => product.is_visible).map((product) => ({ ...product, template_name: template.name })));
@@ -639,13 +698,117 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
   const [detail, setDetail] = useState('');
   const [chartSelection, setChartSelection] = useState(null);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [trafficRange, setTrafficRange] = useState('30d');
+  const [trafficState, setTrafficState] = useState(() => ({
+    data: initialTrafficData || null,
+    loading: !initialTrafficData,
+    error: '',
+  }));
+  const [trafficSelection, setTrafficSelection] = useState(null);
+  const [trafficBucketDetail, setTrafficBucketDetail] = useState({ loading: false, targets: [], totals: null });
+  const trafficDetailCache = useRef(new Map());
+
   useEffect(() => {
     try { localStorage.setItem(`daymoment-affiliate-dashboard:${affiliate.id}`, JSON.stringify(filters)); } catch {}
   }, [affiliate.id, filters]);
   useEffect(() => {
     setChartSelection(null);
-  }, [filters.year, filters.from, filters.to]);
-  const availableYears = useMemo(() => [...new Set(orders.map((order) => orderDateKey(order.created_at).slice(0, 4)).filter(Boolean))].sort((left, right) => right.localeCompare(left)), [orders]);
+    setTrafficSelection(null);
+  }, [filters.year, filters.from, filters.to, trafficRange]);
+
+  const todayKey = useMemo(() => orderDateKey(new Date()), []);
+  const hasFilters = Boolean(filters.year || filters.from || filters.to);
+  const effectiveTrafficFilter = useMemo(() => {
+    if (filters.year) {
+      return {
+        query: `year=${encodeURIComponent(filters.year)}`,
+        from: `${filters.year}-01-01`,
+        to: `${filters.year}-12-31`,
+        granularity: 'monthly',
+        label: `Januari–Desember ${filters.year}`,
+      };
+    }
+    if (filters.from || filters.to) {
+      const startDate = filters.from ? new Date(`${filters.from}T00:00:00+07:00`) : null;
+      const endDate = filters.to ? new Date(`${filters.to}T00:00:00+07:00`) : null;
+      const spanDays = startDate && endDate ? Math.round((endDate - startDate) / 86400000) : null;
+      const isDaily = spanDays !== null && spanDays >= 0 && spanDays <= 44;
+      return {
+        query: [
+          filters.from ? `from=${encodeURIComponent(filters.from)}` : '',
+          filters.to ? `to=${encodeURIComponent(filters.to)}` : '',
+        ].filter(Boolean).join('&'),
+        from: filters.from,
+        to: filters.to,
+        granularity: isDaily ? 'daily' : 'monthly',
+        label: `${filters.from || 'Awal'} sampai ${filters.to || 'Sekarang'}`,
+      };
+    }
+    if (trafficRange === '14d') {
+      const fromKey = shiftDateKey(todayKey, -13);
+      return {
+        query: `from=${encodeURIComponent(fromKey)}&to=${encodeURIComponent(todayKey)}`,
+        from: fromKey,
+        to: todayKey,
+        granularity: 'daily',
+        label: '14 hari terakhir (Harian)',
+      };
+    }
+    if (trafficRange === '30d') {
+      const fromKey = shiftDateKey(todayKey, -29);
+      return {
+        query: `from=${encodeURIComponent(fromKey)}&to=${encodeURIComponent(todayKey)}`,
+        from: fromKey,
+        to: todayKey,
+        granularity: 'daily',
+        label: '30 hari terakhir (Harian)',
+      };
+    }
+    return {
+      query: '',
+      from: '',
+      to: '',
+      granularity: 'monthly',
+      label: 'Semua waktu (Per bulan)',
+    };
+  }, [filters.year, filters.from, filters.to, trafficRange, todayKey]);
+
+  useEffect(() => {
+    trafficDetailCache.current.clear();
+  }, [refreshTick]);
+
+  useEffect(() => {
+    if (!effectiveTrafficFilter.query && initialTrafficData && refreshTick === 0) {
+      setTrafficState({ data: initialTrafficData, loading: false, error: '' });
+      return undefined;
+    }
+    let active = true;
+    setTrafficState((current) => ({ ...current, loading: true, error: '' }));
+    const suffix = effectiveTrafficFilter.query ? `?${effectiveTrafficFilter.query}` : '';
+    affiliateApi(`/traffic${suffix}`)
+      .then((result) => {
+        if (!active) return;
+        setTrafficState({ data: result, loading: false, error: '' });
+      })
+      .catch((failure) => {
+        if (!active) return;
+        setTrafficState((current) => ({
+          data: current.data,
+          loading: false,
+          error: friendlyAffiliateError(failure),
+        }));
+      });
+    return () => { active = false; };
+  }, [effectiveTrafficFilter.query, initialTrafficData, refreshTick]);
+
+  const trafficData = trafficState.data;
+  const availableYears = useMemo(() => {
+    const years = new Set([
+      ...orders.map((order) => orderDateKey(order.created_at).slice(0, 4)).filter(Boolean),
+      ...((trafficData?.available_years || []).map(String).filter(Boolean)),
+    ]);
+    return [...years].sort((left, right) => right.localeCompare(left));
+  }, [orders, trafficData]);
   const filteredOrders = useMemo(() => orders.filter((order) => {
     const date = orderDateKey(order.created_at);
     if (!date) return false;
@@ -658,7 +821,6 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
   const pendingOrders = filteredOrders.filter((order) => order.payment_status !== 'paid');
   const commissionEarned = paidOrders.reduce((total, order) => total + Number(order.affiliate_commission_amount || 0), 0);
   const commissionPending = pendingOrders.reduce((total, order) => total + Number(order.affiliate_commission_amount || 0), 0);
-  const hasFilters = Boolean(filters.year || filters.from || filters.to);
   const periodLabel = filters.year
     ? `Januari–Desember ${filters.year}`
     : filters.from || filters.to
@@ -717,6 +879,119 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
   const selectedChartRows = selectedChartBucket
     ? chartSelection.type === 'commission' ? selectedChartBucket.paidItems : selectedChartBucket.items
     : [];
+
+  const trafficChartData = useMemo(() => {
+    const dailyRows = trafficData?.daily || [];
+    const byDate = new Map(dailyRows.map((row) => [row.date, row]));
+    let buckets = [];
+    if (filters.year) {
+      buckets = TRAFFIC_MONTH_NAMES.map((label, index) => {
+        const key = `${filters.year}-${String(index + 1).padStart(2, '0')}`;
+        return {
+          key,
+          startKey: `${key}-01`,
+          endKey: monthLastDateKey(key),
+          label,
+          fullLabel: `${label} ${filters.year}`,
+          daily: false,
+        };
+      });
+    } else if (effectiveTrafficFilter.granularity === 'daily' && effectiveTrafficFilter.from && effectiveTrafficFilter.to) {
+      buckets = enumerateTrafficDays(effectiveTrafficFilter.from, effectiveTrafficFilter.to);
+    } else {
+      const monthKeys = [...new Set(dailyRows.map((row) => String(row.date || '').slice(0, 7)).filter(Boolean))].sort();
+      buckets = monthKeys.map((key) => {
+        const [year, month] = key.split('-');
+        const monthShort = TRAFFIC_MONTH_NAMES[Number(month) - 1] || month;
+        return {
+          key,
+          startKey: `${key}-01`,
+          endKey: monthLastDateKey(key),
+          label: `${monthShort} ${String(year).slice(-2)}`,
+          fullLabel: `${monthShort} ${year}`,
+          daily: false,
+        };
+      });
+    }
+
+    return buckets.map((bucket) => {
+      if (bucket.daily) {
+        const row = byDate.get(bucket.key);
+        return {
+          ...bucket,
+          views: Number(row?.views || 0),
+          clicks: Number(row?.clicks || 0),
+          storefront_views: Number(row?.storefront_views || 0),
+          template_views: Number(row?.template_views || 0),
+        };
+      }
+      let views = 0;
+      let clicks = 0;
+      let storefrontViews = 0;
+      let templateViews = 0;
+      dailyRows.forEach((row) => {
+        if (String(row.date || '').startsWith(bucket.key)) {
+          views += Number(row.views || 0);
+          clicks += Number(row.clicks || 0);
+          storefrontViews += Number(row.storefront_views || 0);
+          templateViews += Number(row.template_views || 0);
+        }
+      });
+      return {
+        ...bucket,
+        views,
+        clicks,
+        storefront_views: storefrontViews,
+        template_views: templateViews,
+      };
+    });
+  }, [trafficData, filters.year, effectiveTrafficFilter]);
+
+  const rawMaxTraffic = Math.max(0, ...trafficChartData.flatMap((item) => [item.views, item.clicks]));
+  const trafficYMax = niceTrafficMax(rawMaxTraffic);
+  const trafficYTicks = [1, 0.75, 0.5, 0.25, 0].map((ratio) => Math.round(trafficYMax * ratio));
+  const trafficTotals = trafficData?.totals || {
+    views: 0,
+    clicks: 0,
+    storefront_views: 0,
+    template_views: 0,
+    unique_viewers: 0,
+    unique_clickers: 0,
+  };
+  const trafficCtr = trafficTotals.views > 0
+    ? `${((trafficTotals.clicks / trafficTotals.views) * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`
+    : '0%';
+  const trafficTargets = trafficData?.targets || [];
+  const trafficViewTargets = trafficTargets.filter((item) => item.event_type === 'view').slice(0, 5);
+  const trafficClickTargets = trafficTargets.filter((item) => item.event_type === 'click').slice(0, 6);
+  const selectedTrafficBucket = trafficSelection
+    ? trafficChartData.find((item) => item.key === trafficSelection.key) || null
+    : null;
+
+  useEffect(() => {
+    if (!selectedTrafficBucket) return undefined;
+    const cacheKey = `${selectedTrafficBucket.startKey}:${selectedTrafficBucket.endKey}:${refreshTick}`;
+    const cached = trafficDetailCache.current.get(cacheKey);
+    if (cached) {
+      setTrafficBucketDetail({ loading: false, targets: cached.targets, totals: cached.totals });
+      return undefined;
+    }
+    let active = true;
+    setTrafficBucketDetail({ loading: true, targets: [], totals: null });
+    affiliateApi(`/traffic?from=${encodeURIComponent(selectedTrafficBucket.startKey)}&to=${encodeURIComponent(selectedTrafficBucket.endKey)}`)
+      .then((result) => {
+        if (!active) return;
+        const entry = { targets: result?.targets || [], totals: result?.totals || null };
+        trafficDetailCache.current.set(cacheKey, entry);
+        setTrafficBucketDetail({ loading: false, ...entry });
+      })
+      .catch(() => {
+        if (!active) return;
+        setTrafficBucketDetail({ loading: false, targets: [], totals: null });
+      });
+    return () => { active = false; };
+  }, [selectedTrafficBucket, refreshTick]);
+
   const toggleDetail = (nextDetail) => setDetail((current) => current === nextDetail ? '' : nextDetail);
   return <>
     <section className="affiliate-dashboard-hero">
@@ -832,6 +1107,215 @@ function DashboardOverview({ affiliate, catalog, orderData, onReloadOverview }) 
           </article>)}
         </div>
       </div>}
+    </section>
+    <section className={`affiliate-dashboard-chart-card affiliate-traffic-card ${trafficState.loading ? 'is-refreshing' : ''}`}>
+      <header className="affiliate-traffic-header">
+        <div>
+          <span>GRAFIK TRAFFIC &amp; INTERAKSI</span>
+          <h2>Total Views &amp; Clicks</h2>
+          <p>{effectiveTrafficFilter.label}{trafficState.loading ? ' · Memperbarui data…' : ''}</p>
+        </div>
+        <div className="affiliate-traffic-header-right">
+          {!hasFilters && (
+            <div className="affiliate-traffic-range-pills" role="group" aria-label="Rentang grafik views dan klik">
+              {[
+                { value: '14d', label: '14 Hari' },
+                { value: '30d', label: '30 Hari' },
+                { value: 'monthly', label: 'Per Bulan' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={trafficRange === option.value ? 'is-active' : ''}
+                  aria-pressed={trafficRange === option.value}
+                  onClick={() => setTrafficRange(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="affiliate-traffic-legend">
+            <span><i className="is-views"/>Views</span>
+            <span><i className="is-clicks"/>Clicks</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="affiliate-traffic-kpis">
+        <article className="affiliate-traffic-kpi is-views">
+          <span><i/>Views</span>
+          <strong>{trafficTotals.views.toLocaleString('id-ID')}</strong>
+          <small>{trafficTotals.unique_viewers.toLocaleString('id-ID')} sesi pengunjung · {trafficTotals.storefront_views.toLocaleString('id-ID')} etalase · {trafficTotals.template_views.toLocaleString('id-ID')} template</small>
+        </article>
+        <article className="affiliate-traffic-kpi is-clicks">
+          <span><i/>Clicks</span>
+          <strong>{trafficTotals.clicks.toLocaleString('id-ID')}</strong>
+          <small>{trafficTotals.unique_clickers.toLocaleString('id-ID')} pengunjung mengklik link atau tombol produk</small>
+        </article>
+        <article className="affiliate-traffic-kpi is-ctr">
+          <span>Rasio Klik (CTR)</span>
+          <strong>{trafficCtr}</strong>
+          <small>Perbandingan total clicks terhadap kunjungan views</small>
+        </article>
+      </div>
+
+      {trafficData?.schema_pending && (
+        <div className="affiliate-traffic-notice" role="status">
+          Skema pelacakan Views &amp; Clicks belum diaktifkan di database. Jalankan migrasi <code>2026_11_11_affiliate_traffic_analytics.sql</code> pada Supabase SQL Editor.
+        </div>
+      )}
+      {trafficState.error && (
+        <div className="affiliate-form-alert error" role="alert">
+          {trafficState.error}
+        </div>
+      )}
+
+      {trafficChartData.length ? (
+        <div className="affiliate-traffic-plot">
+          <div className="affiliate-traffic-yaxis" aria-hidden="true">
+            {trafficYTicks.map((tick, index) => (
+              <span key={`${tick}-${index}`}>{tick.toLocaleString('id-ID')}</span>
+            ))}
+          </div>
+          <div className="affiliate-traffic-scroll">
+            <div className={`affiliate-traffic-columns ${filters.year ? 'is-yearly' : trafficChartData.length <= 15 ? 'is-compact' : 'is-dense'}`}>
+              {trafficChartData.map((item) => {
+                const isSelected = selectedTrafficBucket?.key === item.key;
+                const viewsHeight = item.views > 0 ? Math.max((item.views / trafficYMax) * 100, 4) : 2;
+                const clicksHeight = item.clicks > 0 ? Math.max((item.clicks / trafficYMax) * 100, 4) : 2;
+                const hasActivity = item.views > 0 || item.clicks > 0;
+                return (
+                  <button
+                    type="button"
+                    key={item.key}
+                    className={`affiliate-traffic-col ${isSelected ? 'is-selected' : ''} ${hasActivity ? 'has-activity' : 'is-zero'}`}
+                    onClick={() => hasActivity && setTrafficSelection((current) => current?.key === item.key ? null : { key: item.key })}
+                    disabled={!hasActivity}
+                    title={`${item.fullLabel}: ${item.views.toLocaleString('id-ID')} views · ${item.clicks.toLocaleString('id-ID')} clicks`}
+                    aria-label={`${item.fullLabel}: ${item.views} views, ${item.clicks} clicks`}
+                  >
+                    <div className="affiliate-traffic-bars">
+                      <span
+                        className={`affiliate-traffic-bar is-views ${item.views === 0 ? 'is-empty' : ''}`}
+                        style={{ height: `${viewsHeight}%` }}
+                      />
+                      <span
+                        className={`affiliate-traffic-bar is-clicks ${item.clicks === 0 ? 'is-empty' : ''}`}
+                        style={{ height: `${clicksHeight}%` }}
+                      />
+                    </div>
+                    {item.daily ? (
+                      <small className="is-daily">
+                        <b>{item.dayLabel}</b>
+                        <span>{item.monthLabel}</span>
+                      </small>
+                    ) : (
+                      <small>{item.label}</small>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="affiliate-dashboard-chart-empty">
+          Belum ada data kunjungan views atau klik pada periode yang dipilih. Bagikan link etalase atau link template untuk mulai merekam traffic.
+        </div>
+      )}
+
+      {selectedTrafficBucket && (
+        <div className="affiliate-dashboard-chart-detail">
+          <header>
+            <div>
+              <span>RINCIAN TRAFFIC HARIAN / BULANAN</span>
+              <h3>{selectedTrafficBucket.fullLabel}</h3>
+              <p>{selectedTrafficBucket.views.toLocaleString('id-ID')} views ({selectedTrafficBucket.storefront_views.toLocaleString('id-ID')} etalase · {selectedTrafficBucket.template_views.toLocaleString('id-ID')} template) · {selectedTrafficBucket.clicks.toLocaleString('id-ID')} clicks</p>
+            </div>
+            <button type="button" onClick={() => setTrafficSelection(null)} aria-label="Tutup rincian traffic">×</button>
+          </header>
+          <div>
+            {trafficBucketDetail.loading ? (
+              <p className="affiliate-traffic-detail-empty">Memuat rincian interaksi…</p>
+            ) : trafficBucketDetail.targets.length ? (
+              trafficBucketDetail.targets.map((entry, idx) => (
+                <article key={`${entry.event_type}-${entry.target_type}-${entry.target_label}-${idx}`}>
+                  <div>
+                    <b>{entry.target_label}</b>
+                    <span>{formatTrafficTargetMeta(entry)}</span>
+                  </div>
+                  <strong className={entry.event_type === 'click' ? 'is-click-badge' : 'is-view-badge'}>
+                    {entry.event_type === 'click' ? 'Clicks' : 'Views'}
+                  </strong>
+                  <small className="affiliate-traffic-detail-count">{Number(entry.count || 0).toLocaleString('id-ID')} kali</small>
+                </article>
+              ))
+            ) : (
+              <p className="affiliate-traffic-detail-empty">Tidak ada detail interaksi pada rentang ini.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!trafficState.loading && !trafficData?.schema_pending && trafficTotals.views === 0 && trafficTotals.clicks === 0 && (
+        <p className="affiliate-traffic-zero-hint">
+          Belum ada traffic terekam pada rentang ini. Bagikan link etalase (<code>/ref/…</code>) atau link template untuk mulai melihat Views (kunjungan halaman) dan Clicks (klik tombol produk, preview, &amp; WhatsApp).
+        </p>
+      )}
+
+      {(trafficViewTargets.length > 0 || trafficClickTargets.length > 0) && (
+        <div className="affiliate-traffic-breakdown-grid">
+          <div className="affiliate-traffic-breakdown-box">
+            <header>
+              <small>SUMBER TRAFFIC</small>
+              <h3>Halaman yang dilihat pengunjung</h3>
+            </header>
+            {trafficViewTargets.length ? (
+              <ul className="affiliate-traffic-target-list">
+                {trafficViewTargets.map((item, idx) => {
+                  const pct = trafficTotals.views > 0 ? Math.min(100, Math.round((Number(item.count || 0) / trafficTotals.views) * 100)) : 0;
+                  return (
+                    <li key={`view-${item.target_type}-${item.target_label}-${idx}`}>
+                      <div className="affiliate-traffic-target-row">
+                        <span><b>{item.target_label}</b><small>{item.page_type === 'template' ? 'Link per template' : 'Link etalase utama'}</small></span>
+                        <strong>{Number(item.count || 0).toLocaleString('id-ID')} views</strong>
+                      </div>
+                      <i className="affiliate-traffic-progress is-views"><b style={{ width: `${Math.max(pct, 4)}%` }}/></i>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="affiliate-traffic-breakdown-empty">Belum ada data views halaman pada periode ini.</p>
+            )}
+          </div>
+          <div className="affiliate-traffic-breakdown-box">
+            <header>
+              <small>INTERAKSI LINK &amp; PRODUK</small>
+              <h3>Tombol yang diklik di dalam halamanmu</h3>
+            </header>
+            {trafficClickTargets.length ? (
+              <ul className="affiliate-traffic-target-list">
+                {trafficClickTargets.map((item, idx) => {
+                  const pct = trafficTotals.clicks > 0 ? Math.min(100, Math.round((Number(item.count || 0) / trafficTotals.clicks) * 100)) : 0;
+                  return (
+                    <li key={`click-${item.target_type}-${item.target_label}-${idx}`}>
+                      <div className="affiliate-traffic-target-row">
+                        <span><b>{item.target_label}</b><small>{formatTrafficTargetMeta(item)}</small></span>
+                        <strong>{Number(item.count || 0).toLocaleString('id-ID')} klik</strong>
+                      </div>
+                      <i className="affiliate-traffic-progress is-clicks"><b style={{ width: `${Math.max(pct, 4)}%` }}/></i>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="affiliate-traffic-breakdown-empty">Belum ada klik tombol/paket tercatat pada periode ini.</p>
+            )}
+          </div>
+        </div>
+      )}
     </section>
     <section className="affiliate-quick-panel"><div><span>LANGKAH PERTAMA</span><h2>Siapkan etalase referralmu</h2><p>Pilih paket yang ingin ditampilkan, lalu salin link referral per template.</p></div><div className="affiliate-quick-actions"><DashboardLink to="/products"><i>1</i><span><b>Atur produk</b><small>Pilih paket yang ingin kamu tawarkan</small></span></DashboardLink><DashboardLink to="/links"><i>2</i><span><b>Salin link referral</b><small>Bagikan template pilihanmu</small></span></DashboardLink></div></section>
   </>;
@@ -2089,6 +2573,8 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
   const [path, setPath] = useState(dashboardMenus.some((menu) => menu.path === initialPath) ? initialPath : '/dashboard');
   const [catalog, setCatalog] = useState(null);
   const [orderData, setOrderData] = useState(null);
+  const [trafficData, setTrafficData] = useState(null);
+  const [trafficRefreshTick, setTrafficRefreshTick] = useState(0);
   const [financeData, setFinanceData] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [errors, setErrors] = useState({});
@@ -2182,6 +2668,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
     const endpoints = {
       catalog: '/products',
       orders: '/orders?all=1',
+      traffic: '/traffic',
       finance: '/finance',
       profile: '/profile',
     };
@@ -2189,6 +2676,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
       .then((result) => {
         if (key === 'catalog') setCatalog(result);
         if (key === 'orders') setOrderData(result);
+        if (key === 'traffic') setTrafficData(result);
         if (key === 'finance') setFinanceData(result);
         if (key === 'profile') setProfileData(result);
         setErrors((current) => ({ ...current, [key]: '' }));
@@ -2207,7 +2695,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
 
   useEffect(() => {
     let active = true;
-    loadMany(['catalog', 'orders', 'finance', 'profile']).finally(() => {
+    loadMany(['catalog', 'orders', 'traffic', 'finance', 'profile']).finally(() => {
       if (active) setInitialized(true);
     });
     return () => { active = false; };
@@ -2261,7 +2749,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
     const dashboardReady = catalog && orderData;
     const catalogReady = Boolean(catalog);
     content = <>
-      <div hidden={path !== '/dashboard'}>{dashboardReady ? <DashboardOverview affiliate={affiliate} catalog={catalog} orderData={orderData} onReloadOverview={() => loadMany(['catalog', 'orders'])}/> : dataError('Dashboard belum dapat dimuat', errors.catalog || errors.orders, () => loadMany(['catalog', 'orders']))}</div>
+      <div hidden={path !== '/dashboard'}>{dashboardReady ? <DashboardOverview affiliate={affiliate} catalog={catalog} orderData={orderData} initialTrafficData={trafficData} refreshTick={trafficRefreshTick} onReloadOverview={async () => { await loadMany(['catalog', 'orders', 'traffic']); setTrafficRefreshTick((n) => n + 1); }}/> : dataError('Dashboard belum dapat dimuat', errors.catalog || errors.orders, () => loadMany(['catalog', 'orders']))}</div>
       <div hidden={path !== '/products'}>{catalogReady ? <ProductSettings catalog={catalog} setCatalog={setCatalog}/> : dataError('Produk belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
       <div hidden={path !== '/links'}>{catalogReady ? <ReferralLinks catalog={catalog}/> : dataError('Link referral belum dapat dimuat', errors.catalog, () => loadData('catalog'))}</div>
       <div hidden={path !== '/orders'}>{orderData ? <OrdersPage data={orderData} affiliateId={affiliate.id} onReloadOrders={() => loadData('orders')}/> : dataError('Pesanan belum dapat dimuat', errors.orders, () => loadData('orders'))}</div>

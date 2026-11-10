@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
+import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
 import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 
@@ -62,6 +63,22 @@ export default function TemplatePreviewPage({ code }) {
     };
   }, [mobilePreviewOpen]);
 
+  const verifiedReferralCode = !loading && !error && data?.referral_verified ? referralCode : '';
+  const loadedTemplateCode = data?.template?.code || '';
+  const loadedTemplateName = data?.template?.name || '';
+  const hasLoadedPackages = Boolean(data?.template?.packages?.length);
+
+  useEffect(() => {
+    if (verifiedReferralCode && loadedTemplateCode && hasLoadedPackages) {
+      trackAffiliateView({
+        referralCode: verifiedReferralCode,
+        pageType: 'template',
+        templateCode: loadedTemplateCode,
+        templateName: loadedTemplateName,
+      });
+    }
+  }, [verifiedReferralCode, loadedTemplateCode, loadedTemplateName, hasLoadedPackages]);
+
   if (loading) return <Layout className="preview-page" />;
   if (error) return <Layout className="preview-page"><ErrorState error={error} /></Layout>;
 
@@ -72,7 +89,19 @@ export default function TemplatePreviewPage({ code }) {
   if (!template.packages.length) return <Layout className="preview-page"><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum tersedia.')} /></Layout>;
   const active = template.packages.find((item) => item.code === selected) || template.packages[0];
 
-  const viewPackage = (packageCode) => {
+  const viewPackage = (item) => {
+    const packageCode = typeof item === 'string' ? item : item.code;
+    const packageName = typeof item === 'string' ? item : item.name;
+    if (verifiedReferralCode) {
+      trackAffiliateClick({
+        referralCode: verifiedReferralCode,
+        pageType: 'template',
+        targetType: 'package_switch',
+        targetLabel: `Lihat Paket ${template.name} · ${packageName}`,
+        templateCode: template.code,
+        packageCode,
+      });
+    }
     setSelected(packageCode);
     if (isMobile) setMobilePreviewOpen(true);
   };
@@ -117,7 +146,7 @@ export default function TemplatePreviewPage({ code }) {
                   <button
                     type="button"
                     className={`button ${isBeingViewed ? 'button-primary' : 'button-secondary'} preview-package-button`}
-                    onClick={() => viewPackage(item.code)}
+                    onClick={() => viewPackage(item)}
                     aria-pressed={isBeingViewed}
                   >
                     {isBeingViewed ? 'Sedang dilihat' : `Lihat ${item.name}`}
@@ -127,7 +156,22 @@ export default function TemplatePreviewPage({ code }) {
             })}
           </div>
 
-          <a className="button button-primary preview-order-button" href={`/order?template=${encodeURIComponent(templateSlug(template))}&package=${active.code}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}>
+          <a
+            className="button button-primary preview-order-button"
+            href={`/order?template=${encodeURIComponent(templateSlug(template))}&package=${active.code}${referralCode ? `&ref=${encodeURIComponent(referralCode)}` : ''}`}
+            onClick={() => {
+              if (verifiedReferralCode) {
+                trackAffiliateClick({
+                  referralCode: verifiedReferralCode,
+                  pageType: 'template',
+                  targetType: 'package_order',
+                  targetLabel: `Pilih Paket ${template.name} · ${active.name}`,
+                  templateCode: template.code,
+                  packageCode: active.code,
+                });
+              }
+            }}
+          >
             Pilih Paket {active.name}
           </a>
         </div>
@@ -145,6 +189,18 @@ export default function TemplatePreviewPage({ code }) {
                 rel="noopener noreferrer"
                 className="preview-direct-link"
                 title={`Buka preview paket ${active.name} tanpa mockup di tab baru`}
+                onClick={() => {
+                  if (verifiedReferralCode) {
+                    trackAffiliateClick({
+                      referralCode: verifiedReferralCode,
+                      pageType: 'template',
+                      targetType: 'direct_preview',
+                      targetLabel: `Buka Preview ${template.name} · ${active.name}`,
+                      templateCode: template.code,
+                      packageCode: active.code,
+                    });
+                  }
+                }}
               >
                 <span>Buka link preview</span>
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -178,6 +234,18 @@ export default function TemplatePreviewPage({ code }) {
                   rel="noopener noreferrer"
                   className="preview-direct-link"
                   title={`Buka preview paket ${active.name} tanpa mockup di tab baru`}
+                  onClick={() => {
+                    if (verifiedReferralCode) {
+                      trackAffiliateClick({
+                        referralCode: verifiedReferralCode,
+                        pageType: 'template',
+                        targetType: 'direct_preview',
+                        targetLabel: `Buka Preview ${template.name} · ${active.name}`,
+                        templateCode: template.code,
+                        packageCode: active.code,
+                      });
+                    }
+                  }}
                 >
                   <span>Buka link preview</span>
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

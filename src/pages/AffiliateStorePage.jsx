@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
+import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
 import TemplateCover from '../components/TemplateCover.jsx';
 
@@ -34,6 +35,13 @@ export default function AffiliateStorePage({ referralCode }) {
     showAffiliate: false,
   };
   const limitedNavigation = { ...storeNavigation, showSecondary: false };
+  const resolvedCode = data?.partner?.referral_code || '';
+
+  useEffect(() => {
+    if (!loading && !suspended && !error && resolvedCode) {
+      trackAffiliateView({ referralCode: resolvedCode, pageType: 'storefront' });
+    }
+  }, [loading, suspended, error, resolvedCode]);
 
   if (loading) return <Layout className="homepage affiliate-store-page" title="Memeriksa Link Referral — Daymoment" navigation={limitedNavigation}>
     <section className="affiliate-referral-check" aria-live="polite">
@@ -66,10 +74,34 @@ export default function AffiliateStorePage({ referralCode }) {
         <span className="eyebrow">Koleksi pilihan partner Daymoment</span>
         <h1>Temukan undangan yang terasa seperti kisahmu.</h1>
         <p>Jelajahi template dan paket pilihan partner kami. Setiap pembelian melalui halaman ini otomatis tercatat menggunakan kode referral <strong>{code}</strong>.</p>
-        <a className="button button-primary" href="#affiliate-products">Lihat pilihan produk</a>
+        <a
+          className="button button-primary"
+          href="#affiliate-products"
+          onClick={() => trackAffiliateClick({
+            referralCode: resolvedCode,
+            pageType: 'storefront',
+            targetType: 'hero_cta',
+            targetLabel: 'Lihat pilihan produk',
+          })}
+        >Lihat pilihan produk</a>
         <div className="affiliate-partner-contact">
           <div><small>Partner Daymoment</small><strong>{partnerName}</strong></div>
-          {partnerWhatsappUrl && <a href={partnerWhatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={`Hubungi ${partnerName} melalui WhatsApp`}><span>WhatsApp</span><b>{partnerPhone}</b></a>}
+          {partnerWhatsappUrl && (
+            <a
+              href={partnerWhatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Hubungi ${partnerName} melalui WhatsApp`}
+              onClick={() => trackAffiliateClick({
+                referralCode: resolvedCode,
+                pageType: 'storefront',
+                targetType: 'whatsapp',
+                targetLabel: 'WhatsApp Partner',
+              })}
+            >
+              <span>WhatsApp</span><b>{partnerPhone}</b>
+            </a>
+          )}
         </div>
       </div>
       <div className="affiliate-store-brand-mark">
@@ -95,10 +127,30 @@ export default function AffiliateStorePage({ referralCode }) {
                 {template.packages.map((product) => <div key={product.id}>
                   <span><b>{product.name}</b><small>{product.tagline}</small></span>
                   <strong>{money(product.price)}</strong>
-                  <a href={`/order?template=${encodeURIComponent(template.code)}&package=${encodeURIComponent(product.code)}&ref=${encodeURIComponent(code)}`}>Pilih</a>
+                  <a
+                    href={`/order?template=${encodeURIComponent(template.code)}&package=${encodeURIComponent(product.code)}&ref=${encodeURIComponent(code)}`}
+                    onClick={() => trackAffiliateClick({
+                      referralCode: resolvedCode,
+                      pageType: 'storefront',
+                      targetType: 'package_order',
+                      targetLabel: `Pilih ${template.name} · ${product.name}`,
+                      templateCode: template.code,
+                      packageCode: product.code,
+                    })}
+                  >Pilih</a>
                 </div>)}
               </div>
-              <a className="affiliate-store-preview" href={`/template/${encodeURIComponent(template.code)}?ref=${encodeURIComponent(code)}`}>Lihat preview template <span>→</span></a>
+              <a
+                className="affiliate-store-preview"
+                href={`/template/${encodeURIComponent(template.code)}?ref=${encodeURIComponent(code)}`}
+                onClick={() => trackAffiliateClick({
+                  referralCode: resolvedCode,
+                  pageType: 'storefront',
+                  targetType: 'template_preview',
+                  targetLabel: `Preview ${template.name}`,
+                  templateCode: template.code,
+                })}
+              >Lihat preview template <span>→</span></a>
             </div>
           </article>)}
         </div>}

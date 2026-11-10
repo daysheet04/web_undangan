@@ -192,9 +192,10 @@ async function activeSession(c) {
 
 function publicAppUrl(c, path = '/') {
   const origin = String(c.req.header('Origin') || '');
-  const localBase = /^http:\/\/(?:localhost|127\.0\.0\.1):8082$/.test(origin)
-    ? origin.replace(/:8082$/, ':8080')
-    : '';
+  const referer = String(c.req.header('Referer') || '');
+  const sourceUrl = origin || referer;
+  const localMatch = sourceUrl.match(/^https?:\/\/(?:localhost|127\.0\.0\.1):8082/i);
+  const localBase = localMatch ? localMatch[0].replace(/:8082$/, ':8080') : '';
   const base = (localBase || String(c.env.PUBLIC_APP_URL || 'https://daymoment.id')).replace(/\/$/, '');
   return `${base}${String(path).startsWith('/') ? path : `/${path}`}`;
 }
@@ -906,6 +907,71 @@ affiliate.get('/affiliate/orders', async (c) => {
     },
     filters: { products: productOptions },
     orders,
+  });
+});
+
+affiliate.get('/affiliate/traffic', async (c) => {
+  const current = await activeSession(c);
+  if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
+
+  const yearPattern = /^\d{4}$/;
+  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+  const rawYear = String(c.req.query('year') || '').trim();
+  const year = yearPattern.test(rawYear) ? rawYear : '';
+  const rawFrom = datePattern.test(c.req.query('from') || '') ? c.req.query('from') : '';
+  const rawTo = datePattern.test(c.req.query('to') || '') ? c.req.query('to') : '';
+
+  if (!year && rawFrom && rawTo && rawFrom > rawTo) {
+    return c.json({ ok: false, message: 'Tanggal awal tidak boleh melewati tanggal akhir.' }, 422);
+  }
+
+  const effectiveFrom = year ? `${year}-01-01` : (rawFrom || null);
+  const effectiveTo = year ? `${year}-12-31` : (rawTo || null);
+
+  const { data, error } = await current.db.rpc('get_affiliate_traffic_analytics', {
+    p_affiliate_id: current.account.id,
+    p_from: effectiveFrom,
+    p_to: effectiveTo,
+  });
+
+  if (error) {
+    if (
+      ['42P01', 'PGRST205', 'PGRST202', '42883'].includes(error.code)
+      || /affiliate_traffic_events|get_affiliate_traffic_analytics|schema cache/i.test(error.message || '')
+    ) {
+      return c.json({
+        ok: true,
+        schema_pending: true,
+        available_years: [],
+        totals: {
+          views: 0,
+          clicks: 0,
+          storefront_views: 0,
+          template_views: 0,
+          unique_viewers: 0,
+          unique_clickers: 0,
+        },
+        daily: [],
+        targets: [],
+      });
+    }
+    throw error;
+  }
+
+  return c.json({
+    ok: true,
+    schema_pending: false,
+    available_years: Array.isArray(data?.available_years) ? data.available_years.map(String) : [],
+    totals: {
+      views: Number(data?.totals?.views || 0),
+      clicks: Number(data?.totals?.clicks || 0),
+      storefront_views: Number(data?.totals?.storefront_views || 0),
+      template_views: Number(data?.totals?.template_views || 0),
+      unique_viewers: Number(data?.totals?.unique_viewers || 0),
+      unique_clickers: Number(data?.totals?.unique_clickers || 0),
+    },
+    daily: Array.isArray(data?.daily) ? data.daily : [],
+    targets: Array.isArray(data?.targets) ? data.targets : [],
   });
 });
 

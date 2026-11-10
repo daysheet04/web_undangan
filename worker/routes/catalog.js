@@ -1,9 +1,38 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
+import { cleanText } from '../lib/helpers.js';
 import { activeTemplates, hasRealSupabaseConfig, templateByCode } from '../lib/repositories.js';
 import { getTemplateDemoData } from '../lib/templateDemoStore.js';
 
 const catalog = new Hono();
+const TRAFFIC_EVENT_TYPES = new Set(['view', 'click']);
+const TRAFFIC_PAGE_TYPES = new Set(['storefront', 'template']);
+const TRAFFIC_TARGET_TYPES = new Set([
+  'page_view',
+  'hero_cta',
+  'whatsapp',
+  'package_order',
+  'template_preview',
+  'package_switch',
+  'direct_preview',
+]);
+const CRAWLER_UA_PATTERN = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|slackbot|linkedinbot|twitterbot|pinterest|google-inspectiontool|curl\/|wget\/|python-requests|go-http-client/i;
+
+function jakartaDateString(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = (type) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 async function homepageSettings(env) {
   if (!hasRealSupabaseConfig(env)) return { hero_image_url: null };
@@ -162,6 +191,7 @@ catalog.get('/templates/:code', async (c) => {
   return c.json({
     ok: true,
     ...baseResponse,
+    referral_verified: true,
     template: {
       ...baseResponse.template,
       packages,
@@ -169,6 +199,94 @@ catalog.get('/templates/:code', async (c) => {
       starting_price: packages.length ? Math.min(...packages.map((item) => Number(item.price))) : null,
     },
   });
+});
+
+catalog.post('/affiliate-traffic', async (c) => {
+  const rawBody = await c.req.text().catch(() => '');
+  let input = {};
+  if (rawBody) {
+    try {
+      input = JSON.parse(rawBody);
+    } catch {
+      return c.json({ ok: false, message: 'Payload tidak valid.' }, 400);
+    }
+  }
+
+  const referralCode = String(input.referral_code || '').trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
+  const eventType = String(input.event_type || '').trim().toLowerCase();
+  const pageType = String(input.page_type || 'storefront').trim().toLowerCase();
+  const rawTargetType = String(input.target_type || (eventType === 'view' ? 'page_view' : 'package_order')).trim().toLowerCase();
+  const targetType = TRAFFIC_TARGET_TYPES.has(rawTargetType) ? rawTargetType : (eventType === 'view' ? 'page_view' : 'package_order');
+  const templateCode = cleanText(input.template_code, 64).toLowerCase().replace(/[^a-z0-9_-]/g, '') || null;
+  const packageCode = cleanText(input.package_code, 40).toLowerCase().replace(/[^a-z0-9_-]/g, '') || null;
+  const targetLabel = cleanText(input.target_label, 160) || null;
+  const visitorToken = cleanText(input.visitor_id, 80);
+
+  if (!/^[a-zA-Z0-9]{3,32}$/.test(referralCode) || !TRAFFIC_EVENT_TYPES.has(eventType) || !TRAFFIC_PAGE_TYPES.has(pageType)) {
+    return c.json({ ok: false, message: 'Parameter event tidak valid.' }, 422);
+  }
+
+  const userAgent = String(c.req.header('User-Agent') || '');
+  if (userAgent && CRAWLER_UA_PATTERN.test(userAgent)) {
+    return c.json({ ok: true, recorded: false, reason: 'crawler' });
+  }
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    return c.json({ ok: true, recorded: false, reason: 'demo_mode' });
+  }
+
+  const db = database(c.env);
+  const { data: account, error: accountError } = await db.from('affiliate_accounts')
+    .select('id,status')
+    .ilike('referral_code', referralCode)
+    .maybeSingle();
+  if (accountError) throw accountError;
+  if (!account || account.status !== 'active') {
+    return c.json({ ok: true, recorded: false, reason: 'inactive_referral' });
+  }
+
+  const ip = cleanText(c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For')?.split(',')[0] || '', 80);
+  const eventDate = jakartaDateString();
+  const visitorSeed = visitorToken
+    ? `${account.id}|${visitorToken}`
+    : `${account.id}|${ip || 'unknown'}|${userAgent.slice(0, 120)}|${eventDate}`;
+  const visitorHash = await sha256Hex(visitorSeed);
+
+  // Deduplicate accidental duplicate view events emitted within the same browser session and day
+  // when a client triggers multiple parallel view payloads before sessionStorage settles.
+  const edgeCache = globalThis.caches?.default;
+  if (edgeCache && visitorToken && eventType === 'view') {
+    const burstKey = `https://daymoment-rate.local/aff-view/${account.id}/${pageType}/${templateCode || 'all'}/${visitorHash}/${eventDate}`;
+    const burstReq = new Request(burstKey);
+    if (await edgeCache.match(burstReq)) {
+      return c.json({ ok: true, recorded: false, reason: 'session_cached' });
+    }
+    if (c.executionCtx?.waitUntil) {
+      c.executionCtx.waitUntil(edgeCache.put(burstReq, new Response('1', { headers: { 'Cache-Control': 'max-age=5' } })));
+    }
+  }
+
+  const { error: insertError } = await db.from('affiliate_traffic_events').insert({
+    affiliate_id: account.id,
+    event_type: eventType,
+    page_type: pageType,
+    target_type: targetType,
+    target_label: targetLabel,
+    template_code: templateCode,
+    package_code: packageCode,
+    visitor_hash: visitorHash,
+    event_date: eventDate,
+  });
+
+  if (insertError) {
+    if (['42P01', 'PGRST205'].includes(insertError.code) || /affiliate_traffic_events|schema cache/i.test(insertError.message || '')) {
+      console.warn('Tabel affiliate_traffic_events belum tersedia:', insertError.message);
+      return c.json({ ok: true, recorded: false, reason: 'schema_pending' });
+    }
+    throw insertError;
+  }
+
+  return c.json({ ok: true, recorded: true }, 201);
 });
 
 export default catalog;

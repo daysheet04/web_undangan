@@ -2110,6 +2110,594 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
   </>;
 }
 
+const TRAFFIC_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+function shiftIsoDays(ymd, deltaDays) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ''))) return '';
+  const [year, month, day] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + deltaDays)).toISOString().slice(0, 10);
+}
+
+function monthLastDateIso(yearMonth) {
+  if (!/^\d{4}-\d{2}$/.test(String(yearMonth || ''))) return '';
+  const [year, month] = yearMonth.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
+function buildTrafficQueryString(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.year && filters.year !== 'all') {
+    params.set('year', filters.year);
+  } else {
+    if (filters.from) params.set('from', filters.from);
+    if (filters.to) params.set('to', filters.to);
+  }
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
+function formatTrafficPeriodLabel(filters = {}) {
+  if (filters.year && filters.year !== 'all') return `Tahun ${filters.year} (Jan–Des)`;
+  const formatId = (ymd) => {
+    try {
+      return dateOnlyFormat.format(new Date(`${ymd}T12:00:00+07:00`));
+    } catch {
+      return ymd;
+    }
+  };
+  if (filters.from && filters.to) {
+    return filters.from === filters.to
+      ? formatId(filters.from)
+      : `${formatId(filters.from)} – ${formatId(filters.to)}`;
+  }
+  if (filters.from) return `Mulai ${formatId(filters.from)}`;
+  if (filters.to) return `Sampai ${formatId(filters.to)}`;
+  return 'Semua waktu';
+}
+
+function formatCtrPercent(clicks, views) {
+  const safeViews = Number(views || 0);
+  const safeClicks = Number(clicks || 0);
+  if (safeViews <= 0 || safeClicks <= 0) return '0%';
+  return `${((safeClicks / safeViews) * 100).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`;
+}
+
+function formatTrafficTargetLabel(item) {
+  const base = String(item?.target_label || '').trim() || (item?.event_type === 'view' ? 'Kunjungan Halaman' : 'Klik Tombol');
+  if (item?.template_code && item?.package_code) return `${base} (${item.template_code} · ${item.package_code})`;
+  if (item?.template_code && !base.toLowerCase().includes(String(item.template_code).toLowerCase())) {
+    return `${base} (${item.template_code})`;
+  }
+  return base;
+}
+
+function buildModalTrafficChartBuckets(dailyRows = [], filters = {}) {
+  const rows = Array.isArray(dailyRows) ? dailyRows : [];
+  const byDate = new Map(rows.map((row) => [String(row.date || ''), row]));
+
+  const formatShortDay = (ymd) => {
+    try {
+      return dayFormat.format(new Date(`${ymd}T12:00:00+07:00`));
+    } catch {
+      return ymd;
+    }
+  };
+
+  if (filters.year && filters.year !== 'all') {
+    const buckets = TRAFFIC_MONTH_NAMES.map((label, index) => {
+      const monthKey = `${filters.year}-${String(index + 1).padStart(2, '0')}`;
+      let views = 0;
+      let clicks = 0;
+      rows.forEach((row) => {
+        if (String(row.date || '').startsWith(monthKey)) {
+          views += Number(row.views || 0);
+          clicks += Number(row.clicks || 0);
+        }
+      });
+      return { key: monthKey, label, fullLabel: `${label} ${filters.year}`, views, clicks };
+    });
+    return { mode: 'monthly', title: `Grafik Views & Clicks Bulanan (${filters.year})`, buckets };
+  }
+
+  if (filters.from && filters.to) {
+    const startMs = Date.parse(`${filters.from}T00:00:00Z`);
+    const endMs = Date.parse(`${filters.to}T00:00:00Z`);
+    const spanDays = Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.round((endMs - startMs) / 86400000) : -1;
+    if (spanDays >= 0 && spanDays <= 35) {
+      const buckets = [];
+      for (let offset = 0; offset <= spanDays; offset += 1) {
+        const ymd = shiftIsoDays(filters.from, offset);
+        const entry = byDate.get(ymd);
+        buckets.push({
+          key: ymd,
+          label: formatShortDay(ymd),
+          fullLabel: formatShortDay(ymd),
+          views: Number(entry?.views || 0),
+          clicks: Number(entry?.clicks || 0),
+        });
+      }
+      return { mode: 'daily', title: 'Grafik Views & Clicks Harian', buckets };
+    }
+  }
+
+  const monthKeys = [...new Set(rows.map((row) => String(row.date || '').slice(0, 7)).filter(Boolean))].sort();
+  if (!filters.from && !filters.to && monthKeys.length === 1 && rows.length > 0) {
+    const sortedDates = rows.map((row) => String(row.date || '')).filter(Boolean).sort();
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+    const startMs = Date.parse(`${firstDate}T00:00:00Z`);
+    const endMs = Date.parse(`${lastDate}T00:00:00Z`);
+    const spanDays = Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.round((endMs - startMs) / 86400000) : 0;
+    if (spanDays >= 0 && spanDays <= 31) {
+      const buckets = [];
+      for (let offset = 0; offset <= spanDays; offset += 1) {
+        const ymd = shiftIsoDays(firstDate, offset);
+        const entry = byDate.get(ymd);
+        buckets.push({
+          key: ymd,
+          label: formatShortDay(ymd),
+          fullLabel: formatShortDay(ymd),
+          views: Number(entry?.views || 0),
+          clicks: Number(entry?.clicks || 0),
+        });
+      }
+      return { mode: 'daily', title: 'Grafik Views & Clicks Harian', buckets };
+    }
+  }
+
+  const buckets = monthKeys.map((monthKey) => {
+    const [year, month] = monthKey.split('-');
+    const shortMonth = TRAFFIC_MONTH_NAMES[Number(month) - 1] || month;
+    let views = 0;
+    let clicks = 0;
+    rows.forEach((row) => {
+      if (String(row.date || '').startsWith(monthKey)) {
+        views += Number(row.views || 0);
+        clicks += Number(row.clicks || 0);
+      }
+    });
+    return { key: monthKey, label: `${shortMonth} ${String(year).slice(-2)}`, fullLabel: `${shortMonth} ${year}`, views, clicks };
+  });
+  return { mode: 'monthly', title: 'Grafik Views & Clicks Bulanan', buckets };
+}
+
+function AffiliateTrafficDetailModal({ affiliate, filters, onClose }) {
+  const [state, setState] = useState({ data: null, loading: true, error: '' });
+  const queryString = buildTrafficQueryString(filters);
+
+  useEffect(() => {
+    let active = true;
+    setState({ data: null, loading: true, error: '' });
+    get(`/api/admin/affiliate-traffic/${encodeURIComponent(affiliate.id)}${queryString}`)
+      .then((result) => {
+        if (!active) return;
+        setState({ data: result, loading: false, error: '' });
+      })
+      .catch((failure) => {
+        if (!active) return;
+        setState({ data: null, loading: false, error: failure.message || 'Rincian traffic gagal dimuat.' });
+      });
+    return () => { active = false; };
+  }, [affiliate.id, queryString]);
+
+  useEffect(() => {
+    const handleKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  const totals = state.data?.totals || {
+    views: Number(affiliate.views || 0),
+    clicks: Number(affiliate.clicks || 0),
+    storefront_views: Number(affiliate.storefront_views || 0),
+    template_views: Number(affiliate.template_views || 0),
+    unique_viewers: Number(affiliate.unique_viewers || 0),
+    unique_clickers: Number(affiliate.unique_clickers || 0),
+  };
+
+  const chart = useMemo(() => buildModalTrafficChartBuckets(state.data?.daily || [], filters), [state.data?.daily, filters]);
+  const maxChartVal = Math.max(1, ...chart.buckets.flatMap((bucket) => [bucket.views, bucket.clicks]));
+  const targets = state.data?.targets || [];
+  const viewTargets = targets.filter((item) => item.event_type === 'view').slice(0, 8);
+  const clickTargets = targets.filter((item) => item.event_type === 'click').slice(0, 8);
+
+  return <div className="admin-traffic-modal" role="dialog" aria-modal="true" aria-label={`Rincian traffic ${affiliate.full_name}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="admin-traffic-modal-card">
+      <header>
+        <div>
+          <span className="eyebrow">ANALITIK TRAFFIC PARTNER</span>
+          <h2>{affiliate.full_name || 'Affiliate'}</h2>
+          <p>{affiliate.email || '-'} · Kode: <strong>{affiliate.referral_code || '-'}</strong> · {formatTrafficPeriodLabel(filters)}</p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Tutup rincian traffic">×</button>
+      </header>
+      <div className="admin-traffic-modal-body">
+        {state.loading && <div className="admin-affiliate-review-state">Memuat statistik rincian traffic...</div>}
+        {!state.loading && state.error && <div className="admin-affiliate-review-state is-error"><span>{state.error}</span></div>}
+        {!state.loading && !state.error && <>
+          <div className="admin-traffic-modal-kpis">
+            <article className="admin-traffic-modal-kpi is-views">
+              <span>Total Views</span>
+              <strong>{Number(totals.views || 0).toLocaleString('id-ID')}</strong>
+              <small>{Number(totals.unique_viewers || 0).toLocaleString('id-ID')} pengunjung unik</small>
+            </article>
+            <article className="admin-traffic-modal-kpi is-clicks">
+              <span>Total Clicks</span>
+              <strong>{Number(totals.clicks || 0).toLocaleString('id-ID')}</strong>
+              <small>{Number(totals.unique_clickers || 0).toLocaleString('id-ID')} pengklik · CTR {formatCtrPercent(totals.clicks, totals.views)}</small>
+            </article>
+            <article className="admin-traffic-modal-kpi">
+              <span>View Etalase (/ref)</span>
+              <strong>{Number(totals.storefront_views || 0).toLocaleString('id-ID')}</strong>
+              <small>Kunjungan halaman utama</small>
+            </article>
+            <article className="admin-traffic-modal-kpi">
+              <span>View Link Template</span>
+              <strong>{Number(totals.template_views || 0).toLocaleString('id-ID')}</strong>
+              <small>Halaman preview undangan</small>
+            </article>
+          </div>
+
+          <section className="admin-traffic-modal-chart-wrap">
+            <div className="admin-traffic-modal-chart-head">
+              <h3>{chart.title}</h3>
+              <div className="admin-traffic-modal-legend">
+                <span><i className="is-views" /> Views</span>
+                <span><i className="is-clicks" /> Clicks</span>
+              </div>
+            </div>
+            {chart.buckets.length > 0 ? <div className="admin-traffic-modal-chart-scroll">
+              <div className="admin-traffic-modal-chart">
+                {chart.buckets.map((bucket) => {
+                  const viewH = bucket.views > 0 ? Math.max(8, Math.round((bucket.views / maxChartVal) * 124)) : 4;
+                  const clickH = bucket.clicks > 0 ? Math.max(8, Math.round((bucket.clicks / maxChartVal) * 124)) : 4;
+                  return <div className="admin-traffic-modal-col" key={bucket.key} title={`${bucket.fullLabel}: ${bucket.views.toLocaleString('id-ID')} views · ${bucket.clicks.toLocaleString('id-ID')} clicks`}>
+                    <div className="admin-traffic-modal-bars">
+                      <span className={`admin-traffic-modal-bar is-views ${bucket.views === 0 ? 'is-zero' : ''}`} style={{ height: `${viewH}px` }} aria-label={`${bucket.fullLabel} views ${bucket.views}`} />
+                      <span className={`admin-traffic-modal-bar is-clicks ${bucket.clicks === 0 ? 'is-zero' : ''}`} style={{ height: `${clickH}px` }} aria-label={`${bucket.fullLabel} clicks ${bucket.clicks}`} />
+                    </div>
+                    <small>{bucket.label}</small>
+                  </div>;
+                })}
+              </div>
+            </div> : <div className="admin-affiliate-review-state">Belum ada aktivitas traffic pada periode ini.</div>}
+          </section>
+
+          <div className="admin-traffic-modal-targets">
+            <section className="admin-traffic-target-box">
+              <h4>Halaman Paling Banyak Dilihat (Views)</h4>
+              {viewTargets.length ? <ul>
+                {viewTargets.map((item, idx) => <li key={`view-${idx}-${item.target_label}`}>
+                  <span title={formatTrafficTargetLabel(item)}>{formatTrafficTargetLabel(item)}</span>
+                  <strong>{Number(item.count || 0).toLocaleString('id-ID')}×</strong>
+                </li>)}
+              </ul> : <small style={{ color: '#78877f', fontSize: '0.72rem' }}>Belum ada catatan views halaman pada periode ini.</small>}
+            </section>
+            <section className="admin-traffic-target-box">
+              <h4>Tombol / Produk Sering Diklik (Clicks)</h4>
+              {clickTargets.length ? <ul>
+                {clickTargets.map((item, idx) => <li key={`click-${idx}-${item.target_label}`}>
+                  <span title={formatTrafficTargetLabel(item)}>{formatTrafficTargetLabel(item)}</span>
+                  <strong>{Number(item.count || 0).toLocaleString('id-ID')}×</strong>
+                </li>)}
+              </ul> : <small style={{ color: '#78877f', fontSize: '0.72rem' }}>Belum ada klik tombol CTA pada periode ini.</small>}
+            </section>
+          </div>
+        </>}
+      </div>
+      <footer>
+        <button type="button" onClick={onClose}>Tutup</button>
+      </footer>
+    </div>
+  </div>;
+}
+
+function AffiliateTrafficPanel({ data, loading, error, filters, onFiltersChange, onReload }) {
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('views');
+  const [page, setPage] = useState(1);
+  const [detailAffiliate, setDetailAffiliate] = useState(null);
+
+  const todayKey = dateInputValue(new Date());
+  const currentYear = todayKey.slice(0, 4);
+  const affiliates = data?.affiliates || [];
+  const totals = data?.totals || {
+    views: 0,
+    clicks: 0,
+    storefront_views: 0,
+    template_views: 0,
+    unique_viewers: 0,
+    unique_clickers: 0,
+    total_affiliates: affiliates.length,
+    affiliates_with_traffic: 0,
+  };
+
+  const availableYears = useMemo(() => {
+    const years = new Set([currentYear, ...((data?.available_years || []).map(String).filter(Boolean))]);
+    return [...years].sort((left, right) => Number(right) - Number(left));
+  }, [currentYear, data?.available_years]);
+
+  const yearOptions = useMemo(() => [
+    { value: 'all', label: 'Semua tahun', description: 'Gunakan rentang tanggal atau semua data' },
+    ...availableYears.map((yr) => ({ value: yr, label: yr, description: 'Januari sampai Desember' })),
+  ], [availableYears]);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const list = affiliates.filter((item) => {
+      if (status !== 'all' && item.status !== status) return false;
+      if (!needle) return true;
+      const haystack = `${item.full_name || ''} ${item.email || ''} ${item.referral_code || ''}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      const viewsA = Number(a.views || 0);
+      const viewsB = Number(b.views || 0);
+      const clicksA = Number(a.clicks || 0);
+      const clicksB = Number(b.clicks || 0);
+      const ctrA = viewsA > 0 ? clicksA / viewsA : 0;
+      const ctrB = viewsB > 0 ? clicksB / viewsB : 0;
+
+      if (sortBy === 'clicks') {
+        return (clicksB - clicksA) || (viewsB - viewsA) || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'id');
+      }
+      if (sortBy === 'ctr') {
+        return (ctrB - ctrA) || (clicksB - clicksA) || (viewsB - viewsA) || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'id');
+      }
+      if (sortBy === 'name') {
+        return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'id');
+      }
+      return (viewsB - viewsA) || (clicksB - clicksA) || String(a.full_name || '').localeCompare(String(b.full_name || ''), 'id');
+    });
+    return sorted;
+  }, [affiliates, query, status, sortBy]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / 10));
+  const pageItems = filtered.slice((page - 1) * 10, page * 10);
+  const paginationItems = affiliatePaginationItems(page, pageCount);
+
+  useEffect(() => { setPage(1); }, [query, status, sortBy, filters.preset, filters.year, filters.from, filters.to]);
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
+
+  const handlePreset = (preset) => {
+    if (preset === 'all') {
+      onFiltersChange({ preset: 'all', year: 'all', from: '', to: '' });
+    } else if (preset === 'today') {
+      onFiltersChange({ preset: 'today', year: 'all', from: todayKey, to: todayKey });
+    } else if (preset === '7d') {
+      onFiltersChange({ preset: '7d', year: 'all', from: shiftIsoDays(todayKey, -6), to: todayKey });
+    } else if (preset === '30d') {
+      onFiltersChange({ preset: '30d', year: 'all', from: shiftIsoDays(todayKey, -29), to: todayKey });
+    } else if (preset === 'month') {
+      const monthKey = todayKey.slice(0, 7);
+      onFiltersChange({ preset: 'month', year: 'all', from: `${monthKey}-01`, to: monthLastDateIso(monthKey) });
+    } else if (preset === 'this_year') {
+      onFiltersChange({ preset: 'this_year', year: currentYear, from: `${currentYear}-01-01`, to: `${currentYear}-12-31` });
+    }
+  };
+
+  const handleYearChange = (nextYear) => {
+    if (nextYear === 'all') {
+      onFiltersChange({ preset: 'all', year: 'all', from: '', to: '' });
+      return;
+    }
+    onFiltersChange({
+      preset: nextYear === currentYear ? 'this_year' : 'year',
+      year: nextYear,
+      from: `${nextYear}-01-01`,
+      to: `${nextYear}-12-31`,
+    });
+  };
+
+  const handleDateChange = (field, rawVal) => {
+    const val = /^\d{4}-\d{2}-\d{2}$/.test(String(rawVal || '')) ? rawVal : '';
+    const next = { ...filters, year: 'all', preset: 'custom', [field]: val };
+    if (field === 'from' && val && next.to && val > next.to) next.to = '';
+    if (field === 'to' && val && next.from && val < next.from) next.from = '';
+    if (!next.from && !next.to) next.preset = 'all';
+    onFiltersChange(next);
+  };
+
+  const resetAllFilters = () => {
+    setQuery('');
+    setStatus('all');
+    setSortBy('views');
+    onFiltersChange({ preset: 'all', year: 'all', from: '', to: '' });
+  };
+
+  const isDefaultFilter = !query && status === 'all' && sortBy === 'views' && filters.year === 'all' && !filters.from && !filters.to;
+  const rankableSort = sortBy === 'views' || sortBy === 'clicks';
+
+  if (loading && !data) {
+    return <div className="admin-affiliate-review-state">Memuat data traffic affiliate...</div>;
+  }
+  if (error && !data) {
+    return <div className="admin-affiliate-review-state is-error"><span>{error}</span><button type="button" onClick={onReload}>Coba lagi</button></div>;
+  }
+
+  return <>
+    {data?.schema_pending && (
+      <div className="admin-traffic-notice">
+        <strong>Skema analitik traffic belum dijalankan di Supabase.</strong> Jalankan file migrasi <code>database/migrations/2026_11_11_affiliate_traffic_analytics.sql</code> dan <code>database/migrations/2026_11_11_admin_affiliate_traffic.sql</code> di Supabase SQL Editor agar seluruh kunjungan dan klik pengunjung terekam.
+      </div>
+    )}
+
+    <div className="admin-traffic-summary">
+      <article className="admin-traffic-summary-card is-views">
+        <span className="admin-traffic-summary-label"><i className="dot-views" /> Total Views</span>
+        <strong>{Number(totals.views || 0).toLocaleString('id-ID')}</strong>
+        <small>{Number(totals.unique_viewers || 0).toLocaleString('id-ID')} pengunjung unik · {Number(totals.storefront_views || 0).toLocaleString('id-ID')} etalase · {Number(totals.template_views || 0).toLocaleString('id-ID')} template</small>
+      </article>
+      <article className="admin-traffic-summary-card is-clicks">
+        <span className="admin-traffic-summary-label"><i className="dot-clicks" /> Total Clicks</span>
+        <strong>{Number(totals.clicks || 0).toLocaleString('id-ID')}</strong>
+        <small>{Number(totals.unique_clickers || 0).toLocaleString('id-ID')} pengklik unik pada tombol &amp; paket</small>
+      </article>
+      <article className="admin-traffic-summary-card">
+        <span className="admin-traffic-summary-label">Rasio Klik (CTR)</span>
+        <strong>{formatCtrPercent(totals.clicks, totals.views)}</strong>
+        <small>Perbandingan klik CTA terhadap views halaman</small>
+      </article>
+      <article className="admin-traffic-summary-card">
+        <span className="admin-traffic-summary-label">Affiliate Bertraffic</span>
+        <strong>{Number(totals.affiliates_with_traffic || 0).toLocaleString('id-ID')} / {Number(totals.total_affiliates || affiliates.length).toLocaleString('id-ID')}</strong>
+        <small>Akun partner dengan views atau klik pada periode ini</small>
+      </article>
+    </div>
+
+    <section className="admin-traffic-filters">
+      <div className="admin-traffic-presets-row">
+        <div className="admin-traffic-presets">
+          <span>Periode:</span>
+          <button type="button" className={filters.preset === 'all' && !filters.from && !filters.to && filters.year === 'all' ? 'is-active' : ''} onClick={() => handlePreset('all')}>Semua</button>
+          <button type="button" className={filters.preset === 'today' ? 'is-active' : ''} onClick={() => handlePreset('today')}>Hari Ini</button>
+          <button type="button" className={filters.preset === '7d' ? 'is-active' : ''} onClick={() => handlePreset('7d')}>7 Hari</button>
+          <button type="button" className={filters.preset === '30d' ? 'is-active' : ''} onClick={() => handlePreset('30d')}>30 Hari</button>
+          <button type="button" className={filters.preset === 'month' ? 'is-active' : ''} onClick={() => handlePreset('month')}>Bulan Ini</button>
+          <button type="button" className={filters.preset === 'this_year' ? 'is-active' : ''} onClick={() => handlePreset('this_year')}>Tahun Ini</button>
+        </div>
+        <button type="button" className="admin-traffic-reset-btn" disabled={isDefaultFilter} onClick={resetAllFilters}>Reset filter</button>
+      </div>
+
+      <div className="admin-traffic-filter-grid">
+        <label>
+          <span>Cari affiliate</span>
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nama, email, atau kode referral" />
+        </label>
+        <AdminFilterDropdown label="Tahun" value={filters.year} options={yearOptions} onChange={handleYearChange} />
+        <label>
+          <span>Dari tanggal</span>
+          <input type="date" value={filters.from} onChange={(event) => handleDateChange('from', event.target.value)} />
+        </label>
+        <label>
+          <span>Sampai tanggal</span>
+          <input type="date" value={filters.to} onChange={(event) => handleDateChange('to', event.target.value)} />
+        </label>
+        <AdminFilterDropdown
+          label="Status akun"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: 'all', label: 'Semua status' },
+            { value: 'active', label: 'Aktif', description: 'Akun aktif berpromosi' },
+            { value: 'suspended', label: 'Dinonaktifkan', description: 'Akun sedang dinonaktifkan' },
+          ]}
+        />
+        <AdminFilterDropdown
+          label="Urutkan"
+          value={sortBy}
+          onChange={setSortBy}
+          options={[
+            { value: 'views', label: 'Views tertinggi' },
+            { value: 'clicks', label: 'Clicks tertinggi' },
+            { value: 'ctr', label: 'CTR tertinggi' },
+            { value: 'name', label: 'Nama (A–Z)' },
+          ]}
+        />
+      </div>
+
+      <div className="admin-traffic-filter-footer">
+        <span>{filtered.length} dari {affiliates.length} affiliate ditampilkan</span>
+        <span>Periode aktif: <strong>{formatTrafficPeriodLabel(filters)}</strong>{loading ? ' · Memperbarui...' : ''}</span>
+      </div>
+    </section>
+
+    {error && <div className="admin-traffic-notice">{error}</div>}
+
+    <section className="admin-traffic-list" aria-busy={loading}>
+      <div className="admin-section-heading">
+        <div>
+          <span className="eyebrow">PERFORMA TRAFFIC PARTNER</span>
+          <h2>Views &amp; clicks per affiliate</h2>
+        </div>
+        <button className="button button-secondary" type="button" onClick={onReload} disabled={loading}>{loading ? 'Memuat...' : 'Muat ulang'}</button>
+      </div>
+
+      {pageItems.length ? pageItems.map((affiliate, idx) => {
+        const absoluteIndex = (page - 1) * 10 + idx;
+        const views = Number(affiliate.views || 0);
+        const clicks = Number(affiliate.clicks || 0);
+        const hasTraffic = views > 0 || clicks > 0;
+        const showRank = rankableSort && hasTraffic && absoluteIndex < 3;
+        const initials = String(affiliate.full_name || 'A').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'A';
+
+        return <article className="admin-traffic-card" key={affiliate.id}>
+          <div className="admin-traffic-avatar">
+            {initials}
+            {showRank && <span className={`admin-traffic-rank ${absoluteIndex === 0 ? 'is-top' : ''}`}>#{absoluteIndex + 1}</span>}
+          </div>
+
+          <div className="admin-traffic-identity">
+            <div>
+              <h3>{affiliate.full_name || 'Affiliate'}</h3>
+              <span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span>
+              <span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span>
+            </div>
+            <p>{affiliate.email || '-'}</p>
+            <small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small>
+          </div>
+
+          <div className="admin-traffic-metrics-box">
+            <div className="admin-traffic-metric-pill is-views">
+              <span><i /> Views</span>
+              <strong>{views.toLocaleString('id-ID')}</strong>
+            </div>
+            <div className="admin-traffic-metric-pill is-clicks">
+              <span><i /> Clicks</span>
+              <strong>{clicks.toLocaleString('id-ID')}</strong>
+            </div>
+            <div className="admin-traffic-metric-pill">
+              <span>CTR</span>
+              <strong>{formatCtrPercent(clicks, views)}</strong>
+            </div>
+          </div>
+
+          <dl className="admin-traffic-breakdown">
+            <div>
+              <dt>Etalase (/ref)</dt>
+              <dd>{Number(affiliate.storefront_views || 0).toLocaleString('id-ID')} views</dd>
+            </div>
+            <div>
+              <dt>Link Template</dt>
+              <dd>{Number(affiliate.template_views || 0).toLocaleString('id-ID')} views</dd>
+            </div>
+            <div>
+              <dt>Pengunjung Unik</dt>
+              <dd>{Number(affiliate.unique_viewers || 0).toLocaleString('id-ID')} view · {Number(affiliate.unique_clickers || 0).toLocaleString('id-ID')} klik</dd>
+            </div>
+            <div>
+              <dt>Aktivitas Terakhir</dt>
+              <dd>{affiliate.last_event_at ? dateFormat.format(new Date(affiliate.last_event_at)) : '-'}</dd>
+            </div>
+          </dl>
+
+          <div className="admin-traffic-card-actions">
+            <button type="button" className="admin-traffic-detail-btn" onClick={() => setDetailAffiliate(affiliate)}>Lihat rincian</button>
+          </div>
+        </article>;
+      }) : <div className="admin-affiliate-review-state">Tidak ada affiliate yang cocok dengan filter traffic ini.</div>}
+
+      {filtered.length > 0 && <div className="admin-affiliate-pagination">
+        <span>Menampilkan {(page - 1) * 10 + 1}–{Math.min(page * 10, filtered.length)} dari {filtered.length} data</span>
+        <nav aria-label="Halaman traffic affiliate">
+          <button type="button" className="direction" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+          {paginationItems.map((item) => typeof item === 'number'
+            ? <button type="button" className={item === page ? 'is-active' : ''} key={item} onClick={() => setPage(item)}>{item}</button>
+            : <span className="ellipsis" key={item}>…</span>)}
+          <button type="button" className="direction" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>›</button>
+        </nav>
+      </div>}
+    </section>
+
+    {detailAffiliate && <AffiliateTrafficDetailModal affiliate={detailAffiliate} filters={filters} onClose={() => setDetailAffiliate(null)} />}
+  </>;
+}
+
 function whatsappUrl(order) {
   const rawPhone = String(order.customer_phone || '').replace(/\D/g, '');
   const phone = rawPhone.startsWith('0') ? `62${rawPhone.slice(1)}` : rawPhone;
@@ -2148,6 +2736,9 @@ export default function AdminPage() {
   const [proUpgradeWorking, setProUpgradeWorking] = useState('');
   const [withdrawalAdmin, setWithdrawalAdmin] = useState({ data: null, loading: false, error: '' });
   const [withdrawalWorking, setWithdrawalWorking] = useState('');
+  const [affiliateTraffic, setAffiliateTraffic] = useState({ data: null, loading: false, error: '' });
+  const [trafficFilters, setTrafficFilters] = useState({ preset: 'all', year: 'all', from: '', to: '' });
+  const trafficRequestIdRef = useRef(0);
   const [notificationsData, setNotificationsData] = useState({
     counts: { total: 0, orders: 0, feedbacks: 0, withdrawals: 0, affiliates: 0 },
     notifications: { orders: [], feedbacks: [], withdrawals: [], affiliates: [] },
@@ -2824,6 +3415,19 @@ export default function AdminPage() {
     }
   };
 
+  const loadAffiliateTraffic = useCallback(async (nextFilters = trafficFilters) => {
+    const requestId = ++trafficRequestIdRef.current;
+    setAffiliateTraffic((current) => ({ ...current, loading: true, error: '' }));
+    try {
+      const result = await get(`/api/admin/affiliate-traffic${buildTrafficQueryString(nextFilters)}`);
+      if (requestId !== trafficRequestIdRef.current) return;
+      setAffiliateTraffic({ data: result, loading: false, error: '' });
+    } catch (failure) {
+      if (requestId !== trafficRequestIdRef.current) return;
+      setAffiliateTraffic((current) => ({ ...current, loading: false, error: failure.message || 'Data traffic affiliate gagal dimuat.' }));
+    }
+  }, [trafficFilters]);
+
   useEffect(() => {
     if (!activePanel) return;
     window.requestAnimationFrame(() => document.querySelector('.admin-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -2873,6 +3477,11 @@ export default function AdminPage() {
       loadWithdrawals();
     }
   }, [activeView]);
+
+  useEffect(() => {
+    if (activeView !== 'affiliate-traffic' || loading || error) return;
+    loadAffiliateTraffic(trafficFilters);
+  }, [activeView, loading, error, trafficFilters, loadAffiliateTraffic]);
 
   useEffect(() => {
     if (data?.withdrawals && !withdrawalAdmin.data) {
@@ -4011,8 +4620,9 @@ export default function AdminPage() {
         <button className={activeView === 'setting' ? 'is-active' : ''} type="button" onClick={() => setActiveView('setting')}>Kelola template</button>
         <button className={activeView === 'editor' ? 'is-active' : ''} type="button" onClick={() => setActiveView('editor')}>Editor customer</button>
         <button className={activeView === 'affiliate-data' ? 'is-active' : ''} type="button" onClick={() => setActiveView('affiliate-data')}>Data affiliate</button>
-        <button className={activeView === 'withdrawals' ? 'is-active' : ''} type="button" onClick={() => setActiveView('withdrawals')}>Penarikan affiliate</button>
-        <button className={activeView === 'affiliates' ? 'is-active' : ''} type="button" onClick={() => setActiveView('affiliates')}>Review affiliate</button>
+        <button className={`admin-nav-affiliate-traffic ${activeView === 'affiliate-traffic' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliate-traffic')}>Traffic affiliate</button>
+        <button className={`admin-nav-withdrawals ${activeView === 'withdrawals' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('withdrawals')}>Penarikan affiliate</button>
+        <button className={`admin-nav-review ${activeView === 'affiliates' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliates')}>Review affiliate</button>
         <button className={activeView === 'order-history' ? 'is-active' : ''} type="button" onClick={() => setActiveView('order-history')}>Riwayat pesanan</button>
         <button className={`admin-nav-free-orders ${activeView === 'complimentary-orders' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('complimentary-orders')}>Order gratis</button>
         <button className={activeView === 'feedback' ? 'is-active' : ''} type="button" onClick={() => setActiveView('feedback')}>Feedback saran</button>
@@ -4498,6 +5108,44 @@ export default function AdminPage() {
           {mobileStandaloneMenu}
         </div>
         <AffiliateDataPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} onReload={loadAffiliateReviews} onStatus={updateAffiliateStatus} onSave={saveAffiliateData}/>
+      </section>
+    </AdminTemplate>;
+  }
+
+  if (activeView === 'affiliate-traffic') {
+    return <AdminTemplate sidebar={sidebarNavigation}>
+      <section className="admin-shell admin-view-affiliate-traffic">
+        <div className="admin-heading">
+          <div>
+            <span className="eyebrow">ANALITIK PARTNER</span>
+            <div className="admin-heading-title-line">
+              <h1>Traffic affiliate</h1>
+              <div className="admin-heading-tools">
+                <button
+                  type="button"
+                  className={`heading-tool-btn heading-refresh-btn ${headingRefreshing === 'affiliate-traffic' ? 'is-spinning' : ''}`}
+                  onClick={() => handleHeadingRefresh('affiliate-traffic', () => loadAffiliateTraffic(trafficFilters))}
+                  title="Muat ulang data traffic affiliate"
+                  aria-label="Muat ulang traffic affiliate"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                    <path d="M20 11a8.1 8.1 0 0 0-14.8-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8.1 8.1 0 0 0 14.8 4L21 14"/><path d="M21 20v-6h-6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p>Pantau total views halaman etalase &amp; preview template serta klik CTA masing-masing affiliate berdasarkan rentang tanggal atau tahun.</p>
+          </div>
+          {mobileStandaloneMenu}
+        </div>
+        <AffiliateTrafficPanel
+          data={affiliateTraffic.data}
+          loading={affiliateTraffic.loading}
+          error={affiliateTraffic.error}
+          filters={trafficFilters}
+          onFiltersChange={setTrafficFilters}
+          onReload={() => loadAffiliateTraffic(trafficFilters)}
+        />
       </section>
     </AdminTemplate>;
   }
