@@ -21,8 +21,8 @@ function canonicalCode(c) {
 const TEMPLATE_RUNTIME={
   java_vibes:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261104-smooth-v13',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
   puspa_jawi:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261104-smooth-v13',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
-  lunara_azure:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261109-smooth-v19',script:'/assets/js/templates/lunara-azure.js?v=20261109-smooth-v20'},
-  butterfly_blum:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261109-smooth-v19',script:'/assets/js/templates/lunara-azure.js?v=20261109-smooth-v20'}
+  lunara_azure:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261110-background-v21',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'},
+  butterfly_blum:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261110-background-v21',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261109-cover-v2',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
   ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261019-01',script:null}
 };
@@ -70,7 +70,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     const isLunara = activeCode==='lunara_azure' || activeCode==='butterfly_blum';
     if(!isJawi && !isLunara)return undefined;
     const href = isLunara
-      ? `/assets/images/templates/lunara-azure/${window.matchMedia('(max-width: 900px)').matches?'lunara-opening-aurora-contour-v1-mobile.webp':'lunara-opening-aurora-contour-v1.webp'}`
+      ? `/assets/images/templates/lunara-azure/${window.matchMedia('(max-width: 900px)').matches?'lunara-opening-aurora-contour-v1-mobile-hd-v2.webp':'lunara-opening-aurora-contour-v1-hd-v2.webp'}`
       : `${A}${window.matchMedia('(max-width: 700px)').matches?'puspa-cover-washi-v2-mobile.webp':'puspa-cover-washi-v2.webp'}`;
     const link=document.createElement('link');
     link.rel='preload';link.as='image';link.href=href;link.fetchPriority='high';link.dataset.templateCoverPreload='true';

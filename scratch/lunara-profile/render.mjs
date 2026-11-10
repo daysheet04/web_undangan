@@ -14,6 +14,7 @@ const mode = process.argv[3] || 'scroll';
 const stress = mode === 'stress-scroll';
 const legacy = mode === 'legacy-scroll';
 const photoFixture = mode === 'photo-scroll';
+const desktop = process.argv[4] === 'desktop';
 const cpuRate = stress ? 8 : 4;
 console.log(`${label}: preparing isolated local render`);
 const dir = resolve('scratch/lunara-profile');
@@ -98,7 +99,9 @@ try {
   await cdp('Runtime.enable');
   await cdp('LayerTree.enable');
   await cdp('Performance.enable');
-  await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await cdp('Emulation.setDeviceMetricsOverride', desktop
+    ? { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }
+    : { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await cdp('Emulation.setCPUThrottlingRate', { rate: cpuRate });
   if (mode === 'stalled-decode') {
     await cdp('Page.addScriptToEvaluateOnNewDocument', { source: 'HTMLImageElement.prototype.decode = function() { return new Promise(function() {}); }; Object.defineProperty(document.fonts, "ready", {value:new Promise(function(){})});' });
@@ -150,6 +153,8 @@ try {
     } catch { /* A live animation can retire a layer after the snapshot. */ }
   }
   result.errors = errors;
+  result.viewport = desktop ? '1440x900 DPR1' : '390x844 DPR2';
+  result.backgrounds = await evaluate(`Array.from(document.querySelectorAll('.lunara-cover-sky,.lunara-section')).map(n=>({className:n.className,image:getComputedStyle(n).backgroundImage}))`);
   if (photoFixture) {
     result.photos = await evaluate(`Array.from(document.querySelectorAll('.lunara-section img[srcset]')).map(n=>({alt:n.alt,src:n.currentSrc,complete:n.complete,naturalWidth:n.naturalWidth,loading:n.loading}))`);
     result.originalPhotoRequests = originalPhotoRequests.slice();

@@ -1,0 +1,336 @@
+{
+  "frames": 1077,
+  "framesOver34ms": 7,
+  "p95ms": 33.29999999999927,
+  "longTasks": 0,
+  "longTaskMs": 0,
+  "scrollY": 10049,
+  "distance": 10049,
+  "offscreenRunning": 0,
+  "butterflies": [
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-left",
+      "durations": "2.25s, 11.8s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-right",
+      "durations": "2.25s, 13.2s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-greeting is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-greeting",
+      "durations": "2.35s, 10.6s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-couple is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-couple",
+      "durations": "2.35s, 12.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-events is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-events",
+      "durations": "2.35s, 9.8s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-story is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-story",
+      "durations": "2.35s, 13.8s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gallery is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gallery",
+      "durations": "2.35s, 11.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gift is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gift",
+      "durations": "2.35s, 15s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-rsvp is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-rsvp",
+      "durations": "2.35s, 10.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-closing is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-closing",
+      "durations": "2.35s, 14.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    }
+  ],
+  "hiddenGardens": 0,
+  "revealGeometryReads": 0,
+  "workMs": {
+    "LayoutDuration": 6.113999999999953,
+    "RecalcStyleDuration": 3917.2329999999997,
+    "ScriptDuration": 278.4,
+    "TaskDuration": 11308.072999999999
+  },
+  "cpuRate": 4,
+  "memoryPressure": "none",
+  "layers": 0,
+  "layerReasons": [],
+  "errors": [],
+  "viewport": "390x844 DPR2",
+  "backgrounds": [
+    {
+      "className": "lunara-cover-sky",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-hero is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-hero-aurora-collage-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-greeting is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-wedding-aurora-ceremony-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-couple is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-couple-editorial-collage-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-events is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-events-editorial-flow-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-story is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-story-editorial-memory-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-gallery is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-gallery-zine-collage-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-gift is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-gift-editorial-envelope-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-rsvp is-in-view",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-rsvp-editorial-response-v1-mobile-hd-v2.webp\")"
+    },
+    {
+      "className": "lunara-section lunara-closing is-in-view is-viewport-active",
+      "image": "url(\"http://127.0.0.1:64344/assets/images/templates/lunara-azure/lunara-closing-editorial-finale-v1-mobile-hd-v2.webp\")"
+    }
+  ],
+  "photos": [
+    {
+      "alt": "Foto pasangan",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "auto"
+    },
+    {
+      "alt": "Foto mempelai wanita",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/695b1e103e3e2e578d9c-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Foto mempelai pria",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/699f604393bd1e49866f-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Kisah pasangan",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/ac2e88101257482a7dac-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Momen pasangan 1",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/30abe5c7b39153f2f90b-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Momen pasangan 2",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/4e535689f68e9dd02dcf-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Momen pasangan 3",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/fce640160110d6212657-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Momen pasangan 4",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/8e2ee6f7a2cd90b8ea3b-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    },
+    {
+      "alt": "Momen pasangan 5",
+      "src": "http://127.0.0.1:64344/assets/images/templates/lunara-azure/demo/38d8de2d93925fe2fde5-800.webp",
+      "complete": true,
+      "naturalWidth": 342,
+      "loading": "lazy"
+    }
+  ],
+  "originalPhotoRequests": [],
+  "gift": [
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-left",
+      "durations": "2.25s, 11.8s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-hero is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-hero-butterfly-in, azure-butterfly-hero-right",
+      "durations": "2.25s, 13.2s",
+      "delays": "0.12s, 2.37s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-greeting is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-greeting",
+      "durations": "2.35s, 10.6s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-couple is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-couple",
+      "durations": "2.35s, 12.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-events is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-events",
+      "durations": "2.35s, 9.8s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-story is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-story",
+      "durations": "2.35s, 13.8s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-gallery is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gallery",
+      "durations": "2.35s, 11.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    },
+    {
+      "section": "lunara-section lunara-gift is-in-view is-viewport-active",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-gift",
+      "durations": "2.35s, 15s",
+      "delays": "0.6s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "running, running"
+    },
+    {
+      "section": "lunara-section lunara-rsvp is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-rsvp",
+      "durations": "2.35s, 10.2s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    },
+    {
+      "section": "lunara-section lunara-closing is-in-view",
+      "opacity": "1",
+      "display": "block",
+      "names": "azure-section-butterfly-in, azure-butterfly-closing",
+      "durations": "2.35s, 14.4s",
+      "delays": "0.75s, 3.25s",
+      "easing": "cubic-bezier(0.22, 0.61, 0.36, 1), ease-in-out",
+      "state": "paused"
+    }
+  ]
+}
