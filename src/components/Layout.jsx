@@ -20,7 +20,7 @@ export function Layout({ children, title, className = '', navigation = null }) {
   const showAffiliateNavigation = navigation?.showAffiliate !== false;
   const stylesReady = useHeadLinks([
     '/assets/css/app.css',
-    ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css', '/assets/css/homepage-overrides.css?v=20261110-island-v3'] : []),
+    ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css', '/assets/css/homepage-overrides.css?v=20261112-ui-v4'] : []),
     ...(bodyClasses.includes('affiliate-store-page') ? ['/assets/css/affiliate-store.css'] : []),
     ...(bodyClasses.includes('admin-page') ? ['/assets/css/admin.css', '/assets/css/admin-withdrawals.css', '/assets/css/admin-commissions.css', '/assets/css/admin-orders.css', '/assets/css/admin-free-orders.css'] : []),
   ]);
@@ -80,7 +80,39 @@ export function Layout({ children, title, className = '', navigation = null }) {
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [stepsTargetId, templateTargetId]);
+  }, [stepsTargetId, templateTargetId, stylesReady]);
+
+  // Scroll to URL hash once layout styles are ready and sections are mounted in the DOM
+  useEffect(() => {
+    if (!stylesReady) return undefined;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return undefined;
+
+    let cancelled = false;
+    const markCancelled = () => {
+      cancelled = true;
+    };
+    window.addEventListener('wheel', markCancelled, { passive: true, once: true });
+    window.addEventListener('touchstart', markCancelled, { passive: true, once: true });
+
+    let frameTwo = 0;
+    const frameOne = window.requestAnimationFrame(() => {
+      frameTwo = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        const target = document.getElementById(hash);
+        if (target) {
+          target.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameOne);
+      if (frameTwo) window.cancelAnimationFrame(frameTwo);
+      window.removeEventListener('wheel', markCancelled);
+      window.removeEventListener('touchstart', markCancelled);
+    };
+  }, [stylesReady]);
 
   const handleNavClick = (e, targetId) => {
     setMenuOpen(false);

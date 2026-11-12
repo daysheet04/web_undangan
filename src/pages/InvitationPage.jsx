@@ -12,7 +12,7 @@ const A='/assets/images/templates/puspa-jawi/';
 function canonicalCode(c) {
   const s = String(c || '').toLowerCase().trim();
   if (s === 'puspa_jawi' || s === 'puspa-jawi' || s === 'java_vibes' || s === 'java-vibes') return 'java_vibes';
-  if (s === 'lunara_azure' || s === 'lunara-azure' || s === 'butterfly_blum' || s === 'butterfly-blum') return 'lunara_azure';
+  if (s === 'lunara_azure' || s === 'lunara-azure' || s === 'butterfly_blum' || s === 'butterfly-blum' || s === 'butterfly_bloom' || s === 'butterfly-bloom') return 'lunara_azure';
   if (s === 'aurelia_grande' || s === 'aurelia-grande' || s === 'luxury_vibes' || s === 'luxury-vibes') return 'aurelia_grande';
   if (s === 'verdant_vow' || s === 'verdant-vow' || s === 'modern_javanese' || s === 'modern-javanese') return 'verdant_vow';
   return s;
@@ -21,8 +21,9 @@ function canonicalCode(c) {
 const TEMPLATE_RUNTIME={
   java_vibes:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261110-envelope-pos2',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
   puspa_jawi:{title:'Java Vibes — Daymoment',font:'https://fonts.googleapis.com/css2?family=Italianno&family=Marcellus&family=Manrope:wght@400;500;600&display=swap',css:'/assets/css/templates/puspa-jawi.css?v=20261110-envelope-pos2',script:'/assets/js/templates/puspa-jawi.js?v=20261104-smooth-v13'},
-  lunara_azure:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261112-btn-z1',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'},
-  butterfly_blum:{title:'Butterfly Blum — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261112-btn-z1',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'}
+  lunara_azure:{title:'Butterfly Bloom — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261112-btn-z1',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'},
+  butterfly_blum:{title:'Butterfly Bloom — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261112-btn-z1',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'},
+  butterfly_bloom:{title:'Butterfly Bloom — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/lunara-azure.css?v=20261112-btn-z1',script:'/assets/js/templates/lunara-azure.js?v=20261110-background-v21'}
   ,aurelia_grande:{title:'Aurelia Grande — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/aurelia-grande.css?v=20261110-cover-mobile-v1',script:'/assets/js/templates/aurelia-grande.js?v=20260928-1'}
   ,verdant_vow:{title:'Verdant Vow — Daymoment',font:'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Italianno&family=Manrope:wght@400;500;600;700&display=swap',css:'/assets/css/templates/verdant-vow.css?v=20261019-01',script:null}
 };
@@ -67,7 +68,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/templates/mobile-template-fixes.css?v=20261024-2','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
   useEffect(()=>{
     const isJawi = activeCode==='java_vibes' || activeCode==='puspa_jawi';
-    const isLunara = activeCode==='lunara_azure' || activeCode==='butterfly_blum';
+    const isLunara = activeCode==='lunara_azure' || activeCode==='butterfly_blum' || activeCode==='butterfly_bloom';
     if(!isJawi && !isLunara)return undefined;
     const href = isLunara
       ? `/assets/images/templates/lunara-azure/${window.matchMedia('(max-width: 900px)').matches?'lunara-opening-aurora-contour-v1-mobile-hd-v2.webp':'lunara-opening-aurora-contour-v1-hd-v2.webp'}`
@@ -78,7 +79,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     return()=>link.remove();
   },[activeCode,resolvedCode]);
   useEffect(() => {
-    if(activeCode==='java_vibes' || activeCode==='puspa_jawi' || activeCode==='lunara_azure' || activeCode==='butterfly_blum')return undefined;
+    if(activeCode==='java_vibes' || activeCode==='puspa_jawi' || activeCode==='lunara_azure' || activeCode==='butterfly_blum' || activeCode==='butterfly_bloom')return undefined;
     const coverPath=state.data?.invitation?.cover_image;
     if(!coverPath)return undefined;
     const image=new Image();
@@ -87,7 +88,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     image.src=mediaUrl(coverPath);
     return()=>{ image.onload=null; image.onerror=null; };
   },[activeCode,state.data?.invitation?.cover_image]);
-  const isLunaraRuntime = activeCode === 'lunara_azure' || activeCode === 'butterfly_blum';
+  const isLunaraRuntime = activeCode === 'lunara_azure' || activeCode === 'butterfly_blum' || activeCode === 'butterfly_bloom';
   useEffect(() => {
     if (!isLunaraRuntime || !runtime?.script) return undefined;
     // Fetch alongside data/styles, then execute only after the template is mounted.

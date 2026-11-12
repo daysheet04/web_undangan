@@ -188,20 +188,20 @@
 .vv-full-couple.is-revealed .vv-couple-sparkles i:nth-child(3n) { animation-delay: -2.8s; }
 .vv-full-couple.is-leaving .vv-couple-sparkles i { animation: vv-couple-sparkle-out .3s ease both; }
 .vv-redesign .vv-person-grid { position: relative; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: clamp(16px,3vw,55px); max-width: 1100px; margin: 45px auto 0; }
-.vv-redesign .vv-person-card { position: relative; overflow: hidden; border: 1px solid rgba(151,101,47,.48); border-radius: 190px 190px 26px 26px; color: #173f31; opacity: 0; clip-path: inset(0 100% 0 0 round 190px 190px 26px 26px); background: linear-gradient(160deg,rgba(255,253,241,.98),rgba(224,232,207,.95)); box-shadow: inset 0 0 0 6px rgba(255,250,230,.28),0 30px 64px rgba(85,56,31,.2); backdrop-filter: blur(8px); transform: translate3d(-95px,34px,0) scale(.92) rotate(-2.2deg); filter: blur(5px); transition: opacity .75s ease,clip-path 1.05s cubic-bezier(.16,.82,.22,1),transform 1.05s cubic-bezier(.16,.82,.22,1),filter .8s ease,translate .35s ease,box-shadow .35s ease; will-change: opacity,clip-path,transform,filter; }
-.vv-redesign .vv-person-card:last-child { clip-path: inset(0 0 0 100% round 190px 190px 26px 26px); transform: translate3d(95px,34px,0) scale(.92) rotate(2.2deg); }
-.vv-redesign .vv-person-card.is-card-visible { opacity: 1; clip-path: inset(0 0 0 0 round 190px 190px 26px 26px); transform: translate3d(0,0,0) scale(1) rotate(0); filter: blur(0); }
+.vv-redesign .vv-person-card { position: relative; overflow: hidden; border: 1px solid rgba(151,101,47,.48); border-radius: 14px; color: #173f31; opacity: 0; clip-path: inset(0 100% 0 0 round 14px); background: linear-gradient(160deg,rgba(255,253,241,.98),rgba(224,232,207,.95)); box-shadow: inset 0 0 0 6px rgba(255,250,230,.28),0 30px 64px rgba(85,56,31,.2); backdrop-filter: blur(8px); transform: translate3d(-95px,34px,0) scale(.92) rotate(-2.2deg); filter: blur(5px); transition: opacity .75s ease,clip-path 1.05s cubic-bezier(.16,.82,.22,1),transform 1.05s cubic-bezier(.16,.82,.22,1),filter .8s ease,translate .35s ease,box-shadow .35s ease; will-change: opacity,clip-path,transform,filter; }
+.vv-redesign .vv-person-card:last-child { clip-path: inset(0 0 0 100% round 14px); transform: translate3d(95px,34px,0) scale(.92) rotate(2.2deg); }
+.vv-redesign .vv-person-card.is-card-visible { opacity: 1; clip-path: inset(0 0 0 0 round 14px); transform: translate3d(0,0,0) scale(1) rotate(0); filter: blur(0); }
 .vv-redesign .vv-person-card:first-child.is-card-visible { transition-delay: .08s; }
 .vv-redesign .vv-person-card:last-child.is-card-visible { transition-delay: .2s; }
 .vv-redesign .vv-person-card:last-child { background: linear-gradient(160deg,rgba(255,250,237,.98),rgba(231,212,178,.94)); }
 .vv-redesign .vv-person-card:hover { translate: 0 -5px; box-shadow: inset 0 0 0 6px rgba(255,250,230,.34),0 38px 74px rgba(85,56,31,.26); }
-.vv-redesign .vv-person-card::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(151,101,47,.25); border-radius: 180px 180px 19px 19px; opacity: 0; pointer-events: none; transform: scale(.94); transition: opacity .7s .55s ease,transform .8s .45s ease; }
+.vv-redesign .vv-person-card::after { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(151,101,47,.25); border-radius: 8px; opacity: 0; pointer-events: none; transform: scale(.94); transition: opacity .7s .55s ease,transform .8s .45s ease; }
 .vv-redesign .vv-person-card.is-card-visible::after { opacity: 1; transform: scale(1); }
 .vv-redesign .vv-person-card img { width: 100%; height: clamp(220px,28vw,350px); object-fit: cover; border-bottom: 1px solid rgba(178,139,70,.28); filter: saturate(.94) contrast(1.025); transform: scale(1.1); transition: transform 1.5s .12s cubic-bezier(.16,.82,.22,1),filter .8s ease; }
 .vv-redesign .vv-person-card.is-card-visible img { transform: scale(1); }
 .vv-redesign .vv-person-card > div { padding: 22px 25px 30px; text-align: center; opacity: 0; transform: translateY(22px); transition: opacity .7s .48s ease,transform .8s .42s cubic-bezier(.16,.82,.22,1); }
 .vv-redesign .vv-person-card.is-card-visible > div { opacity: 1; transform: none; }
-.vv-redesign .vv-person-card small { color: #698571; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; }
+.vv-redesign .vv-person-card small { color: #698571; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
 .vv-redesign .vv-person-card h3 { margin: 6px 0; font: 500 clamp(31px,3vw,47px) 'Cormorant Garamond',serif; }
 .vv-redesign .vv-person-card p { font: 17px/1.4 'Cormorant Garamond',serif; }
 .vv-redesign .vv-person-card span { color: #a58d5b; font: italic 22px 'Cormorant Garamond',serif; }
@@ -1196,18 +1196,18 @@
 .vv-gate-foreground-right { right: -9%; transform: scaleX(-1); }
 
 .vv-gate-copy { position: absolute; z-index: 18; left: 50%; top: 51%; width: min(360px,calc(100% - 44px)); translate: -50% -50%; display: grid; justify-items: center; text-align: center; animation: vv-gate-copy-in 1s 1s cubic-bezier(.2,.75,.2,1) both; }
-.vv-gate-medallion { position: relative; display: grid; place-content: center; width: min(360px,80vw); min-height: 244px; padding: 36px 34px 32px; border: 1px solid rgba(158,123,65,.82); border-radius: 28px 28px 10px 10px; color: #224c3b; background: linear-gradient(145deg,rgba(255,254,244,.98),rgba(244,238,211,.95) 68%,rgba(231,218,179,.88)); box-shadow: inset 0 0 0 7px rgba(255,252,235,.55),inset 0 0 0 8px rgba(171,134,69,.18),0 23px 52px rgba(34,45,27,.25); backdrop-filter: blur(5px); }
+.vv-gate-medallion { position: relative; display: grid; place-content: center; width: min(360px,80vw); min-height: 244px; padding: 36px 34px 32px; border: 1px solid rgba(158,123,65,.82); border-radius: 12px; color: #224c3b; background: linear-gradient(145deg,rgba(255,254,244,.98),rgba(244,238,211,.95) 68%,rgba(231,218,179,.88)); box-shadow: inset 0 0 0 7px rgba(255,252,235,.55),inset 0 0 0 8px rgba(171,134,69,.18),0 23px 52px rgba(34,45,27,.25); backdrop-filter: blur(5px); }
 .vv-gate-medallion::before,.vv-gate-medallion::after { content: ""; position: absolute; left: 50%; width: 42px; height: 13px; translate: -50% 0; border: solid #b49558; border-width: 1px 0; opacity: .8; }
 .vv-gate-medallion::before { top: 16px; }
 .vv-gate-medallion::after { bottom: 16px; }
-.vv-gate-medallion small { color: #8b7247; font: 700 8px/1.2 Manrope,sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+.vv-gate-medallion small { color: #8b7247; font: 700 10.5px/1.2 Manrope,sans-serif; letter-spacing: .18em; text-transform: uppercase; }
 .vv-gate-medallion h1 { display: grid; grid-template-columns: minmax(0,1fr); justify-items: center; gap: 0; width: 100%; margin: 12px 0 10px; color: #214a39; font: 500 clamp(42px,3.6vw,56px)/.72 'Cormorant Garamond',serif; }
 .vv-gate-medallion h1 b { display: block; max-width: 100%; font-weight: 500; overflow-wrap: anywhere; text-wrap: balance; }
 .vv-gate-medallion h1 i { display: block; margin: 4px 0 2px; color: #b18c4c; font-size: .44em; line-height: .8; font-weight: 500; }
-.vv-gate-medallion time { color: #786744; font: 700 8px/1.4 Manrope,sans-serif; letter-spacing: .13em; text-transform: uppercase; }
-.vv-gate-copy > p { min-width: 245px; margin: -8px 0 0; padding: 10px 20px 11px; border: 1px solid rgba(167,131,70,.55); border-radius: 999px; color: rgba(255,255,245,.78); font: 700 7px/1.3 Manrope,sans-serif; letter-spacing: .15em; text-transform: uppercase; background: rgba(29,67,50,.84); box-shadow: 0 12px 25px rgba(20,41,29,.18); backdrop-filter: blur(8px); }
-.vv-gate-copy > p strong { display: block; margin-top: 3px; color: #fffdf0; font: 600 17px/1.1 'Cormorant Garamond',serif; letter-spacing: normal; text-transform: none; }
-.vv-redesign .vv-gate-copy > button { display: inline-flex; align-items: center; justify-content: center; gap: 15px; min-height: 47px; margin-top: 12px; padding: 0 24px; border: 1px solid rgba(153,118,58,.52); border-radius: 999px; color: #244b3a; font: 700 9px/1 Manrope,sans-serif; letter-spacing: .05em; background: #fffaf0; box-shadow: 0 12px 28px rgba(24,43,29,.2); cursor: pointer; transition: transform .24s ease,box-shadow .24s ease,opacity .24s ease; }
+.vv-gate-medallion time { color: #786744; font: 700 10.5px/1.4 Manrope,sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.vv-gate-copy > p { min-width: 245px; margin: 8px 0 0; padding: 10px 20px 11px; border: 1px solid rgba(167,131,70,.55); border-radius: 10px; color: rgba(255,255,245,.86); font: 700 10px/1.3 Manrope,sans-serif; letter-spacing: .13em; text-transform: uppercase; background: rgba(29,67,50,.86); box-shadow: 0 12px 25px rgba(20,41,29,.18); backdrop-filter: blur(8px); }
+.vv-gate-copy > p strong { display: block; margin-top: 3px; color: #fffdf0; font: 600 18px/1.15 'Cormorant Garamond',serif; letter-spacing: normal; text-transform: none; }
+.vv-redesign .vv-gate-copy > button { display: inline-flex; align-items: center; justify-content: center; gap: 15px; min-height: 47px; margin-top: 12px; padding: 0 24px; border: 1px solid rgba(153,118,58,.52); border-radius: 999px; color: #244b3a; font: 700 11.5px/1 Manrope,sans-serif; letter-spacing: .05em; background: #fffaf0; box-shadow: 0 12px 28px rgba(24,43,29,.2); cursor: pointer; transition: transform .24s ease,box-shadow .24s ease,opacity .24s ease; }
 .vv-redesign .vv-gate-copy > button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(24,43,29,.27); }
 .vv-redesign .vv-gate-copy > button:disabled { cursor: wait; opacity: .74; }
 .vv-redesign .vv-gate-copy > button:focus-visible { outline: 3px solid #e8cd8e; outline-offset: 4px; }
@@ -1260,7 +1260,7 @@
   .vv-gate-foreground-left { left: -33%; }
   .vv-gate-foreground-right { right: -33%; }
   .vv-gate-copy { top: 53%; width: calc(100% - 28px); }
-  .vv-gate-medallion { width: min(300px,77vw); min-height: 232px; padding: 31px 25px 27px; border-radius: 24px 24px 9px 9px; }
+  .vv-gate-medallion { width: min(300px,77vw); min-height: 232px; padding: 31px 25px 27px; border-radius: 10px; }
   .vv-gate-medallion h1 { font-size: clamp(38px,10.4vw,49px); }
   .vv-gate-copy > p { min-width: min(238px,72vw); }
   .vv-gate-copy > button { min-height: 45px; margin-top: 10px; }
@@ -3357,4 +3357,197 @@
     height: 15px;
   }
 }
+
+/* Keep Modern Javanese aligned edge-to-edge inside mobile viewports and preview phone mockup */
+html:has(.verdant-vow) {
+  scrollbar-gutter: auto;
+}
+
+@media (min-width: 801px) {
+  .vv-redesign .vv-scroll {
+    scrollbar-width: thin;
+  }
+}
+
+body.embed-preview .vv-redesign .vv-scroll {
+  scrollbar-width: none;
+}
+
+body.embed-preview .vv-redesign .vv-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+body.embed-preview .vv-replay-cinematic {
+  top: 40px;
+  right: 12px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 8px;
+}
+
+body.embed-preview .vv-redesign .vv-full-opening {
+  padding: 64px 14px 72px;
+}
+
+body.embed-preview .vv-redesign .vv-wedding-stage {
+  width: 100%;
+  padding: 28px 14px 24px;
+}
+
+body.embed-preview .vv-redesign .vv-full-opening .vv-wedding-stage > p {
+  margin-block: 10px;
+}
+
+body.embed-preview .vv-redesign .vv-full-opening time {
+  margin: 10px 0 4px;
+}
+
+body.embed-preview .vv-redesign .vv-full-opening .vv-countdown-grid {
+  width: min(270px, 100%);
+  margin-top: 12px;
+  gap: 7px;
+}
+
+body.embed-preview .vv-redesign .vv-full-opening .vv-countdown-grid > span {
+  min-height: 48px;
+  padding: 6px;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-scroll {
+    scrollbar-width: none;
+  }
+
+  .vv-redesign .vv-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .vv-redesign .vv-wedding-stage {
+    width: min(100%, 620px);
+  }
+}
+
+@media (max-width: 520px) {
+  .vv-redesign .vv-wedding-stage {
+    width: 100%;
+  }
+
+  .vv-redesign .vv-full-opening .vv-countdown-grid {
+    width: min(270px, 100%);
+  }
+}
+
+/* Improved typography legibility across small labels, metadata, and actions */
+.vv-redesign .vv-after-heading small,
+.vv-redesign .vv-scene-panel small,
+.vv-redesign .vv-flight-copy small,
+.vv-redesign .vv3-copy small,
+.vv-redesign .vv3-finale small,
+.vv-redesign .vv-story .vv-after-heading small,
+.vv-redesign .vv-gift-redesign .vv-after-heading small,
+.vv-redesign .vv-rsvp-redesign .vv-after-heading small,
+.vv-redesign .vv-closing-redesign .vv-closing-copy > small {
+  font-size: 11px;
+  letter-spacing: .2em;
+}
+
+.vv-redesign .vv-full-opening time {
+  font-size: 12px;
+}
+
+.vv-redesign .vv-full-opening .vv-countdown-grid small {
+  font-size: 10.5px;
+  letter-spacing: .12em;
+}
+
+.vv-redesign .vv-event-card small,
+.vv-redesign .vv-story .vv-story-photo figcaption small,
+.vv-redesign .vv-gallery .vv-after-heading > span,
+.vv-redesign .vv-gallery-grid figcaption,
+.vv-redesign .vv-gallery-grid figcaption b,
+.vv-redesign .vv-flight-copy > span,
+.vv-redesign .vv-opening-ready,
+.vv-redesign .vv-gift-redesign .vv-after-heading > span,
+.vv-redesign .vv-gift-card-topline span,
+.vv-redesign .vv-gift-card-single > small,
+.vv-redesign .vv-gift-owner b,
+.vv-redesign .vv-rsvp-redesign .vv-after-heading > span,
+.vv-redesign .vv-rsvp-redesign .vv-preview-note,
+.vv-redesign .vv-rsvp-form-intro span,
+.vv-redesign .vv-rsvp-redesign label > span,
+.vv-redesign .vv-rsvp-redesign label > small,
+.vv-redesign .vv-rsvp-wishes-heading span,
+.vv-redesign .vv-rsvp-redesign .vv-wishes article small,
+.vv-redesign .vv-closing-redesign .vv-closing-copy time,
+.vv-redesign .vv-closing-redesign .vv-closing-copy > strong {
+  font-size: 11px;
+}
+
+.vv-redesign .vv-event-card a,
+.vv-redesign .vv-flight-skip,
+.vv-redesign .vv3-controls button,
+.vv-redesign .vv3-loader span,
+.vv-redesign .vv-replay-cinematic,
+.vv-redesign .vv-gift-card-single > button,
+.vv-redesign .vv-rsvp-redesign .vv-rsvp-form > button,
+.vv-redesign .vv-nav-group,
+.vv-redesign .vv-nav button {
+  font-size: 11.5px;
+}
+
+.vv-redesign .vv-story-divider b,
+.vv-redesign .vv-dropdown-arrow,
+.vv-redesign .vv-closing-divider b {
+  font-size: 11px;
+}
+
+.vv-redesign .vv-person-card p,
+.vv-redesign .vv-event-card p,
+.vv-redesign .vv-event-card time,
+.vv-redesign .vv-event-card strong {
+  font-size: 18px;
+}
+
+body.embed-preview .vv-replay-cinematic {
+  font-size: 10px;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-after-heading small,
+  .vv-redesign .vv-story .vv-after-heading small,
+  .vv-redesign .vv-gift-redesign .vv-after-heading small,
+  .vv-redesign .vv-rsvp-redesign .vv-after-heading small,
+  .vv-redesign .vv-closing-redesign .vv-closing-copy > small,
+  .vv-redesign .vv-full-opening time,
+  .vv-redesign .vv-gallery .vv-after-heading > span,
+  .vv-redesign .vv-gallery-grid figcaption,
+  .vv-redesign .vv-gallery-grid figcaption b,
+  .vv-redesign .vv-gift-redesign .vv-after-heading > span,
+  .vv-redesign .vv-rsvp-redesign .vv-after-heading > span,
+  .vv-redesign .vv-closing-redesign .vv-closing-copy time,
+  .vv-redesign .vv-closing-redesign .vv-closing-copy > strong,
+  .vv-redesign .vv3-copy small,
+  .vv-redesign .vv-flight-copy small {
+    font-size: 10.5px;
+  }
+
+  .vv-redesign .vv-gift-card-single > button,
+  .vv-redesign .vv-nav button,
+  .vv-redesign .vv3-controls button {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .vv-redesign .vv-flight-copy small,
+  .vv-redesign .vv-gate-copy .vv-opening-ready {
+    font-size: 10px;
+  }
+}
+
+
 

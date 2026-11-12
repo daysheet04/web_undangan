@@ -11,6 +11,7 @@ const TEMPLATE_COVERS = {
   puspa_jawi: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
   lunara_azure: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
   butterfly_blum: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
+  butterfly_bloom: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
   aurelia_grande: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
   luxury_vibes: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
   verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
@@ -16,6 +16,34 @@ const steps = [
 export default function HomePage() {
   const { data, loading, error } = useRemote('/api/templates');
   const templates = data?.templates || [];
+
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return undefined;
+
+    let userMoved = false;
+    const markUserMoved = () => {
+      userMoved = true;
+    };
+    window.addEventListener('wheel', markUserMoved, { passive: true, once: true });
+    window.addEventListener('touchstart', markUserMoved, { passive: true, once: true });
+
+    let frameTwo = 0;
+    const frameOne = window.requestAnimationFrame(() => {
+      frameTwo = window.requestAnimationFrame(() => {
+        if (!userMoved) {
+          document.getElementById(hash)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameOne);
+      if (frameTwo) window.cancelAnimationFrame(frameTwo);
+      window.removeEventListener('wheel', markUserMoved);
+      window.removeEventListener('touchstart', markUserMoved);
+    };
+  }, [loading]);
 
   const scrollToSection = (e, id) => {
     e.preventDefault();
@@ -55,7 +83,7 @@ export default function HomePage() {
     </section>
 
     <section className="templates-section" id="templates">
-      <div className="section-heading"><span className="eyebrow">Koleksi pilihan Daymoment</span><h2>Mau Yang Simple, Romantis, Wah ?</h2><p>Temukan desain undangan yang cocok dengan kalian</p></div>
+      <div className="section-heading"><span className="eyebrow">Koleksi pilihan Daymoment</span><h2>Ingin desain simpel, romantis, atau mewah?</h2><p>Temukan desain undangan yang cocok dengan kalian</p></div>
       {loading ? <Loading /> : error ? <ErrorState error={error} /> : <div className="template-grid">
         {!templates.length && <div className="template-empty"><span>01</span><h3>Template pertama sedang disiapkan</h3><p>Koleksi baru akan hadir di area ini.</p></div>}
         {templates.map((template, index) => <article className="template-card" key={template.id}>

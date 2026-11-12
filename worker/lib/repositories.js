@@ -6,7 +6,7 @@ export function canonicalTemplateCode(rawCode) {
   if (code === 'puspa_jawi' || code === 'puspa-jawi' || code === 'java_vibes' || code === 'java-vibes') {
     return 'java_vibes';
   }
-  if (code === 'lunara_azure' || code === 'lunara-azure' || code === 'butterfly_blum' || code === 'butterfly-blum') {
+  if (code === 'lunara_azure' || code === 'lunara-azure' || code === 'butterfly_blum' || code === 'butterfly-blum' || code === 'butterfly_bloom' || code === 'butterfly-bloom') {
     return 'lunara_azure';
   }
   if (code === 'aurelia_grande' || code === 'aurelia-grande' || code === 'luxury_vibes' || code === 'luxury-vibes') {
@@ -58,7 +58,7 @@ const FALLBACK_TEMPLATES = [
   {
     id: 2,
     code: 'lunara_azure',
-    name: 'Lunara Azure',
+    name: 'Butterfly Bloom',
     category: 'Porcelain Moon Garden',
     description: 'Romansa biru porselen dengan taman cahaya bulan, botanical watercolor, frame editorial, dan motion berlapis tiga dimensi.',
     thumbnail: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',

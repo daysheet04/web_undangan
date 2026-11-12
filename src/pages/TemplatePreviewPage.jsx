@@ -110,13 +110,19 @@ export default function TemplatePreviewPage({ code }) {
     <Layout className="preview-page" title={`Preview ${template.name} — Daymoment`}>
       <section className="preview-showcase">
         <div className="preview-info">
-          <a className="back-link" href="/#templates">← Kembali ke pilihan</a>
-          <span className="category-pill">{template.category}</span>
+          <div className="preview-meta-row">
+            <a className="back-link preview-back-circle" href="/#templates" aria-label="Kembali ke pilihan" title="Kembali ke pilihan">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </a>
+            <span className="category-pill">{template.category}</span>
+          </div>
           <h1>{template.name}</h1>
           <p>{template.description}</p>
 
           <div className="preview-package-heading">
-            <span>Pilih pengalaman undangan</span>
+            <span>Pilih paket undangan</span>
             <p>Desain utama tetap sama. Fitur dan jumlah momen menyesuaikan paket.</p>
           </div>
 
@@ -125,7 +131,20 @@ export default function TemplatePreviewPage({ code }) {
               const isActive = item.code === active.code;
               const isBeingViewed = isActive && (!isMobile || mobilePreviewOpen);
               return (
-                <article className={`preview-package-card ${isActive ? 'active' : ''}`} key={item.id}>
+                <article
+                  className={`preview-package-card ${isActive ? 'active' : ''}`}
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isBeingViewed}
+                  onClick={() => viewPackage(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      viewPackage(item);
+                    }
+                  }}
+                >
                   {item.code === 'signature' && <span className="preview-package-badge">Paling populer</span>}
                   <div className="preview-package-name">
                     <strong>{item.name}</strong>
@@ -146,7 +165,10 @@ export default function TemplatePreviewPage({ code }) {
                   <button
                     type="button"
                     className={`button ${isBeingViewed ? 'button-primary' : 'button-secondary'} preview-package-button`}
-                    onClick={() => viewPackage(item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      viewPackage(item);
+                    }}
                     aria-pressed={isBeingViewed}
                   >
                     {isBeingViewed ? 'Sedang dilihat' : `Lihat ${item.name}`}
