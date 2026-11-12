@@ -111,7 +111,7 @@ export default function TemplatePreviewPage({ code }) {
       <section className="preview-showcase">
         <div className="preview-info">
           <div className="preview-meta-row">
-            <a className="back-link preview-back-circle" href="/#templates" aria-label="Kembali ke pilihan" title="Kembali ke pilihan">
+            <a className="back-link preview-back-circle" href={`/#template-card-${encodeURIComponent(templateSlug(template))}`} aria-label="Kembali ke pilihan" title="Kembali ke pilihan">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="15 18 9 12 15 6" />
               </svg>

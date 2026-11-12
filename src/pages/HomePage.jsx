@@ -32,7 +32,9 @@ export default function HomePage() {
     const frameOne = window.requestAnimationFrame(() => {
       frameTwo = window.requestAnimationFrame(() => {
         if (!userMoved) {
-          document.getElementById(hash)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+          const target = document.getElementById(hash)
+            || (!loading && hash.startsWith('template-card-') ? document.getElementById('templates') : null);
+          target?.scrollIntoView({ behavior: 'auto', block: 'start' });
         }
       });
     });
@@ -86,7 +88,7 @@ export default function HomePage() {
       <div className="section-heading"><span className="eyebrow">Koleksi pilihan Daymoment</span><h2>Ingin desain simpel, romantis, atau mewah?</h2><p>Temukan desain undangan yang cocok dengan kalian</p></div>
       {loading ? <Loading /> : error ? <ErrorState error={error} /> : <div className="template-grid">
         {!templates.length && <div className="template-empty"><span>01</span><h3>Template pertama sedang disiapkan</h3><p>Koleksi baru akan hadir di area ini.</p></div>}
-        {templates.map((template, index) => <article className="template-card" key={template.id}>
+        {templates.map((template, index) => <article className="template-card" id={`template-card-${templateSlug(template)}`} key={template.id}>
           <TemplateCover
             template={template}
             eager={index < 3}
