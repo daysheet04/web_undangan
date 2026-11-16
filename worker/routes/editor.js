@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
 import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras, activeTemplates, canonicalTemplateCode } from '../lib/repositories.js';
+import { validUploadedMedia } from '../lib/mediaValidation.js';
 
 const editor = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -287,8 +288,10 @@ editor.post('/invitation/upload', async (c) => {
   if (!['cover', 'gallery', 'groom', 'bride', 'music', 'custom_couple'].includes(kind) || !(file instanceof File)) return c.json({ ok: false, message: 'Jenis berkas tidak valid.' }, 422);
   if (kind === 'music' && !invitation.has_music) return c.json({ ok: false, message: `Fitur musik tidak tersedia pada paket ${invitation.package_name}.` }, 403);
   const rules = uploadRules(kind);
-  if (!rules.types.includes(file.type)) return c.json({ ok: false, message: kind === 'music' ? 'Format musik harus MP3, M4A, OGG, atau WAV.' : 'Format foto harus JPG, PNG, atau WEBP.' }, 422);
   if (file.size > rules.max) return c.json({ ok: false, message: `Ukuran ${kind === 'music' ? 'musik' : 'foto'} terlalu besar.` }, 422);
+  if (!(await validUploadedMedia(file, rules.types))) {
+    return c.json({ ok: false, message: kind === 'music' ? 'Format musik harus MP3, M4A, OGG, atau WAV.' : 'Format foto harus JPG, PNG, atau WEBP.' }, 422);
+  }
   const db = database(c.env);
   if (kind === 'gallery') {
     const { count, error } = await db.from('invitation_media').select('id', { count: 'exact', head: true }).eq('invitation_id', invitation.id);

@@ -1,6 +1,7 @@
 import { cleanText } from './helpers.js';
 import { database } from './database.js';
 import { canonicalTemplateCode, hasRealSupabaseConfig } from './repositories.js';
+import { ALLOWED_AUDIO_EXTENSIONS, ALLOWED_AUDIO_TYPES, ALLOWED_IMAGE_TYPES, validAudioFile, validImageFile } from './mediaValidation.js';
 
 const DEMO_STORE_KEY_PREFIX = 'template-demo-data/';
 
@@ -381,8 +382,7 @@ export async function uploadTemplateGalleryPhoto(env, templateCode, packageCode,
     throw new Error('Pilih berkas foto terlebih dahulu.');
   }
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
+  if (!(await validImageFile(file, ALLOWED_IMAGE_TYPES))) {
     throw new Error('Format foto harus JPG, PNG, atau WEBP.');
   }
   if (file.size > 5 * 1024 * 1024) {
@@ -464,8 +464,7 @@ export async function uploadTemplateCouplePhoto(env, templateCode, kind, file) {
     throw new Error('Pilih berkas foto terlebih dahulu.');
   }
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
+  if (!(await validImageFile(file, ALLOWED_IMAGE_TYPES))) {
     throw new Error('Format foto harus JPG, PNG, atau WEBP.');
   }
   if (file.size > 8 * 1024 * 1024) {
@@ -510,8 +509,7 @@ export async function uploadTemplatePackagePhoto(env, templateCode, kind, packag
     throw new Error('Pilih berkas foto terlebih dahulu.');
   }
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
+  if (!(await validImageFile(file, ALLOWED_IMAGE_TYPES))) {
     throw new Error('Format foto harus JPG, PNG, atau WEBP.');
   }
   if (file.size > 8 * 1024 * 1024) {
@@ -588,10 +586,8 @@ export async function uploadTemplateMusic(env, templateCode, file, title = '') {
     throw new Error('Pilih berkas audio terlebih dahulu.');
   }
 
-  const allowedTypes = ['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav'];
-  const ext = file.name.split('.').pop().toLowerCase();
-  const allowedExts = ['mp3', 'm4a', 'ogg', 'wav'];
-  if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+  const ext = String(file.name || '').split('.').pop().toLowerCase();
+  if (!(await validAudioFile(file, ALLOWED_AUDIO_TYPES, ALLOWED_AUDIO_EXTENSIONS))) {
     throw new Error('Format musik harus MP3, M4A, OGG, atau WAV.');
   }
   if (file.size > 15 * 1024 * 1024) {
@@ -600,7 +596,7 @@ export async function uploadTemplateMusic(env, templateCode, file, title = '') {
 
   const current = await getTemplateDemoData(env, code);
   const uuid = crypto.randomUUID();
-  const fileExt = ext || 'mp3';
+  const fileExt = ALLOWED_AUDIO_EXTENSIONS.includes(ext) ? ext : 'mp3';
   const objectKey = `template-music/${code}/music-${uuid}.${fileExt}`;
 
   if (env?.MEDIA) {

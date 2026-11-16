@@ -3,6 +3,7 @@ import { database } from '../lib/database.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
 import { sendOrderCreatedEmail, sendPaymentConfirmedEmail } from '../lib/email.js';
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
+import { consumeIpRateLimit } from '../lib/rateLimit.js';
 import { hasRealSupabaseConfig, orderByCode, templateByCode } from '../lib/repositories.js';
 
 const orders = new Hono();
@@ -93,8 +94,16 @@ function queuePaymentConfirmedEmail(c, order, payment) {
 
 async function applyPaymentStatus(env, order, payment, payload) {
   const status = normalizedPaymentStatus(payload);
-  const amount = Number(payload.gross_amount || payment.amount);
-  if (Math.round(amount) !== Math.round(Number(payment.amount))) {
+  const rawGrossAmount = payload?.gross_amount;
+  const amount = Number(rawGrossAmount);
+  if (
+    rawGrossAmount === undefined ||
+    rawGrossAmount === null ||
+    String(rawGrossAmount).trim() === '' ||
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    Math.round(amount) !== Math.round(Number(payment.amount))
+  ) {
     const failure = new Error('Nominal pembayaran Midtrans tidak sesuai dengan order.');
     failure.status = 422;
     throw failure;
@@ -142,6 +151,12 @@ orders.post('/orders', async (c) => {
   if (!validEmail(email)) errors.customer_email = 'Masukkan alamat email yang valid.';
   if (input.agreement !== true && input.agreement !== '1') errors.agreement = 'Persetujuan data wajib dicentang.';
   if (Object.keys(errors).length) return c.json({ ok: false, message: 'Periksa kembali data pemesan.', errors }, 422);
+
+  const rateLimit = await consumeIpRateLimit(c, { scope: 'order-create', limit: 10, windowSec: 600 });
+  if (rateLimit.limited) {
+    c.header('Retry-After', String(rateLimit.retryAfterSec));
+    return c.json({ ok: false, message: 'Terlalu banyak permintaan pembuatan pesanan. Silakan tunggu beberapa menit.' }, 429);
+  }
 
   if (!hasRealSupabaseConfig(c.env)) {
     const code = orderCode();
@@ -309,7 +324,15 @@ orders.post('/orders/:code/payment-status', async (c) => {
 });
 
 orders.post('/payments/midtrans/notification', async (c) => {
-  const payload = await c.req.json();
+  let payload;
+  try {
+    payload = await c.req.json();
+  } catch {
+    return c.json({ ok: false, message: 'Payload notifikasi harus berupa JSON valid.' }, 400);
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return c.json({ ok: false, message: 'Payload notifikasi tidak valid.' }, 400);
+  }
   if (String(payload.order_id || '').startsWith('payment_notif_test_') || String(payload.order_id || '').startsWith('test-')) {
     return c.json({ ok: true, message: 'Test notification received.' });
   }

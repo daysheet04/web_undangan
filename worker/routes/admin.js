@@ -14,6 +14,7 @@ import {
   uploadTemplateMusic,
   uploadTemplatePackagePhoto,
 } from '../lib/templateDemoStore.js';
+import { servePublicR2Media, validImageFile } from '../lib/mediaValidation.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -100,18 +101,78 @@ async function createSession(secret) {
   return `${base64Url(encoder.encode(payload))}.${base64Url(bytes)}`;
 }
 
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_MAX_FAILS = 5;
+const adminLoginFailures = new Map();
+
+function constantTimeBytesEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+async function verifyAdminPassword(candidate, configured) {
+  const [candidateDigest, configuredDigest] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(String(candidate || ''))),
+    crypto.subtle.digest('SHA-256', encoder.encode(String(configured || ''))),
+  ]);
+  return constantTimeBytesEqual(new Uint8Array(candidateDigest), new Uint8Array(configuredDigest));
+}
+
+function adminLoginRateKey(c) {
+  const ip = cleanText(c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For')?.split(',')[0] || '', 80) || 'local';
+  return `https://daymoment-rate.local/admin-login/${encodeURIComponent(ip)}`;
+}
+
+async function readAdminLoginAttempts(key) {
+  const now = Date.now();
+  const mem = adminLoginFailures.get(key);
+  if (mem && now < mem.resetAt) return mem;
+  if (mem && now >= mem.resetAt) adminLoginFailures.delete(key);
+
+  const edgeCache = globalThis.caches?.default;
+  if (edgeCache) {
+    const cached = await edgeCache.match(new Request(key));
+    if (cached) {
+      const parsed = await cached.json().catch(() => null);
+      if (parsed && now < parsed.resetAt) return parsed;
+    }
+  }
+  return { count: 0, resetAt: now + ADMIN_LOGIN_WINDOW_MS };
+}
+
+async function writeAdminLoginAttempts(c, key, state) {
+  const ttlSeconds = Math.max(1, Math.ceil((state.resetAt - Date.now()) / 1000));
+  adminLoginFailures.set(key, state);
+  const edgeCache = globalThis.caches?.default;
+  if (edgeCache) {
+    const putPromise = edgeCache.put(
+      new Request(key),
+      new Response(JSON.stringify(state), { headers: { 'Cache-Control': `max-age=${ttlSeconds}` } }),
+    );
+    try { c.executionCtx.waitUntil(putPromise); } catch { await putPromise; }
+  }
+}
+
 async function validSession(request, secret) {
   if (!secret) return false;
-  const cookie = request.headers.get('Cookie') || '';
-  const value = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${ADMIN_COOKIE}=`))?.slice(ADMIN_COOKIE.length + 1);
-  if (!value) return false;
-  const [encodedPayload, encodedSignature] = value.split('.');
-  if (!encodedPayload || !encodedSignature) return false;
-  const payload = new TextDecoder().decode(decodeBase64Url(encodedPayload));
-  const timestamp = Number(payload.split('.')[1]);
-  if (!Number.isFinite(timestamp) || Date.now() - timestamp > SESSION_TTL) return false;
-  const { key } = await signature(payload, secret);
-  return crypto.subtle.verify('HMAC', key, decodeBase64Url(encodedSignature), encoder.encode(payload));
+  try {
+    const cookie = request.headers.get('Cookie') || '';
+    const value = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${ADMIN_COOKIE}=`))?.slice(ADMIN_COOKIE.length + 1);
+    if (!value) return false;
+    const [encodedPayload, encodedSignature] = value.split('.');
+    if (!encodedPayload || !encodedSignature) return false;
+    const payload = new TextDecoder().decode(decodeBase64Url(encodedPayload));
+    const timestamp = Number(payload.split('.')[1]);
+    if (!Number.isFinite(timestamp) || Date.now() - timestamp > SESSION_TTL) return false;
+    const { key } = await signature(payload, secret);
+    return await crypto.subtle.verify('HMAC', key, decodeBase64Url(encodedSignature), encoder.encode(payload));
+  } catch {
+    return false;
+  }
 }
 
 function cookieOptions(request, maxAge) {
@@ -122,8 +183,28 @@ function cookieOptions(request, maxAge) {
 admin.post('/admin/login', async (c) => {
   const configuredPassword = String(c.env.ADMIN_PASSWORD || '');
   if (!configuredPassword) return c.json({ ok: false, message: 'ADMIN_PASSWORD belum dikonfigurasi di environment server.' }, 503);
+
+  const rateKey = adminLoginRateKey(c);
+  const attempts = await readAdminLoginAttempts(rateKey);
+  if (attempts.count >= ADMIN_LOGIN_MAX_FAILS) {
+    const retryAfter = Math.max(1, Math.ceil((attempts.resetAt - Date.now()) / 1000));
+    c.header('Retry-After', String(retryAfter));
+    return c.json({ ok: false, message: `Terlalu banyak percobaan login. Coba lagi dalam ${Math.max(1, Math.ceil(retryAfter / 60))} menit.` }, 429);
+  }
+
   const input = await c.req.json().catch(() => ({}));
-  if (String(input.password || '') !== configuredPassword) return c.json({ ok: false, message: 'Password admin salah.' }, 401);
+  const validPassword = await verifyAdminPassword(input.password, configuredPassword);
+  if (!validPassword) {
+    await writeAdminLoginAttempts(c, rateKey, { count: attempts.count + 1, resetAt: attempts.resetAt });
+    return c.json({ ok: false, message: 'Password admin salah.' }, 401);
+  }
+
+  adminLoginFailures.delete(rateKey);
+  const edgeCache = globalThis.caches?.default;
+  if (edgeCache) {
+    try { c.executionCtx.waitUntil(edgeCache.delete(new Request(rateKey))); } catch {}
+  }
+
   const response = c.json({ ok: true, authenticated: true });
   response.headers.set('Set-Cookie', `${ADMIN_COOKIE}=${await createSession(configuredPassword)}; Path=/api/admin; HttpOnly; SameSite=Strict; Max-Age=${SESSION_TTL}${new URL(c.req.url).protocol === 'https:' ? '; Secure' : ''}`);
   return response;
@@ -1171,8 +1252,8 @@ admin.post('/admin/withdrawals/:withdrawalId/process', async (c) => {
   const hasNewProof = proof instanceof File && proof.size > 0;
   if (!['pending', 'processing', 'paid', 'rejected', 'cancelled'].includes(status)) return c.json({ ok: false, message: 'Status penarikan tidak valid.' }, 422);
   if (['rejected', 'cancelled'].includes(status) && !adminNote) return c.json({ ok: false, message: 'Catatan wajib diisi untuk penarikan yang ditolak atau dibatalkan.' }, 422);
-  if (hasNewProof && !['image/jpeg', 'image/png', 'image/webp'].includes(proof.type)) return c.json({ ok: false, message: 'Bukti transfer harus berupa JPG, PNG, atau WEBP.' }, 422);
   if (hasNewProof && proof.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran bukti transfer maksimal 4 MB.' }, 422);
+  if (hasNewProof && !(await validImageFile(proof))) return c.json({ ok: false, message: 'Bukti transfer harus berupa JPG, PNG, atau WEBP.' }, 422);
   if (hasNewProof && !c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan bukti transfer belum tersedia.' }, 503);
 
   const db = database(c.env);
@@ -1660,19 +1741,7 @@ admin.post('/admin/affiliates/:affiliateId/resend-correction', async (c) => {
   return c.json({ ok: true, message: 'Email berisi alasan dan link perbaikan berhasil dikirim ulang.' });
 });
 
-admin.get('/admin/media/*', async (c) => {
-  if (!c.env.MEDIA) return c.json({ ok: false, message: 'Gambar tidak tersedia.' }, 404);
-  const key = decodeURIComponent(c.req.path.replace(/^\/api\/admin\/media\//, ''));
-  if (!key || key.includes('..')) return c.json({ ok: false, message: 'Gambar tidak tersedia.' }, 404);
-  const object = await c.env.MEDIA.get(key);
-  if (!object) return c.json({ ok: false, message: 'Gambar tidak tersedia.' }, 404);
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set('etag', object.httpEtag);
-  headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
-  headers.set('access-control-allow-origin', '*');
-  return new Response(object.body, { headers });
-});
+admin.get('/admin/media/*', (c) => servePublicR2Media(c, /^\/api\/admin\/media\//, { notFoundMessage: 'Gambar tidak tersedia.' }));
 
 admin.post('/admin/homepage/hero-image', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
@@ -1681,10 +1750,9 @@ admin.post('/admin/homepage/hero-image', async (c) => {
 
   const form = await c.req.formData();
   const file = form.get('file');
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
   if (!(file instanceof File)) return c.json({ ok: false, message: 'Pilih gambar hero terlebih dahulu.' }, 422);
-  if (!allowedTypes.includes(file.type)) return c.json({ ok: false, message: 'Format gambar harus JPG, PNG, atau WEBP.' }, 422);
   if (file.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran gambar maksimal 4 MB.' }, 422);
+  if (!(await validImageFile(file))) return c.json({ ok: false, message: 'Format gambar harus JPG, PNG, atau WEBP.' }, 422);
   if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan gambar belum tersedia.' }, 503);
 
   const db = database(c.env);
@@ -1770,10 +1838,9 @@ admin.patch('/admin/templates/:templateCode/visibility', async (c) => {
 admin.post('/admin/templates/:templateCode/cover', async (c) => {
   const form = await c.req.formData();
   const file = form.get('file');
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
   if (!(file instanceof File)) return c.json({ ok: false, message: 'Pilih gambar sampul terlebih dahulu.' }, 422);
-  if (!allowedTypes.includes(file.type)) return c.json({ ok: false, message: 'Format sampul harus JPG, PNG, atau WEBP.' }, 422);
   if (file.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran sampul maksimal 4 MB.' }, 422);
+  if (!(await validImageFile(file))) return c.json({ ok: false, message: 'Format sampul harus JPG, PNG, atau WEBP.' }, 422);
   if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan gambar belum tersedia.' }, 503);
 
   const templateCode = c.req.param('templateCode');
@@ -1819,10 +1886,9 @@ admin.post('/admin/templates/:templateCode/cover', async (c) => {
 admin.post('/admin/templates/:templateCode/phone-cover', async (c) => {
   const form = await c.req.formData();
   const file = form.get('file');
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
   if (!(file instanceof File)) return c.json({ ok: false, message: 'Pilih gambar sampul HP terlebih dahulu.' }, 422);
-  if (!allowedTypes.includes(file.type)) return c.json({ ok: false, message: 'Format sampul HP harus JPG, PNG, atau WEBP.' }, 422);
   if (file.size > 4 * 1024 * 1024) return c.json({ ok: false, message: 'Ukuran sampul HP maksimal 4 MB.' }, 422);
+  if (!(await validImageFile(file))) return c.json({ ok: false, message: 'Format sampul HP harus JPG, PNG, atau WEBP.' }, 422);
   if (!c.env.MEDIA) return c.json({ ok: false, message: 'Penyimpanan gambar belum tersedia.' }, 503);
 
   const templateCode = c.req.param('templateCode');

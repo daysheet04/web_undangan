@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeThrownError } from './errors.js';
 
 export function database(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -12,7 +13,7 @@ export function database(env) {
 
 export async function one(query, notFoundMessage = 'Data tidak ditemukan.') {
   const { data, error } = await query.maybeSingle();
-  if (error) throw error;
+  if (error) throw normalizeThrownError(error);
   if (!data) {
     const failure = new Error(notFoundMessage);
     failure.status = 404;
@@ -23,6 +24,6 @@ export async function one(query, notFoundMessage = 'Data tidak ditemukan.') {
 
 export async function many(query) {
   const { data, error, count } = await query;
-  if (error) throw error;
+  if (error) throw normalizeThrownError(error);
   return { data: data || [], count: count ?? data?.length ?? 0 };
 }
