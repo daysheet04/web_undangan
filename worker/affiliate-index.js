@@ -1,19 +1,37 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { secureHeaders } from 'hono/secure-headers';
 import affiliate from './routes/affiliate.js';
+import {
+  applySecurityHeaders,
+  enforceHttpsRedirect,
+  serveAssetWithSecurityHeaders,
+} from './lib/securityHeaders.js';
 
 const app = new Hono();
-const allowedOrigins = new Set([
+
+app.use('*', async (c, next) => {
+  const redirect = enforceHttpsRedirect(c.req.raw);
+  if (redirect) return redirect;
+
+  await next();
+
+  applySecurityHeaders(c.res.headers, c.req.path, {
+    frameAncestors: "'none'",
+    xFrameOptions: 'DENY',
+    allowPaymentSnap: true,
+  });
+});
+
+const allowedAffiliateOrigins = new Set([
   'http://localhost:8082',
   'http://127.0.0.1:8082',
   'https://affiliate.daymoment.id',
 ]);
 
-app.use('*', secureHeaders());
 app.use('/api/*', cors({
-  origin: (origin) => {
-    return allowedOrigins.has(origin) ? origin : undefined;
+  origin: (origin, c) => {
+    if (!origin) return undefined;
+    return origin === new URL(c.req.url).origin || allowedAffiliateOrigins.has(origin) ? origin : undefined;
   },
   allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
@@ -37,7 +55,7 @@ app.use('/api/affiliate/*', async (c, next) => {
   c.header('Pragma', 'no-cache');
   c.header('Vary', 'Origin');
 
-  if (unsafe && origin && !allowedOrigins.has(origin)) {
+  if (unsafe && origin && origin !== new URL(c.req.url).origin && !allowedAffiliateOrigins.has(origin)) {
     return c.json({ ok: false, message: 'Permintaan tidak diizinkan.' }, 403);
   }
   if (unsafe && fetchSite === 'cross-site') {
@@ -52,6 +70,18 @@ app.use('/api/affiliate/*', async (c, next) => {
 app.route('/api', affiliate);
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'daymoment-affiliate', runtime: 'cloudflare-workers' }));
+
+app.all('*', async (c, next) => {
+  const path = c.req.path;
+  if (path === '/api' || path.startsWith('/api/') || !c.env?.ASSETS) {
+    return next();
+  }
+  return serveAssetWithSecurityHeaders(c, {
+    frameAncestors: "'none'",
+    xFrameOptions: 'DENY',
+    allowPaymentSnap: true,
+  });
+});
 
 app.notFound((c) => c.json({ ok: false, message: 'Endpoint affiliate tidak ditemukan.' }, 404));
 app.onError((error, c) => {

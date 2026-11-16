@@ -22,7 +22,15 @@ MIDTRANS_IS_PRODUCTION = false
 directory = "./dist-affiliate"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*"]
+run_worker_first = [
+  "/*",
+  "!/assets/*",
+  "!/uploads/*",
+  "!/favicon*",
+  "!/apple-touch-icon*",
+  "!/robots.txt",
+  "!/sitemap.xml",
+]
 
 [[r2_buckets]]
 binding = "MEDIA"

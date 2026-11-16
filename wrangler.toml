@@ -13,7 +13,15 @@ FEEDBACK_NOTIF_EMAIL = "daymoment7@gmail.com"
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/media/*"]
+run_worker_first = [
+  "/*",
+  "!/assets/*",
+  "!/uploads/*",
+  "!/favicon*",
+  "!/apple-touch-icon*",
+  "!/robots.txt",
+  "!/sitemap.xml",
+]
 
 [[r2_buckets]]
 binding = "MEDIA"

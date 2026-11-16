@@ -1,16 +1,33 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { secureHeaders } from 'hono/secure-headers';
 import catalog from './routes/catalog.js';
 import orders from './routes/orders.js';
 import editor from './routes/editor.js';
 import publicRoutes from './routes/public.js';
+import {
+  applySecurityHeaders,
+  enforceHttpsRedirect,
+  resolveAllowedCorsOrigin,
+  serveAssetWithSecurityHeaders,
+} from './lib/securityHeaders.js';
 
 const app = new Hono();
 
-app.use('*', secureHeaders());
+app.use('*', async (c, next) => {
+  const redirect = enforceHttpsRedirect(c.req.raw);
+  if (redirect) return redirect;
+
+  await next();
+
+  applySecurityHeaders(c.res.headers, c.req.path, {
+    frameAncestors: "'self'",
+    xFrameOptions: 'SAMEORIGIN',
+    allowPaymentSnap: c.req.path.startsWith('/payment/'),
+  });
+});
+
 app.use('/api/*', cors({
-  origin: (origin) => origin || 'http://localhost:8080',
+  origin: (origin, c) => resolveAllowedCorsOrigin(origin, c.req.url, c.env),
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
   credentials: true,
@@ -87,6 +104,18 @@ app.get('/api/admin/media/*', async (c) => {
   headers.set('access-control-allow-origin', '*');
   headers.set('cross-origin-resource-policy', 'cross-origin');
   return new Response(object.body, { headers });
+});
+
+app.all('*', async (c, next) => {
+  const path = c.req.path;
+  if (path === '/api' || path.startsWith('/api/') || path.startsWith('/media/') || !c.env?.ASSETS) {
+    return next();
+  }
+  return serveAssetWithSecurityHeaders(c, {
+    frameAncestors: "'self'",
+    xFrameOptions: 'SAMEORIGIN',
+    allowPaymentSnap: (assetPath) => assetPath.startsWith('/payment/'),
+  });
 });
 
 app.notFound((c) => c.json({ ok: false, message: 'Endpoint tidak ditemukan.' }, 404));

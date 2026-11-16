@@ -39,11 +39,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Inter (body) loaded separately for faster initial paint -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" data-async-font="true" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
     <!-- Display fonts (Playfair, Italianno, Marcellus) loaded after page paint -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Italianno&family=Marcellus&display=swap" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Italianno&family=Marcellus&display=swap" media="print" onload="this.media='all'" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Italianno&family=Marcellus&display=swap" media="print" data-async-font="true" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Italianno&family=Marcellus&display=swap" /></noscript>
 
     <!-- Structured Data (JSON-LD) for Google Rich Results -->
@@ -114,12 +114,11 @@
     <title>Daymoment — Undangan Pernikahan Digital Elegan &amp; Personal</title>
   </head>
   <body>
-    <script>if (window.self !== window.top) { document.documentElement.classList.add('app-styles-ready'); }</script>
+    <script src="/assets/js/app-boot.js?v=20261116-1"></script>
     <div id="app-boot" aria-hidden="true">
       <img class="app-boot-logo" src="/assets/images/brand/daymoment-logo.webp" alt="Daymoment" width="160" height="58" fetchpriority="high" />
     </div>
     <div id="root"></div>
-    <script>window.setTimeout(function () { document.documentElement.classList.add('app-styles-ready'); }, 8000);</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

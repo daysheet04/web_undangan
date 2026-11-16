@@ -1,14 +1,30 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { secureHeaders } from 'hono/secure-headers';
 import admin from './routes/admin.js';
 import catalog from './routes/catalog.js';
+import {
+  applySecurityHeaders,
+  enforceHttpsRedirect,
+  resolveAllowedCorsOrigin,
+  serveAssetWithSecurityHeaders,
+} from './lib/securityHeaders.js';
 
 const app = new Hono();
 
-app.use('*', secureHeaders());
+app.use('*', async (c, next) => {
+  const redirect = enforceHttpsRedirect(c.req.raw);
+  if (redirect) return redirect;
+
+  await next();
+
+  applySecurityHeaders(c.res.headers, c.req.path, {
+    frameAncestors: "'self'",
+    xFrameOptions: 'SAMEORIGIN',
+  });
+});
+
 app.use('/api/*', cors({
-  origin: (origin) => origin || 'http://localhost:8081',
+  origin: (origin, c) => resolveAllowedCorsOrigin(origin, c.req.url, c.env),
   allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
   credentials: true,
@@ -34,6 +50,17 @@ app.get('/media/*', async (c) => {
 });
 
 app.get('/api/health', (c) => c.json({ ok: true, service: 'daymoment-admin', runtime: 'cloudflare-workers' }));
+
+app.all('*', async (c, next) => {
+  const path = c.req.path;
+  if (path === '/api' || path.startsWith('/api/') || path.startsWith('/media/') || !c.env?.ASSETS) {
+    return next();
+  }
+  return serveAssetWithSecurityHeaders(c, {
+    frameAncestors: "'self'",
+    xFrameOptions: 'SAMEORIGIN',
+  });
+});
 
 app.notFound((c) => c.json({ ok: false, message: 'Endpoint admin tidak ditemukan.' }, 404));
 app.onError((error, c) => {

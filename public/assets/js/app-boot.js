@@ -1,0 +1,1 @@
+window.self!==window.top&&document.documentElement.classList.add("app-styles-ready"),document.querySelectorAll("link[data-async-font]").forEach(e=>{const t=()=>{e.media="all"};e.sheet?t():e.addEventListener("load",t,{once:!0})}),window.setTimeout(()=>{document.documentElement.classList.add("app-styles-ready")},8e3);
