@@ -128,8 +128,13 @@ editor.get('/editor/:token', async (c) => {
     invitation = await ensurePublishedActiveUntil(c.env, invitation);
     const allTpls = await activeTemplates(c.env);
     const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
+    const isCurrentVintage = canonicalTemplateCode(invitation.template_code) === 'vintage_classic';
     const availableTemplates = allTpls
       .filter((t) => t.is_active !== false)
+      .filter((t) => {
+        const isTargetVintage = canonicalTemplateCode(t.code) === 'vintage_classic';
+        return isCurrentVintage ? isTargetVintage : !isTargetVintage;
+      })
       .map((t) => ({
         id: t.id,
         code: t.code,
@@ -137,7 +142,7 @@ editor.get('/editor/:token', async (c) => {
         category: t.category,
         description: t.description,
         thumbnail: resolveTemplateThumbnail(t),
-        is_current: t.code === invitation.template_code,
+        is_current: canonicalTemplateCode(t.code) === canonicalTemplateCode(invitation.template_code),
         supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
       }));
 
@@ -149,6 +154,7 @@ editor.get('/editor/:token', async (c) => {
       greetings: [],
       invitees: [],
       inviteeCount: 0,
+      can_change_template: !isCurrentVintage,
       availableTemplates,
       appUrl: c.env.APP_URL,
     });
@@ -159,8 +165,13 @@ editor.get('/editor/:token', async (c) => {
 
   const allTpls = await activeTemplates(c.env);
   const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
+  const isCurrentVintage = canonicalTemplateCode(invitation.template_code) === 'vintage_classic';
   const availableTemplates = allTpls
     .filter((t) => t.is_active !== false)
+    .filter((t) => {
+      const isTargetVintage = canonicalTemplateCode(t.code) === 'vintage_classic';
+      return isCurrentVintage ? isTargetVintage : !isTargetVintage;
+    })
     .map((t) => ({
       id: t.id,
       code: t.code,
@@ -168,11 +179,11 @@ editor.get('/editor/:token', async (c) => {
       category: t.category,
       description: t.description,
       thumbnail: resolveTemplateThumbnail(t),
-      is_current: t.code === invitation.template_code,
+      is_current: canonicalTemplateCode(t.code) === canonicalTemplateCode(invitation.template_code),
       supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
     }));
 
-  return c.json({ ok: true, invitation, ...extras, availableTemplates, appUrl: c.env.APP_URL });
+  return c.json({ ok: true, invitation, ...extras, can_change_template: !isCurrentVintage, availableTemplates, appUrl: c.env.APP_URL });
 });
 
 editor.post('/invitation/change-template', async (c) => {
@@ -185,6 +196,13 @@ editor.post('/invitation/change-template', async (c) => {
   }
 
   const invitation = await invitationByToken(c.env, token);
+  if (canonicalTemplateCode(invitation.template_code) === 'vintage_classic') {
+    return c.json({
+      ok: false,
+      code: 'THEME_LOCKED_VINTAGE',
+      message: 'Template Vintage Classic memiliki fitur khusus dan tidak dapat diganti ke tema lain.',
+    }, 403);
+  }
   const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
 
   const allTpls = await activeTemplates(c.env);
@@ -195,6 +213,14 @@ editor.post('/invitation/change-template', async (c) => {
 
   if (!targetTemplate) {
     return c.json({ ok: false, message: 'Tema yang dipilih tidak ditemukan.' }, 404);
+  }
+
+  if (canonicalTemplateCode(targetTemplate.code) === 'vintage_classic') {
+    return c.json({
+      ok: false,
+      code: 'THEME_TARGET_VINTAGE_LOCKED',
+      message: 'Template Vintage Classic memiliki fitur khusus sehingga tidak dapat dipilih melalui fitur ganti tema.',
+    }, 403);
   }
 
   // Find matching package tier on the target template matching current package code

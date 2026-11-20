@@ -89,6 +89,8 @@ export default function BuilderPage({token}){
   const {invitation:i,media,giftAccounts,invitees,appUrl,availableTemplates}=state.data;
   const currentTemplateCode = selectedTemplateCode || i.template_code;
   const currentTemplateName = selectedTemplateName || i.template_name;
+  const isVintageTheme = isVintageTemplateCode(currentTemplateCode);
+  const canChangeTheme = !isVintageTheme && state.data?.can_change_template !== false;
 
   const fallbackTemplates = [
     {
@@ -128,12 +130,15 @@ export default function BuilderPage({token}){
     },
   ];
 
-  const templateList = (availableTemplates && availableTemplates.length > 0)
+  const rawTemplateList = (availableTemplates && availableTemplates.length > 0)
     ? availableTemplates
     : fallbackTemplates;
+  const templateList = rawTemplateList.filter((tpl) =>
+    isVintageTheme ? isVintageTemplateCode(tpl.code) : !isVintageTemplateCode(tpl.code),
+  );
 
   const handleChangeTemplate = async (targetTemplateCode) => {
-    if (targetTemplateCode === currentTemplateCode || isChangingTheme) return;
+    if (!canChangeTheme || isVintageTemplateCode(targetTemplateCode) || targetTemplateCode === currentTemplateCode || isChangingTheme) return;
     setIsChangingTheme(true);
     try {
       const res = await fetch('/api/invitation/change-template', {
@@ -223,7 +228,6 @@ export default function BuilderPage({token}){
       setPdfWorking(false);
     }
   };
-  const isVintageTheme = isVintageTemplateCode(currentTemplateCode);
   const handleVintageColorsChange = (nextColors) => {
     const normalized = normalizeVintageColors(nextColors);
     setVintageColors(normalized);
@@ -283,12 +287,14 @@ export default function BuilderPage({token}){
         </a>
         <span className="order-label">{i.order_code} · {i.package_name}</span>
       </div>
-      <div className="builder-topbar-action-wrap">
-        <button type="button" className="btn-topbar-change-theme" onClick={()=>setShowThemeModal(true)}>
-          <span className="btn-theme-icon">🎨</span>
-          <span className="btn-theme-text">Ganti Tema</span>
-        </button>
-      </div>
+      {canChangeTheme && (
+        <div className="builder-topbar-action-wrap">
+          <button type="button" className="btn-topbar-change-theme" onClick={()=>setShowThemeModal(true)}>
+            <span className="btn-theme-icon">🎨</span>
+            <span className="btn-theme-text">Ganti Tema</span>
+          </button>
+        </div>
+      )}
       <div className="save-state" id="saveState" data-state="saved">
         <i/><span>Tersimpan</span>
       </div>
@@ -462,7 +468,7 @@ export default function BuilderPage({token}){
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
         <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover elegan, profil mempelai, rangkaian acara, keluarga yang turut mengundang, serta petunjuk lokasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
       </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
-      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions">{isVintageTheme && <button type="button" className="btn-preview-change-theme" onClick={handleJumpToColorPanel} title="Atur warna latar &amp; ornamen">🎨 Warna</button>}<button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button><button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
+      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions">{isVintageTheme && <button type="button" className="btn-preview-change-theme" onClick={handleJumpToColorPanel} title="Atur warna latar &amp; ornamen">🎨 Warna</button>}{canChangeTheme && <button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button>}<button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
     <dialog className="publish-activation-dialog" id="publishActivationDialog"><div className="publish-activation-card"><span className="publish-activation-icon">✓</span><span className="eyebrow">Undangan berhasil diterbitkan</span><h2>Link aktif selama 2 bulan</h2><p>Masa aktif dimulai hari ini. Tamu dapat membuka undangan sampai:</p><strong className="publish-active-until" id="publishActiveUntil">-</strong><small>Tanggal berakhir ini tidak berubah saat undangan diedit ulang.</small><button className="button button-primary button-wide" id="continueAfterPublish" type="button">Lihat tautan undangan →</button></div></dialog>
     <dialog className="invitee-edit-dialog" id="inviteeEditDialog">
@@ -560,7 +566,7 @@ export default function BuilderPage({token}){
         </footer>
       </form>
     </dialog>
-    {showThemeModal && (
+    {canChangeTheme && showThemeModal && (
       <div className="theme-modal-overlay" role="dialog" aria-modal="true" onClick={() => !isChangingTheme && setShowThemeModal(false)}>
         <div className="theme-modal-card" onClick={(e) => e.stopPropagation()}>
           <header className="theme-modal-header">

@@ -63,11 +63,138 @@ function AuthShell({ children, asideTitle, asideCopy }) {
   </main>;
 }
 
+function AffiliateAuthPopup({
+  open,
+  tone = 'success',
+  eyebrow,
+  title,
+  message,
+  hint = '',
+  actionLabel = 'Mengerti',
+  secondaryAction = null,
+  onClose,
+}) {
+  const titleId = useId();
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose?.();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div
+      className="affiliate-modal-backdrop affiliate-auth-popup-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <div
+        className="affiliate-auth-popup-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <span className={`affiliate-auth-popup-icon is-${tone}`} aria-hidden="true">
+          {tone === 'success' ? '✓' : '!'}
+        </span>
+        {eyebrow && <span className="affiliate-auth-popup-eyebrow">{eyebrow}</span>}
+        <h2 id={titleId}>{title}</h2>
+        <p className="affiliate-auth-popup-message">{message}</p>
+        {hint && <p className="affiliate-auth-popup-hint">{hint}</p>}
+        <div className="affiliate-auth-popup-actions">
+          <button
+            type="button"
+            className="affiliate-submit"
+            data-auth-popup-close="1"
+            onClick={() => onClose?.()}
+          >
+            <span>{actionLabel}</span>
+          </button>
+          {secondaryAction?.href && (
+            <a className="affiliate-auth-popup-secondary" href={secondaryAction.href}>
+              {secondaryAction.label}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RegisterPage() {
   const [form, setForm] = useState({ fullName: '', nik: '', ktp: null, socialPlatform: '', socialHandle: '', socialFollowerCount: '', socialProof: null, phone: '', email: '', password: '', confirmation: '', accepted: false });
   const [socialPlatforms, setSocialPlatforms] = useState([]);
   const [state, setState] = useState({ loading: false, error: '', success: '' });
+  const [popup, setPopup] = useState(null);
+  const formRef = useRef(null);
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  const openErrorPopup = useCallback((message, { status } = {}) => {
+    if (status === 429) {
+      setPopup({
+        tone: 'warning',
+        eyebrow: 'BATAS PERANGKAT',
+        title: 'Pendaftaran Dibatasi Sementara',
+        message,
+        hint: 'Untuk keamanan, pendaftaran berulang dari perangkat atau jaringan yang sama dibatasi sementara.',
+        actionLabel: 'Mengerti',
+      });
+      return;
+    }
+    if (status === 409) {
+      setPopup({
+        tone: 'error',
+        eyebrow: 'DATA SUDAH TERDAFTAR',
+        title: 'Email atau NIK Sudah Terdaftar',
+        message,
+        hint: '',
+        actionLabel: 'Mengerti',
+      });
+      return;
+    }
+    setPopup({
+      tone: 'error',
+      eyebrow: 'PERIKSA PENDAFTARAN',
+      title: 'Pendaftaran Belum Berhasil',
+      message,
+      hint: '',
+      actionLabel: 'Mengerti',
+    });
+  }, []);
+
+  const closePopup = useCallback(() => {
+    const wasSuccess = popup?.tone === 'success';
+    setPopup(null);
+    if (wasSuccess) {
+      setState({ loading: false, error: '', success: '' });
+      setForm({
+        fullName: '',
+        nik: '',
+        ktp: null,
+        socialPlatform: socialPlatforms[0]?.name || '',
+        socialHandle: '',
+        socialFollowerCount: '',
+        socialProof: null,
+        phone: '',
+        email: '',
+        password: '',
+        confirmation: '',
+        accepted: false,
+      });
+      formRef.current?.reset();
+    }
+  }, [popup, socialPlatforms]);
+
   useEffect(() => {
     let active = true;
     affiliateApi('/registration-options').then((result) => {
@@ -81,19 +208,23 @@ function RegisterPage() {
   const submit = async (event) => {
     event.preventDefault();
     if (state.success || state.loading) return;
-    if (!/^\d{16}$/.test(form.nik)) return setState({ loading: false, error: 'NIK wajib terdiri dari 16 digit angka.', success: '' });
-    if (!form.ktp) return setState({ loading: false, error: 'Foto KTP wajib diunggah.', success: '' });
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.ktp.type)) return setState({ loading: false, error: 'Format foto KTP harus JPG, PNG, atau WEBP.', success: '' });
-    if (form.ktp.size > 4 * 1024 * 1024) return setState({ loading: false, error: 'Ukuran foto KTP maksimal 4 MB.', success: '' });
-    if (!form.socialPlatform) return setState({ loading: false, error: 'Pilih media sosial yang digunakan.', success: '' });
-    if (form.socialHandle.trim().length < 2) return setState({ loading: false, error: 'Username atau nama akun media sosial wajib diisi.', success: '' });
-    if (!/^\d+$/.test(form.socialFollowerCount)) return setState({ loading: false, error: 'Jumlah followers wajib diisi dengan angka.', success: '' });
-    if (!form.socialProof) return setState({ loading: false, error: 'Screenshot akun media sosial wajib diunggah.', success: '' });
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.socialProof.type)) return setState({ loading: false, error: 'Format screenshot media sosial harus JPG, PNG, atau WEBP.', success: '' });
-    if (form.socialProof.size > 4 * 1024 * 1024) return setState({ loading: false, error: 'Ukuran screenshot media sosial maksimal 4 MB.', success: '' });
-    if (form.password.length < 8) return setState({ loading: false, error: 'Password minimal 8 karakter.', success: '' });
-    if (form.password !== form.confirmation) return setState({ loading: false, error: 'Konfirmasi password belum sama.', success: '' });
-    if (!form.accepted) return setState({ loading: false, error: 'Setujui syarat program affiliate untuk melanjutkan.', success: '' });
+    const failValidation = (message) => {
+      setState({ loading: false, error: message, success: '' });
+      openErrorPopup(message);
+    };
+    if (!/^\d{16}$/.test(form.nik)) return failValidation('NIK wajib terdiri dari 16 digit angka.');
+    if (!form.ktp) return failValidation('Foto KTP wajib diunggah.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.ktp.type)) return failValidation('Format foto KTP harus JPG, PNG, atau WEBP.');
+    if (form.ktp.size > 4 * 1024 * 1024) return failValidation('Ukuran foto KTP maksimal 4 MB.');
+    if (!form.socialPlatform) return failValidation('Pilih media sosial yang digunakan.');
+    if (form.socialHandle.trim().length < 2) return failValidation('Username atau nama akun media sosial wajib diisi.');
+    if (!/^\d+$/.test(form.socialFollowerCount)) return failValidation('Jumlah followers wajib diisi dengan angka.');
+    if (!form.socialProof) return failValidation('Screenshot akun media sosial wajib diunggah.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(form.socialProof.type)) return failValidation('Format screenshot media sosial harus JPG, PNG, atau WEBP.');
+    if (form.socialProof.size > 4 * 1024 * 1024) return failValidation('Ukuran screenshot media sosial maksimal 4 MB.');
+    if (form.password.length < 8) return failValidation('Password minimal 8 karakter.');
+    if (form.password !== form.confirmation) return failValidation('Konfirmasi password belum sama.');
+    if (!form.accepted) return failValidation('Setujui syarat program affiliate untuk melanjutkan.');
     setState({ loading: true, error: '', success: '' });
     try {
       const payload = new FormData();
@@ -113,15 +244,25 @@ function RegisterPage() {
       });
       setState({ loading: false, error: '', success: result.message });
       setForm((current) => ({ ...current, password: '', confirmation: '', ktp: null, socialProof: null }));
+      setPopup({
+        tone: 'success',
+        eyebrow: 'PENDAFTARAN TERKIRIM',
+        title: 'Pendaftaran Berhasil',
+        message: result.message,
+        hint: 'Link verifikasi berlaku selama 24 jam. Cek kotak masuk atau folder spam emailmu.',
+        actionLabel: 'Mengerti',
+        secondaryAction: { label: 'Ke Halaman Login', href: '/login' },
+      });
     } catch (error) {
-      setState({ loading: false, error: friendlyAffiliateError(error), success: '' });
+      const friendly = friendlyAffiliateError(error);
+      setState({ loading: false, error: friendly, success: '' });
+      openErrorPopup(friendly, { status: error?.status });
     }
   };
   return <AuthShell asideTitle="Bagikan cerita baik lebih jauh." asideCopy="Jadilah bagian dari ekosistem Daymoment dan bantu lebih banyak pasangan menemukan undangan yang terasa personal.">
     <div className="affiliate-auth-heading"><span>BUAT AKUN PARTNER</span><h1>Daftar Affiliate</h1><p>Lengkapi data berikut. Setelah email terverifikasi, pendaftaran akan direview oleh admin Daymoment.</p></div>
     {state.error && <div className="affiliate-form-alert error" role="alert">{state.error}</div>}
-    {state.success && <div className="affiliate-form-alert success" role="status">{state.success}<span>Link verifikasi berlaku selama 24 jam.</span></div>}
-    <form className="affiliate-auth-form" onSubmit={submit}>
+    <form className="affiliate-auth-form" ref={formRef} onSubmit={submit}>
       <Field label="Nama lengkap" type="text" autoComplete="name" required minLength="2" maxLength="120" value={form.fullName} onChange={(e) => update('fullName', e.target.value)} placeholder="Nama lengkapmu"/>
       <Field label="NIK" type="text" inputMode="numeric" autoComplete="off" required minLength="16" maxLength="16" pattern="[0-9]{16}" value={form.nik} onChange={(e) => update('nik', e.target.value.replace(/\D/g, '').slice(0, 16))} placeholder="16 digit NIK"/>
       <label className="affiliate-field affiliate-ktp-field">
@@ -150,6 +291,17 @@ function RegisterPage() {
       <button className="affiliate-submit" type="submit" disabled={state.loading || Boolean(state.success)}>{state.loading ? 'Mendaftarkan akun…' : state.success ? 'Pendaftaran terkirim' : 'Daftar Affiliate'}<span>{state.success ? '✓' : '→'}</span></button>
     </form>
     <p className="affiliate-auth-switch">Sudah punya akun? <a href="/login">Login di sini</a></p>
+    <AffiliateAuthPopup
+      open={Boolean(popup)}
+      tone={popup?.tone || 'success'}
+      eyebrow={popup?.eyebrow}
+      title={popup?.title}
+      message={popup?.message}
+      hint={popup?.hint}
+      actionLabel={popup?.actionLabel}
+      secondaryAction={popup?.secondaryAction}
+      onClose={closePopup}
+    />
   </AuthShell>;
 }
 
@@ -240,9 +392,22 @@ function ReviewCorrectionPage() {
 }
 
 function LoginPage({ onLogin }) {
-  const query = new URLSearchParams(window.location.search);
+  const [showVerifiedPopup, setShowVerifiedPopup] = useState(
+    () => new URLSearchParams(window.location.search).get('verified') === '1',
+  );
   const [form, setForm] = useState({ email: '', password: '' });
   const [state, setState] = useState({ loading: false, error: '' });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('verified')) {
+      params.delete('verified');
+      const search = params.toString();
+      const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', nextUrl);
+    }
+  }, []);
+
   const submit = async (event) => {
     event.preventDefault();
     setState({ loading: true, error: '' });
@@ -256,7 +421,6 @@ function LoginPage({ onLogin }) {
   };
   return <AuthShell asideTitle="Selamat datang kembali." asideCopy="Masuk untuk melanjutkan perjalananmu sebagai partner dan menyiapkan link referral Daymoment.">
     <div className="affiliate-auth-heading"><span>AREA PARTNER</span><h1>Login Affiliate</h1><p>Gunakan akun yang emailnya sudah diverifikasi dan disetujui admin Daymoment.</p></div>
-    {query.get('verified') === '1' && <div className="affiliate-form-alert success">Email berhasil diverifikasi. Pendaftaranmu sedang menunggu review admin Daymoment.</div>}
     {state.error && <div className="affiliate-form-alert error" role="alert">{state.error}</div>}
     <form className="affiliate-auth-form" onSubmit={submit}>
       <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="nama@email.com"/>
@@ -265,6 +429,16 @@ function LoginPage({ onLogin }) {
       <button className="affiliate-submit" type="submit" disabled={state.loading}>{state.loading ? 'Memeriksa akun…' : 'Login'}<span>→</span></button>
     </form>
     <p className="affiliate-auth-switch">Belum punya akun? <a href="/register">Daftar affiliate</a></p>
+    <AffiliateAuthPopup
+      open={showVerifiedPopup}
+      tone="success"
+      eyebrow="VERIFIKASI EMAIL"
+      title="Email Berhasil Diverifikasi"
+      message="Email berhasil diverifikasi. Pendaftaranmu sedang menunggu review admin Daymoment."
+      hint="Kamu akan menerima email pemberitahuan setelah pendaftaran disetujui oleh admin."
+      actionLabel="Mengerti"
+      onClose={() => setShowVerifiedPopup(false)}
+    />
   </AuthShell>;
 }
 

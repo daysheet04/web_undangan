@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
@@ -12,6 +12,142 @@ const steps = [
   ['02', 'Lengkapi Undanganmu', 'Isi informasi Pasangan, Tempat Acara, Lokasi Acara, dan Unggah Foto sesuai momen indahmu'],
   ['03', 'Saatnya Berbagi', 'Bagikan undangan pernikahanmu kepada orang tersayang dan ajak mereka hadir dimomen yang paling berarti bagimu'],
 ];
+
+const TemplateCard = memo(function TemplateCard({ template, eager, hidden }) {
+  const slug = templateSlug(template);
+  return (
+    <article
+      className="template-card"
+      id={`template-card-${slug}`}
+      hidden={hidden}
+    >
+      <TemplateCover
+        template={template}
+        eager={eager}
+      />
+      <div className="template-card-body">
+        <div className="template-meta">
+          <span>{template.category}</span>
+          <span>{template.package_count} paket</span>
+        </div>
+        <h3>{template.name}</h3>
+        <p>{template.description}</p>
+        {template.starting_price && <p className="template-starting-price">Mulai {money(template.starting_price)}</p>}
+        <div className="card-actions">
+          <a className="button button-secondary" href={templatePreviewPath(template)}>Lihat Preview</a>
+          <a className="button button-primary" href={`/order?template=${encodeURIComponent(slug)}`}>Pilih Template</a>
+        </div>
+      </div>
+    </article>
+  );
+});
+
+const TemplateCatalogSection = memo(function TemplateCatalogSection({ templates, loading, error }) {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  const categories = useMemo(() => {
+    const map = new Map();
+    for (const template of templates) {
+      const label = String(template?.category || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, { key, label, count: 1 });
+      } else {
+        map.get(key).count += 1;
+      }
+    }
+    return [...map.values()];
+  }, [templates]);
+
+  useEffect(() => {
+    if (selectedCategory !== 'all' && categories.length > 0 && !categories.some((c) => c.key === selectedCategory)) {
+      setSelectedCategory('all');
+    }
+  }, [selectedCategory, categories]);
+
+  const visibleCount = useMemo(() => {
+    if (selectedCategory === 'all') return templates.length;
+    return templates.reduce(
+      (count, template) => (String(template?.category || '').trim().toLowerCase() === selectedCategory ? count + 1 : count),
+      0,
+    );
+  }, [templates, selectedCategory]);
+
+  return (
+    <section className="templates-section" id="templates">
+      <div className="section-heading">
+        <span className="eyebrow">Koleksi pilihan Daymoment</span>
+        <h2>Ingin desain simpel, romantis, atau mewah?</h2>
+        <p>Temukan desain undangan yang cocok dengan kalian</p>
+      </div>
+      {!loading && !error && templates.length > 0 && (
+        <div className="template-category-filter-wrap">
+          <div
+            className="template-category-filter"
+            role="tablist"
+            aria-label="Filter kategori template"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedCategory === 'all'}
+              data-template-category="all"
+              className={`template-category-pill${selectedCategory === 'all' ? ' is-active' : ''}`}
+              onClick={() => setSelectedCategory('all')}
+            >
+              <span>All</span>
+              <small>{templates.length}</small>
+            </button>
+            {categories.map((cat) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selectedCategory === cat.key}
+                data-template-category={cat.key}
+                key={cat.key}
+                className={`template-category-pill${selectedCategory === cat.key ? ' is-active' : ''}`}
+                onClick={() => setSelectedCategory(cat.key)}
+              >
+                <span>{cat.label}</span>
+                <small>{cat.count}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {loading ? <Loading /> : error ? <ErrorState error={error} /> : (
+        <div className="template-grid">
+          {!templates.length && (
+            <div className="template-empty">
+              <span>01</span>
+              <h3>Template pertama sedang disiapkan</h3>
+              <p>Koleksi baru akan hadir di area ini.</p>
+            </div>
+          )}
+          {templates.length > 0 && visibleCount === 0 && (
+            <div className="template-empty">
+              <span>00</span>
+              <h3>Belum ada template pada kategori ini</h3>
+              <p>Pilih kategori lain atau tampilkan semua desain undangan.</p>
+              <button type="button" className="button button-secondary" onClick={() => setSelectedCategory('all')}>
+                Tampilkan semua
+              </button>
+            </div>
+          )}
+          {templates.map((template, index) => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              eager={index < 3}
+              hidden={selectedCategory !== 'all' && String(template?.category || '').trim().toLowerCase() !== selectedCategory}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+});
 
 export default function HomePage() {
   const { data, loading, error } = useRemote('/api/templates');
@@ -84,19 +220,7 @@ export default function HomePage() {
       </div>
     </section>
 
-    <section className="templates-section" id="templates">
-      <div className="section-heading"><span className="eyebrow">Koleksi pilihan Daymoment</span><h2>Ingin desain simpel, romantis, atau mewah?</h2><p>Temukan desain undangan yang cocok dengan kalian</p></div>
-      {loading ? <Loading /> : error ? <ErrorState error={error} /> : <div className="template-grid">
-        {!templates.length && <div className="template-empty"><span>01</span><h3>Template pertama sedang disiapkan</h3><p>Koleksi baru akan hadir di area ini.</p></div>}
-        {templates.map((template, index) => <article className="template-card" id={`template-card-${templateSlug(template)}`} key={template.id}>
-          <TemplateCover
-            template={template}
-            eager={index < 3}
-          />
-          <div className="template-card-body"><div className="template-meta"><span>{template.category}</span><span>{template.package_count} paket</span></div><h3>{template.name}</h3><p>{template.description}</p>{template.starting_price && <p className="template-starting-price">Mulai {money(template.starting_price)}</p>}<div className="card-actions"><a className="button button-secondary" href={templatePreviewPath(template)}>Lihat Preview</a><a className="button button-primary" href={`/order?template=${encodeURIComponent(templateSlug(template))}`}>Pilih Template</a></div></div>
-        </article>)}
-      </div>}
-    </section>
+    <TemplateCatalogSection templates={templates} loading={loading} error={error} />
 
     <section className="steps-section" id="cara-kerja">
       <div className="section-heading"><span className="eyebrow">Langkah Pemesanan</span><h2>Pesan Undanganmu Dalam 3 Langkah</h2></div>

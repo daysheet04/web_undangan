@@ -1625,5 +1625,127 @@ a { color: inherit; }
   }
 }
 
+.affiliate-auth-popup-backdrop {
+  padding: clamp(16px, 4vw, 32px);
+}
+
+.affiliate-auth-popup-card {
+  position: relative;
+  width: min(440px, 100%);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 30px 28px 26px;
+  border-radius: 22px;
+  background: #fbfaf6;
+  border: 1px solid #dfe5df;
+  box-shadow: 0 28px 70px rgba(10, 35, 28, .32);
+  animation: affiliateScaleUp .2s cubic-bezier(.16, 1, .3, 1);
+}
+
+.affiliate-auth-popup-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 400;
+}
+
+.affiliate-auth-popup-icon.is-success {
+  background: linear-gradient(145deg, #287357, #17493d);
+  box-shadow: 0 12px 26px rgba(23, 73, 61, .22);
+}
+
+.affiliate-auth-popup-icon.is-warning {
+  background: linear-gradient(145deg, #c69148, #a7742f);
+  box-shadow: 0 12px 26px rgba(167, 116, 47, .24);
+}
+
+.affiliate-auth-popup-icon.is-error {
+  background: linear-gradient(145deg, #bd5c4f, #984237);
+  box-shadow: 0 12px 26px rgba(152, 66, 55, .24);
+}
+
+.affiliate-auth-popup-eyebrow {
+  color: #b17d39;
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.affiliate-auth-popup-card h2 {
+  margin: 0;
+  color: #17352f;
+  font-family: Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+
+.affiliate-auth-popup-message {
+  margin: 2px 0 0;
+  color: #41554e;
+  font-size: .82rem;
+  line-height: 1.65;
+}
+
+.affiliate-auth-popup-hint {
+  margin: 0;
+  color: #778781;
+  font-size: .72rem;
+  line-height: 1.55;
+}
+
+.affiliate-auth-popup-actions {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.affiliate-auth-popup-actions .affiliate-submit {
+  min-height: 46px;
+}
+
+.affiliate-auth-popup-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  color: #17493d;
+  border: 1px solid #d4dfd9;
+  border-radius: 11px;
+  background: #fff;
+  font-size: .78rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+
+.affiliate-auth-popup-secondary:hover {
+  background: #f0f6f2;
+  border-color: #9cb5a8;
+}
+
+@media (max-width: 480px) {
+  .affiliate-auth-popup-card {
+    padding: 24px 20px 22px;
+    border-radius: 18px;
+  }
+
+  .affiliate-auth-popup-card h2 {
+    font-size: 1.32rem;
+  }
+}
+
 
 

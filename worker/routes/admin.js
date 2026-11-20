@@ -1644,6 +1644,70 @@ admin.patch('/admin/affiliates/:affiliateId/status', async (c) => {
   });
 });
 
+admin.delete('/admin/affiliates/:affiliateId', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Pengelolaan affiliate hanya tersedia pada database utama.' }, 422);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const db = database(c.env);
+  const { data: current, error: readError } = await db.from('affiliate_accounts')
+    .select('id,full_name,email,status,ktp_object_key,social_proof_object_key')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) return c.json({ ok: false, message: 'Data affiliate tidak ditemukan.' }, 404);
+
+  const isR2Key = (val) => {
+    const s = String(val || '').trim();
+    return Boolean(s && !s.startsWith('/') && !/^https?:\/\//i.test(s) && !s.startsWith('data:'));
+  };
+  const r2Keys = new Set();
+  if (isR2Key(current.ktp_object_key)) r2Keys.add(current.ktp_object_key.trim());
+  if (isR2Key(current.social_proof_object_key)) r2Keys.add(current.social_proof_object_key.trim());
+
+  try {
+    const { data: withdrawalRows } = await db.from('affiliate_withdrawals')
+      .select('transfer_proof_object_key')
+      .eq('affiliate_id', current.id);
+    (withdrawalRows || []).forEach((row) => {
+      if (isR2Key(row?.transfer_proof_object_key)) r2Keys.add(row.transfer_proof_object_key.trim());
+    });
+  } catch {}
+
+  try {
+    const { data: upgradeRows } = await db.from('affiliate_pro_upgrade_requests')
+      .select('proof_object_key')
+      .eq('affiliate_id', current.id);
+    (upgradeRows || []).forEach((row) => {
+      if (isR2Key(row?.proof_object_key)) r2Keys.add(row.proof_object_key.trim());
+    });
+  } catch {}
+
+  try {
+    await db.from('affiliate_login_history').delete().eq('affiliate_id', current.id);
+  } catch {}
+
+  const { error: detachOrdersError } = await db.from('orders')
+    .update({ affiliate_id: null })
+    .eq('affiliate_id', current.id);
+  if (detachOrdersError) throw detachOrdersError;
+
+  const { error: deleteError } = await db.from('affiliate_accounts')
+    .delete()
+    .eq('id', current.id);
+  if (deleteError) throw deleteError;
+
+  if (c.env.MEDIA && r2Keys.size > 0) {
+    await Promise.allSettled([...r2Keys].map((key) => c.env.MEDIA.delete(key).catch(() => {})));
+  }
+
+  return c.json({
+    ok: true,
+    deleted_id: current.id,
+    message: `Data affiliate ${current.full_name} berhasil dihapus permanen.`,
+  });
+});
+
 admin.patch('/admin/affiliates/:affiliateId/review', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Review affiliate hanya tersedia pada database utama.' }, 422);
   const input = await c.req.json().catch(() => ({}));
@@ -2403,6 +2467,85 @@ admin.patch('/admin/orders/:code', async (c) => {
 
   const updatedOrder = (await adminOrders(c.env)).find((item) => item.order_code === currentOrder.order_code);
   return c.json({ ok: true, order: updatedOrder, message: 'Data pesanan berhasil diperbarui.' });
+});
+
+admin.delete('/admin/orders/:code', async (c) => {
+  const code = cleanText(c.req.param('code'), 64);
+  if (!code) return c.json({ ok: false, message: 'Kode order tidak valid.' }, 400);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    if (!DEMO_STATE.orders.has(code)) {
+      return c.json({ ok: false, message: 'Data customer / order tidak ditemukan.' }, 404);
+    }
+    DEMO_STATE.orders.delete(code);
+    return c.json({
+      ok: true,
+      deleted_order_code: code,
+      message: 'Data customer dan seluruh catatan afiliasinya berhasil dihapus permanen.',
+    });
+  }
+
+  const db = database(c.env);
+  const { data: order, error: orderReadError } = await db.from('orders')
+    .select('id,order_code,customer_name,affiliate_id,referral_name,affiliate_commission_amount')
+    .eq('order_code', code)
+    .maybeSingle();
+  if (orderReadError) throw orderReadError;
+  if (!order) return c.json({ ok: false, message: 'Data customer / order tidak ditemukan.' }, 404);
+
+  const { data: invitation, error: invReadError } = await db.from('invitations')
+    .select('id,slug,cover_image,groom_photo,bride_photo,music_file')
+    .eq('order_id', order.id)
+    .maybeSingle();
+  if (invReadError) throw invReadError;
+
+  const isR2Key = (val) => {
+    const s = String(val || '').trim();
+    return Boolean(s && !s.startsWith('/') && !/^https?:\/\//i.test(s) && !s.startsWith('data:'));
+  };
+  const r2Keys = new Set();
+
+  if (invitation?.id) {
+    [invitation.cover_image, invitation.groom_photo, invitation.bride_photo, invitation.music_file]
+      .filter(isR2Key)
+      .forEach((key) => r2Keys.add(key.trim()));
+
+    try {
+      const { data: mediaRows } = await db.from('invitation_media')
+        .select('file_path')
+        .eq('invitation_id', invitation.id);
+      (mediaRows || []).forEach((row) => {
+        if (isR2Key(row?.file_path)) r2Keys.add(row.file_path.trim());
+      });
+    } catch {}
+
+    try {
+      await db.from('site_settings').delete().eq('key', `inv_theme_${invitation.id}`);
+    } catch {}
+  }
+
+  const { error: deleteOrderError } = await db.from('orders').delete().eq('id', order.id);
+  if (deleteOrderError) throw deleteOrderError;
+
+  if (invitation?.slug) {
+    try {
+      const edgeCache = globalThis.caches?.default;
+      if (edgeCache) {
+        await edgeCache.delete(new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(invitation.slug)}`));
+      }
+    } catch {}
+  }
+
+  if (c.env.MEDIA && r2Keys.size > 0) {
+    await Promise.allSettled([...r2Keys].map((key) => c.env.MEDIA.delete(key).catch(() => {})));
+  }
+
+  return c.json({
+    ok: true,
+    deleted_order_code: order.order_code,
+    had_affiliate: Boolean(order.affiliate_id || order.referral_name || Number(order.affiliate_commission_amount || 0) > 0),
+    message: `Data customer ${order.customer_name} (${order.order_code}) dan seluruh catatan terkait di data affiliate berhasil dihapus permanen.`,
+  });
 });
 
 admin.patch('/admin/orders/:code/website', async (c) => {

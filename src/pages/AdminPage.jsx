@@ -780,7 +780,7 @@ function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onRese
   </>;
 }
 
-function CustomerEditorPanel({ orders, working, onSaveWebsite, onReload }) {
+function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, onReload }) {
   const [query, setQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'paid' | 'free'
   const [startDate, setStartDate] = useState('');
@@ -1143,6 +1143,27 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onReload }) {
                         <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                       </svg>
                     </a>
+                  )}
+                  {onDeleteOrder && (
+                    <button
+                      type="button"
+                      className="editor-delete-btn"
+                      data-delete-customer-order={order.order_code}
+                      disabled={working === `delete-order:${order.order_code}`}
+                      onClick={() => {
+                        if (window.confirm(`Hapus permanen data customer ${order.customer_name} (${order.order_code})?
+
+Data order, undangan, website terbit, serta komisi & catatan order ini di semua data affiliate akan ikut terhapus.`)) {
+                          onDeleteOrder(order);
+                        }
+                      }}
+                      title="Hapus data customer & catatan di affiliate"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                      <span>{working === `delete-order:${order.order_code}` ? 'Menghapus...' : 'Hapus'}</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -2044,7 +2065,7 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   </>;
 }
 
-function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave }) {
+function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave, onDelete }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -2085,6 +2106,12 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
     if (nextStatus === 'suspended' && !window.confirm(`Nonaktifkan akun affiliate ${affiliate.full_name}? Seluruh sesi loginnya akan dikeluarkan.`)) return;
     onStatus(affiliate.id, nextStatus);
   };
+  const handleDelete = (affiliate) => {
+    if (!window.confirm(`Hapus permanen data affiliate ${affiliate.full_name} (${affiliate.email})?
+
+Akun affiliate, sesi login, pengaturan produk, data traffic, dan riwayat penarikannya akan dihapus permanen.`)) return;
+    onDelete?.(affiliate);
+  };
 
   if (loading) return <div className="admin-affiliate-review-state">Memuat data affiliate...</div>;
   if (error) return <div className="admin-affiliate-review-state is-error"><span>{error}</span><button type="button" onClick={onReload}>Coba lagi</button></div>;
@@ -2102,7 +2129,7 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
         <div className="admin-affiliate-data-avatar">{String(affiliate.full_name || 'A').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
         <div className="admin-affiliate-data-identity"><div><h3>{affiliate.full_name}</h3><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span><span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span></div><p>{affiliate.email}</p><small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small></div>
         <dl><div><dt>WhatsApp</dt><dd>{affiliate.phone || '-'}</dd></div><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Upgrade akun</dt><dd>{affiliate.account_tier === 'pro' ? `Pro · ${affiliate.pro_source === 'payment' ? 'Pembayaran' : affiliate.pro_source === 'social' ? 'Media sosial' : 'Admin'}` : 'Basic'}</dd></div><div><dt>Disetujui</dt><dd>{affiliate.reviewed_at ? dateFormat.format(new Date(affiliate.reviewed_at)) : '-'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{affiliate.updated_at ? dateFormat.format(new Date(affiliate.updated_at)) : '-'}</dd></div></dl>
-        <div className="admin-affiliate-data-actions"><button className="edit" type="button" disabled={Boolean(working)} onClick={() => startEdit(affiliate)}>Edit data</button><button className={affiliate.status === 'active' ? 'disable' : 'enable'} type="button" disabled={working === `status:${affiliate.id}`} onClick={() => toggleStatus(affiliate)}>{working === `status:${affiliate.id}` ? 'Memproses...' : affiliate.status === 'active' ? 'Nonaktifkan akun' : 'Aktifkan akun'}</button></div>
+        <div className="admin-affiliate-data-actions"><button className="edit" type="button" disabled={Boolean(working)} onClick={() => startEdit(affiliate)}>Edit data</button><button className={affiliate.status === 'active' ? 'disable' : 'enable'} type="button" disabled={Boolean(working)} onClick={() => toggleStatus(affiliate)}>{working === `status:${affiliate.id}` ? 'Memproses...' : affiliate.status === 'active' ? 'Nonaktifkan akun' : 'Aktifkan akun'}</button><button className="delete" type="button" data-delete-affiliate={affiliate.id} disabled={Boolean(working)} onClick={() => handleDelete(affiliate)}>{working === `delete:${affiliate.id}` ? 'Menghapus...' : 'Hapus data'}</button></div>
       </article>) : <div className="admin-affiliate-review-state">Tidak ada affiliate yang cocok dengan filter.</div>}
       {filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(page - 1) * 10 + 1}–{Math.min(page * 10, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman data affiliate"><button type="button" className="direction" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === page ? 'is-active' : ''} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>›</button></nav></div>}
     </section>
@@ -2719,6 +2746,7 @@ export default function AdminPage() {
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [reportCarrier, setReportCarrier] = useState('all');
+  const [feeReportPage, setFeeReportPage] = useState(1);
   const [editorQuery, setEditorQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -3454,6 +3482,10 @@ export default function AdminPage() {
   }, [templateCatalog]);
 
   useEffect(() => {
+    setFeeReportPage(1);
+  }, [reportCarrier, startDate, endDate, activeView]);
+
+  useEffect(() => {
     setShowNotifications(false);
     const viewCategoryMap = {
       'order-history': 'orders',
@@ -3823,6 +3855,27 @@ export default function AdminPage() {
     }
   };
 
+  const deleteCustomerOrder = async (order) => {
+    if (!order?.order_code) return false;
+    setWorking(`delete-order:${order.order_code}`);
+    try {
+      const result = await del(`/api/admin/orders/${encodeURIComponent(order.order_code)}`);
+      await Promise.all([
+        reload(),
+        affiliateReviews.data ? loadAffiliateReviews() : Promise.resolve(),
+        withdrawalAdmin.data ? loadWithdrawals() : Promise.resolve(),
+        affiliateTraffic.data ? loadAffiliateTraffic() : Promise.resolve(),
+      ]);
+      window.showToast?.(result.message || 'Data customer dan seluruh catatan afiliasinya berhasil dihapus.');
+      return true;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal menghapus data customer.', 'error');
+      return false;
+    } finally {
+      setWorking('');
+    }
+  };
+
   const createComplimentaryOrder = async (values) => {
     setWorking('complimentary:create');
     try {
@@ -3945,6 +3998,42 @@ export default function AdminPage() {
       return true;
     } catch (failure) {
       window.showToast?.(failure.message, 'error');
+      return false;
+    } finally {
+      setAffiliateReviewWorking('');
+    }
+  };
+
+  const deleteAffiliateData = async (affiliate) => {
+    if (!affiliate?.id) return false;
+    setAffiliateReviewWorking(`delete:${affiliate.id}`);
+    try {
+      const result = await del(`/api/admin/affiliates/${encodeURIComponent(affiliate.id)}`);
+      setAffiliateReviews((current) => {
+        if (!current.data) return current;
+        const affiliates = current.data.affiliates.filter((item) => item.id !== affiliate.id);
+        return {
+          ...current,
+          data: {
+            ...current.data,
+            affiliates,
+            summary: {
+              pending: affiliates.filter((item) => item.status === 'pending').length,
+              active: affiliates.filter((item) => item.status === 'active').length,
+              rejected: affiliates.filter((item) => item.status === 'rejected').length,
+            },
+          },
+        };
+      });
+      await Promise.all([
+        reload(),
+        withdrawalAdmin.data ? loadWithdrawals() : Promise.resolve(),
+        affiliateTraffic.data ? loadAffiliateTraffic() : Promise.resolve(),
+      ]);
+      window.showToast?.(result.message || 'Data affiliate berhasil dihapus permanen.');
+      return true;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal menghapus data affiliate.', 'error');
       return false;
     } finally {
       setAffiliateReviewWorking('');
@@ -4705,7 +4794,7 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <CustomerEditorPanel orders={orders} working={working} onSaveWebsite={saveWebsiteAccess} onReload={reload} />
+        <CustomerEditorPanel orders={orders} working={working} onSaveWebsite={saveWebsiteAccess} onDeleteOrder={deleteCustomerOrder} onReload={reload} />
       </section>
     </AdminTemplate>;
   }
@@ -4789,6 +4878,11 @@ export default function AdminPage() {
       }))
     ];
     const isFilterActive = Boolean(startDate || endDate || reportCarrier !== 'all');
+    const feeReportPageSize = 10;
+    const feeReportPageCount = Math.max(1, Math.ceil(reportOrders.length / feeReportPageSize));
+    const currentFeeReportPage = Math.min(feeReportPage, feeReportPageCount);
+    const pagedReportOrders = reportOrders.slice((currentFeeReportPage - 1) * feeReportPageSize, currentFeeReportPage * feeReportPageSize);
+    const feeReportPaginationItems = affiliatePaginationItems(currentFeeReportPage, feeReportPageCount);
 
     return <AdminTemplate sidebar={sidebarNavigation}>
       <section className="admin-shell admin-view-fee-report">
@@ -4915,7 +5009,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reportOrders.length ? reportOrders.map((order) => (
+                    {pagedReportOrders.length ? pagedReportOrders.map((order) => (
                       <tr key={`report-${order.id || order.order_code}`}>
                         <td>
                           <div className="carrier-cell-user">
@@ -4954,6 +5048,45 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+
+              {reportOrders.length > 0 && (
+                <div className="admin-affiliate-pagination admin-fee-report-pagination">
+                  <span>
+                    Menampilkan {(currentFeeReportPage - 1) * feeReportPageSize + 1}–{Math.min(currentFeeReportPage * feeReportPageSize, reportOrders.length)} dari {reportOrders.length} data
+                  </span>
+                  <nav aria-label="Halaman laporan fee">
+                    <button
+                      type="button"
+                      className="direction"
+                      disabled={currentFeeReportPage === 1}
+                      onClick={() => setFeeReportPage((v) => Math.max(1, v - 1))}
+                    >
+                      ‹
+                    </button>
+                    {feeReportPaginationItems.map((item) => typeof item === 'number' ? (
+                      <button
+                        type="button"
+                        className={item === currentFeeReportPage ? 'is-active' : ''}
+                        aria-current={item === currentFeeReportPage ? 'page' : undefined}
+                        key={item}
+                        onClick={() => setFeeReportPage(item)}
+                      >
+                        {item}
+                      </button>
+                    ) : (
+                      <span className="ellipsis" key={item}>…</span>
+                    ))}
+                    <button
+                      type="button"
+                      className="direction"
+                      disabled={currentFeeReportPage === feeReportPageCount}
+                      onClick={() => setFeeReportPage((v) => Math.min(feeReportPageCount, v + 1))}
+                    >
+                      ›
+                    </button>
+                  </nav>
+                </div>
+              )}
             </section>
           </div>
 
@@ -5107,7 +5240,7 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <AffiliateDataPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} onReload={loadAffiliateReviews} onStatus={updateAffiliateStatus} onSave={saveAffiliateData}/>
+        <AffiliateDataPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} onReload={loadAffiliateReviews} onStatus={updateAffiliateStatus} onSave={saveAffiliateData} onDelete={deleteAffiliateData}/>
       </section>
     </AdminTemplate>;
   }
