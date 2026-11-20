@@ -150,7 +150,7 @@ export function Layout({ children, title, className = '', navigation = null }) {
     }
   };
 
-  if (!stylesReady) return <Loading />;
+  if (!stylesReady) return <Loading fullscreen />;
   return <>
     <header className="site-header-wrapper">
       <div className={`site-header-pill ${isScrolled ? 'is-scrolled' : ''} ${menuOpen ? 'menu-expanded' : ''}`}>
@@ -258,10 +258,10 @@ export function Layout({ children, title, className = '', navigation = null }) {
   </>;
 }
 
-export function Loading({ showLabel = false }) {
+export function Loading({ showLabel = false, fullscreen = false }) {
   return (
-    <div className="app-loading" role="status" aria-live="polite" aria-label="Sedang memuat">
-      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" aria-hidden="true" />
+    <div className={fullscreen ? 'app-loading app-loading-fullscreen' : 'app-loading'} role="status" aria-live="polite" aria-label="Sedang memuat">
+      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" />
       {showLabel && <p>Memuat Daymoment…</p>}
     </div>
   );

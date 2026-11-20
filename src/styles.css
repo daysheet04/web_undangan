@@ -1,11 +1,34 @@
 #root { min-height: 100%; }
-.invitation-loading {
-  min-height: 100vh;
-  min-height: 100svh;
-  height: 100%;
+html:has(.invitation-loading, .app-loading-fullscreen, .builder-loading-shell) {
+  overflow: hidden !important;
+  scrollbar-gutter: auto !important;
+}
+.app-loading {
+  min-height: 45vh;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 14px;
+  padding: 2rem;
+  text-align: center;
+}
+.invitation-loading,
+.app-loading.app-loading-fullscreen,
+.builder-loading-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  align-content: center;
   background: #fbfaf7;
+  overflow: hidden;
 }
 .invitation-loading-mark {
   width: 34px;
@@ -18,31 +41,38 @@
 .invitation-loading-logo,
 .app-loading-logo {
   display: block;
-  width: clamp(132px, 20vw, 184px);
+  width: 168px;
+  max-width: 44vw;
   height: auto;
-  filter: drop-shadow(0 12px 25px rgba(8, 52, 65, .13));
-  transform-origin: center;
+  aspect-ratio: 900 / 323;
+  transform-origin: center center;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
   animation: daymoment-loading-logo 1.45s cubic-bezier(.4, 0, .2, 1) infinite;
-}
-.app-loading {
-  align-content: center;
-  gap: 14px;
 }
 .app-loading p {
   margin: 0;
   color: #567078;
   font-size: .78rem;
 }
+.app-loading.app-loading-fullscreen p {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 46px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  margin: 0;
+}
 @keyframes invitation-loading-spin { to { transform: rotate(360deg); } }
 @keyframes daymoment-loading-logo {
-  0%, 100% { opacity: .62; transform: translateY(2px) scale(.975); }
-  50% { opacity: 1; transform: translateY(-3px) scale(1); }
+  0%, 100% { opacity: .45; transform: translate3d(0, 0, 0) scale(.94); }
+  50% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .invitation-loading-mark { animation: none; }
   .invitation-loading-logo, .app-loading-logo { animation: none; }
 }
-.app-loading, .app-error {
+.app-error {
   min-height: 70vh;
   display: grid;
   place-items: center;
@@ -70,9 +100,7 @@ body.builder-page #root {
   min-height: 100vh;
   min-height: 100svh;
 }
-body.builder-page .app-loading,
-body.builder-page .app-error,
-.builder-loading-shell {
+body.builder-page .app-error {
   min-height: 100vh;
   min-height: 100svh;
   height: 100%;

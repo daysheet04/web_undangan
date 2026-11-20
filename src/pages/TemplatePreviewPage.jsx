@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, ErrorState } from '../components/Layout.jsx';
+import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
@@ -79,7 +79,7 @@ export default function TemplatePreviewPage({ code }) {
     }
   }, [verifiedReferralCode, loadedTemplateCode, loadedTemplateName, hasLoadedPackages]);
 
-  if (loading) return <Layout className="preview-page" />;
+  if (loading) return <Layout className="preview-page"><Loading fullscreen /></Layout>;
   if (error) return <Layout className="preview-page"><ErrorState error={error} /></Layout>;
 
   const template = data.template;

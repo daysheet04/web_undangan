@@ -44,9 +44,7 @@ export default function AffiliateStorePage({ referralCode }) {
   }, [loading, suspended, error, resolvedCode]);
 
   if (loading) return <Layout className="homepage affiliate-store-page" title="Memeriksa Link Referral — Daymoment" navigation={limitedNavigation}>
-    <section className="affiliate-referral-check" aria-live="polite">
-      <Loading showLabel/>
-    </section>
+    <Loading fullscreen showLabel/>
   </Layout>;
 
   if (suspended) return <Layout className="homepage affiliate-store-page" title="Link Referral Tidak Aktif — Daymoment" navigation={limitedNavigation}>

@@ -24,7 +24,7 @@ export default function OrderPage() {
     }
   }, [data, form.package_code]);
 
-  if (loading) return <Layout className="order-page"><Loading /></Layout>;
+  if (loading) return <Layout className="order-page"><Loading fullscreen /></Layout>;
   if (error) return <Layout className="order-page"><ErrorState error={error} /></Layout>;
   const template = data.template;
   const requestedPackage = query.get('package');

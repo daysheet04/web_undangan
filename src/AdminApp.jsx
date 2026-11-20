@@ -7,7 +7,7 @@ const InvitationPage = lazy(() => import('./pages/InvitationPage.jsx'));
 function RouteLoading() {
   return (
     <div className="invitation-loading" role="status" aria-label="Memuat halaman">
-      <img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" aria-hidden="true" />
+      <img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" />
     </div>
   );
 }

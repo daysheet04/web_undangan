@@ -36,7 +36,7 @@ export default function PaymentPage({ code }) {
     if (editorUrl) window.location.replace(editorUrl);
   }, [editorUrl]);
 
-  if (loading) return <Layout className="payment-page"><Loading /></Layout>;
+  if (loading) return <Layout className="payment-page"><Loading fullscreen /></Layout>;
   if (error) return <Layout className="payment-page"><ErrorState error={error} /></Layout>;
   const order = data.order;
 
