@@ -1,5 +1,6 @@
 import { database, many, one } from './database.js';
 import { cleanText } from './helpers.js';
+import { extractVintageColorsFromPayload, normalizeVintageColors } from '../../src/lib/vintageThemeColors.js';
 
 export function canonicalTemplateCode(rawCode) {
   const code = String(rawCode || '').toLowerCase().trim();
@@ -14,6 +15,9 @@ export function canonicalTemplateCode(rawCode) {
   }
   if (code === 'verdant_vow' || code === 'verdant-vow' || code === 'modern_javanese' || code === 'modern-javanese') {
     return 'verdant_vow';
+  }
+  if (code === 'vintage_classic' || code === 'vintage-classic' || code === 'classic_vintage' || code === 'classic-vintage' || code === 'vintage_editorial' || code === 'vintage-editorial') {
+    return 'vintage_classic';
   }
   return code;
 }
@@ -86,6 +90,16 @@ const FALLBACK_TEMPLATES = [
       { id: 10, code: 'essential', name: 'Essential', tagline: 'Undangan garden 4D yang cantik dan ringan.', price: 129000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
       { id: 11, code: 'signature', name: 'Signature', tagline: 'Garden story dengan musik dan ucapan tamu.', price: 199000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
       { id: 12, code: 'prestige', name: 'Prestige', tagline: 'Pengalaman 4D lengkap dengan seluruh fitur premium.', price: 299000, gallery_limit: 5, has_music: true, has_gift: true, has_wishes: true, sort_order: 3, is_active: true },
+    ],
+  },
+  {
+    id: 5, code: 'vintage_classic', name: 'Vintage Classic', category: 'Vintage Editorial',
+    description: 'Undangan vintage klasik bernuansa kertas gading hangat dengan bingkai arch heirloom, ornamen ukiran tinta botani, segel lilin, dan animasi transisi yang lembut.',
+    thumbnail: '/assets/images/templates/vintage-classic/demo-cover.webp', phone_cover: null, is_active: true,
+    template_packages: [
+      { id: 13, code: 'essential', name: 'Essential', tagline: 'Undangan klasik elegan yang cantik dan ringkas.', price: 58000, gallery_limit: 2, has_music: false, has_gift: false, has_wishes: false, sort_order: 1, is_active: true },
+      { id: 14, code: 'signature', name: 'Signature', tagline: 'Lebih hidup dengan musik latar dan kartu RSVP ucapan.', price: 95000, gallery_limit: 3, has_music: true, has_gift: false, has_wishes: true, sort_order: 2, is_active: true },
+      { id: 15, code: 'prestige', name: 'Prestige', tagline: 'Pengalaman vintage editorial lengkap dengan amplop digital.', price: 99000, gallery_limit: 5, has_music: true, has_gift: true, has_wishes: true, sort_order: 3, is_active: true },
     ],
   },
 ];
@@ -196,6 +210,84 @@ function mergeInvitationOrder(invitation, order) {
   };
 }
 
+function isMissingThemeColorsColumnError(error) {
+  const code = String(error?.code || '');
+  const msg = String(error?.message || error?.details || '');
+  return code === '42703' || code === 'PGRST204' || /theme_colors/i.test(msg);
+}
+
+async function loadThemeColorsFallback(env, invitationId) {
+  if (!invitationId || !hasRealSupabaseConfig(env)) return null;
+  try {
+    const { data, error } = await database(env)
+      .from('site_settings')
+      .select('value')
+      .eq('key', `inv_theme_${invitationId}`)
+      .maybeSingle();
+    if (error || !data?.value) return null;
+    return normalizeVintageColors(data.value, { fallbackToDefaults: false });
+  } catch {
+    return null;
+  }
+}
+
+async function saveThemeColorsFallback(env, invitationId, themeColors) {
+  if (!invitationId || !themeColors || !hasRealSupabaseConfig(env)) return;
+  const { error } = await database(env).from('site_settings').upsert(
+    {
+      key: `inv_theme_${invitationId}`,
+      value: JSON.stringify(themeColors),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'key' },
+  );
+  if (error) throw error;
+}
+
+async function hydrateInvitationThemeColors(env, merged) {
+  if (!merged) return merged;
+  const direct = extractVintageColorsFromPayload(merged);
+  if (direct) {
+    return { ...merged, theme_colors: direct };
+  }
+  const fallback = await loadThemeColorsFallback(env, merged.id);
+  return { ...merged, theme_colors: fallback || null };
+}
+
+export async function updateInvitationWithThemeColors(env, invitation, fields = {}, themeColors = null) {
+  const cleanFields = { ...(fields || {}) };
+  if (!hasRealSupabaseConfig(env)) {
+    const order = [...(demoState().orders.values?.() || [])].find(
+      (item) => item.editor_token === invitation.editor_token,
+    );
+    if (order) {
+      Object.assign(order, cleanFields);
+      if (themeColors) {
+        order.theme_colors = themeColors;
+      }
+    }
+    return;
+  }
+
+  const db = database(env);
+  const payload = themeColors ? { ...cleanFields, theme_colors: themeColors } : cleanFields;
+  if (!Object.keys(payload).length) return;
+
+  const { error } = await db.from('invitations').update(payload).eq('id', invitation.id);
+  if (!error) return;
+
+  if (themeColors && isMissingThemeColorsColumnError(error)) {
+    if (Object.keys(cleanFields).length) {
+      const { error: baseError } = await db.from('invitations').update(cleanFields).eq('id', invitation.id);
+      if (baseError) throw baseError;
+    }
+    await saveThemeColorsFallback(env, invitation.id, themeColors);
+    return;
+  }
+
+  throw error;
+}
+
 export async function invitationByToken(env, token) {
   if (!hasRealSupabaseConfig(env)) {
     const order = [...(demoState().orders.values?.() || [])].find((item) => item.editor_token === token);
@@ -218,6 +310,7 @@ export async function invitationByToken(env, token) {
       throw error;
     }
     return {
+      ...order,
       id: `demo-${order.order_code}`,
       order_id: order.id,
       editor_token: order.editor_token,
@@ -239,11 +332,12 @@ export async function invitationByToken(env, token) {
       customer_email: order.customer_email,
       customer_phone: order.customer_phone,
       slug: order.slug || 'demo-undangan',
+      theme_colors: extractVintageColorsFromPayload(order) || null,
       is_active: Boolean(order.is_active),
       active_until: order.active_until || null,
       published_at: order.published_at || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: order.created_at || new Date().toISOString(),
+      updated_at: order.updated_at || new Date().toISOString(),
     };
   }
 
@@ -262,7 +356,7 @@ export async function invitationByToken(env, token) {
     throw error;
   }
   const invitation = await one(db.from('invitations').select('*').eq('order_id', order.id), 'Data undangan tidak ditemukan.');
-  return mergeInvitationOrder(invitation, order);
+  return hydrateInvitationThemeColors(env, mergeInvitationOrder(invitation, order));
 }
 
 export async function findActiveSlugConflict(env, rawSlug, { excludeInvitationId, excludeOrderId } = {}) {
@@ -366,8 +460,9 @@ export async function publishedInvitation(env, slug) {
       throw error;
     }
     return {
-      id: `demo-${order.order_code}`,
       ...order,
+      id: `demo-${order.order_code}`,
+      theme_colors: extractVintageColorsFromPayload(order) || null,
     };
   }
   const db = database(env);
@@ -405,7 +500,7 @@ export async function publishedInvitation(env, slug) {
     throw error;
   }
   const order = await one(db.from('order_details').select('*').eq('id', invitation.order_id).eq('status', 'published'), 'Undangan yang Anda cari belum tersedia.');
-  return mergeInvitationOrder(invitation, order);
+  return hydrateInvitationThemeColors(env, mergeInvitationOrder(invitation, order));
 }
 
 export async function invitationExtras(env, invitationId, { guestPage, guestLimit } = {}) {

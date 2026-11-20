@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { extractVintageColorsFromPayload, hexToRgb } from './vintageThemeColors.js';
 
 /* ==========================================================================
    THEME PALETTES & LUXURY WEDDING STATIONERY STYLES
@@ -80,10 +81,61 @@ export const THEMES = {
     capsuleBg: [62, 46, 36],        // Deep Bronze Capsule
     style: 'classic',
   },
+  vintage_classic: {
+    key: 'vintage_classic',
+    name: 'Vintage Classic',
+    paper: [244, 240, 230],         // Warm Archival Cream
+    paperCard: [250, 248, 242],     // Fine Stationery Ivory
+    ink: [35, 33, 30],              // Charcoal Ink
+    accent: [108, 92, 74],          // Warm Antique Bronze
+    muted: [95, 90, 82],            // Muted Archival Slate
+    gold: [164, 140, 96],           // Vintage Satin Gold
+    goldLight: [224, 214, 196],     // Hairline Cream
+    border: [198, 190, 174],        // Fine Editorial Border
+    sage: [156, 152, 138],          // Aged Sage
+    capsuleBg: [45, 42, 38],        // Charcoal Capsule
+    style: 'classic',
+  },
 };
 
-export function resolveTheme(templateCode) {
+function rgbArray(hex, fallback) {
+  const { r, g, b } = hexToRgb(hex, fallback);
+  return [r, g, b];
+}
+
+function mixRgb(a, b, weightB = 0.5) {
+  const w = Math.max(0, Math.min(1, weightB));
+  return [
+    Math.round(a[0] * (1 - w) + b[0] * w),
+    Math.round(a[1] * (1 - w) + b[1] * w),
+    Math.round(a[2] * (1 - w) + b[2] * w),
+  ];
+}
+
+export function resolveTheme(templateCode, invitation = null) {
   const code = String(templateCode || '').toLowerCase().trim();
+  if (code.includes('vintage') || code.includes('classic')) {
+    const custom = extractVintageColorsFromPayload(invitation);
+    if (!custom) return THEMES.vintage_classic;
+    const paper = rgbArray(custom.bg, '#F4F0E8');
+    const paperCard = rgbArray(custom.surface, '#FAF7F1');
+    const ink = rgbArray(custom.ink, '#2A231E');
+    const accent = rgbArray(custom.accent, '#7C6850');
+    const ornament = rgbArray(custom.ornament, '#302720');
+    return {
+      ...THEMES.vintage_classic,
+      paper,
+      paperCard,
+      ink,
+      accent,
+      muted: mixRgb(ink, paper, 0.38),
+      gold: accent,
+      goldLight: mixRgb(accent, paper, 0.58),
+      border: mixRgb(accent, paper, 0.45),
+      sage: mixRgb(ornament, paper, 0.48),
+      capsuleBg: ornament,
+    };
+  }
   if (code.includes('jawi') || code.includes('java')) return THEMES.puspa_jawi;
   if (code.includes('lunara') || code.includes('azure') || code.includes('moon')) return THEMES.lunara_azure;
   if (code.includes('verdant') || code.includes('vow') || code.includes('sage') || code.includes('garden')) return THEMES.verdant_vow;
@@ -3295,7 +3347,7 @@ export async function createInvitationPdf({ invitation, templateCode, templateNa
   const QRCode = qrModule.default || qrModule;
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
 
-  const theme = resolveTheme(templateCode);
+  const theme = resolveTheme(templateCode, invitation);
 
   // Pre-load Sofia font, floral watercolor artworks, side sprigs and rich watercolor gradient background in parallel
   const [

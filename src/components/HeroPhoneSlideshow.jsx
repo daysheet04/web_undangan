@@ -23,6 +23,11 @@ const FALLBACK_HERO_TEMPLATES = [
     name: 'Verdant Vow',
     category: 'Sage Garden 4D',
   },
+  {
+    code: 'vintage_classic',
+    name: 'Vintage Classic',
+    category: 'Vintage Editorial',
+  },
 ];
 
 function HeroSlideItem({ slide, isActive, eager }) {

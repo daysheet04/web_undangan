@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Loading, ErrorState } from '../components/Layout.jsx';
+import VintageColorCustomizer from '../components/VintageColorCustomizer.jsx';
+import VintageStoryEditor from '../components/VintageStoryEditor.jsx';
 import { mediaUrl } from '../lib/api.js';
 import { useBodyClass, useDocumentTitle, useHeadLinks, useLegacyScripts, useRemote } from '../lib/hooks.js';
 import { downloadInvitationPdf } from '../lib/invitationPdf.js';
+import {
+  VINTAGE_COLOR_FIELDS,
+  extractVintageColorsFromPayload,
+  isVintageTemplateCode,
+  normalizeVintageColors,
+} from '../lib/vintageThemeColors.js';
 
 const providers=['BCA','BRI','BNI','Mandiri','BSI','CIMB Niaga','PermataBank','SeaBank','Jago','GoPay','DANA','OVO','ShopeePay','Lainnya'];
 const salutations=['Bapak/Ibu/Saudara/i','Bapak & Ibu','Saudara/i','Keluarga','Teman/Sahabat'];
@@ -19,6 +27,9 @@ const TEMPLATE_THUMBNAILS = {
   luxury_vibes: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
   verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
   modern_javanese: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+  vintage_classic: '/assets/images/templates/vintage-classic/demo-cover.webp',
+  'vintage-classic': '/assets/images/templates/vintage-classic/demo-cover.webp',
+  classic_vintage: '/assets/images/templates/vintage-classic/demo-cover.webp',
 };
 
 function getTemplateCover(tpl) {
@@ -31,7 +42,7 @@ function getTemplateCover(tpl) {
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261110-island-v3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261118-1','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261110-island-v3','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261118-1','/assets/css/vintage-color-customizer.css?v=20261120-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
@@ -41,6 +52,18 @@ export default function BuilderPage({token}){
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [isChangingTheme, setIsChangingTheme] = useState(false);
   const [themeChangeToast, setThemeChangeToast] = useState(null);
+  const [vintageColors, setVintageColors] = useState(() => normalizeVintageColors(null));
+  const [colorPanelOpen, setColorPanelOpen] = useState(true);
+  const [vintageStoryText, setVintageStoryText] = useState('');
+
+  const loadedInvitationId = state.data?.invitation?.id;
+  const loadedThemeColorsJson = JSON.stringify(state.data?.invitation?.theme_colors || null);
+  const loadedLoveStory = state.data?.invitation?.love_story || '';
+  useEffect(() => {
+    if (!state.data?.invitation) return;
+    setVintageColors(normalizeVintageColors(extractVintageColorsFromPayload(state.data.invitation)));
+    setVintageStoryText(loadedLoveStory);
+  }, [loadedInvitationId, loadedThemeColorsJson, loadedLoveStory]);
 
   useEffect(()=>{
     if(!showPaymentSuccess||state.loading||state.error)return undefined;
@@ -95,6 +118,13 @@ export default function BuilderPage({token}){
       category: 'Javanese Template',
       description: 'Perjalanan garden wedding emerald-sage dalam satu panggung sinematik dengan pasangan dan kabut.',
       thumbnail: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+    },
+    {
+      code: 'vintage_classic',
+      name: 'Vintage Classic',
+      category: 'Vintage Editorial',
+      description: 'Lembaran editorial heritage bersih dengan ornamen ukiran botani dan palet warna yang dapat dikustomisasi.',
+      thumbnail: '/assets/images/templates/vintage-classic/demo-cover.webp',
     },
   ];
 
@@ -174,7 +204,11 @@ export default function BuilderPage({token}){
       const form = document.getElementById('invitationForm');
       const latest = form ? Object.fromEntries(new FormData(form).entries()) : {};
       await downloadInvitationPdf({
-        invitation: { ...i, ...latest },
+        invitation: {
+          ...i,
+          ...latest,
+          ...(isVintageTemplateCode(currentTemplateCode) ? { theme_colors: vintageColors } : {}),
+        },
         templateCode: currentTemplateCode,
         templateName: currentTemplateName,
         orderCode: i.order_code,
@@ -188,6 +222,57 @@ export default function BuilderPage({token}){
     } finally {
       setPdfWorking(false);
     }
+  };
+  const isVintageTheme = isVintageTemplateCode(currentTemplateCode);
+  const handleVintageColorsChange = (nextColors) => {
+    const normalized = normalizeVintageColors(nextColors);
+    setVintageColors(normalized);
+    const flatFields = {};
+    for (const field of VINTAGE_COLOR_FIELDS) {
+      flatFields[field.formName] = normalized[field.key];
+    }
+    const form = document.getElementById('invitationForm');
+    if (form) {
+      for (const field of VINTAGE_COLOR_FIELDS) {
+        const inputEl = form.elements.namedItem(field.formName);
+        if (inputEl && 'value' in inputEl) {
+          inputEl.value = normalized[field.key];
+        }
+      }
+      form.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const previewIframe = document.getElementById('livePreview');
+    if (previewIframe?.contentWindow) {
+      previewIframe.contentWindow.postMessage(
+        { type: 'invitation:update', data: { ...flatFields, theme_colors: normalized } },
+        window.location.origin,
+      );
+    }
+  };
+  const handleVintageStoryChange = (nextText) => {
+    setVintageStoryText(nextText);
+    const form = document.getElementById('invitationForm');
+    if (form) {
+      const inputEl = form.elements.namedItem('love_story');
+      if (inputEl && 'value' in inputEl) {
+        inputEl.value = nextText;
+      }
+      form.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const previewIframe = document.getElementById('livePreview');
+    if (previewIframe?.contentWindow) {
+      previewIframe.contentWindow.postMessage(
+        { type: 'invitation:update', data: { love_story: nextText } },
+        window.location.origin,
+      );
+    }
+  };
+  const handleJumpToColorPanel = () => {
+    setColorPanelOpen(true);
+    document.querySelector('[data-builder-tab="form"]')?.click();
+    window.setTimeout(() => {
+      document.getElementById('vintageColorCustomizer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
   };
   return <div className="builder-shell" id="builderApp" data-token={token} data-csrf="worker-token" data-template={currentTemplateCode} data-gallery-limit={galleryLimit} data-published={published?'true':'false'} data-personal-links={personalLinksAvailable?'true':'false'} data-app-url={String(appUrl||location.origin).replace(/\/$/,'')} data-custom-couple={customCoupleUrl||''}>
     {showPaymentSuccess&&<div className="builder-payment-success" role="status"><div><b>✓ Pembayaran berhasil</b><span>Terima kasih. Editor undanganmu sekarang dapat digunakan.</span></div><button type="button" aria-label="Tutup notifikasi pembayaran" onClick={()=>setShowPaymentSuccess(false)}>×</button></div>}
@@ -210,7 +295,25 @@ export default function BuilderPage({token}){
     </div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
     <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div><nav className="builder-step-pills" aria-label="Navigasi langkah editor"><button type="button" className="btn-step-pill active" data-step-target="0">1. Pengantin</button><button type="button" className="btn-step-pill" data-step-target="1">2. Orang Tua</button><button type="button" className="btn-step-pill" data-step-target="2">3. Acara</button><button type="button" className="btn-step-pill" data-step-target="3">4. Lokasi</button><button type="button" className="btn-step-pill" data-step-target="4">5. Cerita &amp; Foto</button>{(hasGift||hasMusic)&&<button type="button" className="btn-step-pill" data-step-target="5">6. {hasGift?'Hadiah & Musik':'Musik'}</button>}<button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'6':'5'}>Daftar Tamu</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'7':'6'}>URL Undangan</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'8':'7'}>Publish</button></nav>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
+      {isVintageTheme && (
+        <VintageColorCustomizer
+          value={vintageColors}
+          onChange={handleVintageColorsChange}
+          open={colorPanelOpen}
+          onToggleOpen={setColorPanelOpen}
+        />
+      )}
       <form id="invitationForm" autoComplete="off">
+        {isVintageTheme &&
+          VINTAGE_COLOR_FIELDS.map((field) => (
+            <input
+              key={field.formName}
+              type="hidden"
+              name={field.formName}
+              value={vintageColors[field.key]}
+              readOnly
+            />
+          ))}
         <section className="form-step active" data-step="0" data-title="Data Pengantin"><Intro icon="♡" title="Kenalkan kedua mempelai" copy="Nama panggilan akan menjadi nama utama pada cover undangan."/><Card title="Mempelai pria"><div className="field-grid"><TextField full label="Nama lengkap" name="groom_full_name" maxLength="150" required value={i.groom_full_name} placeholder="Contoh: Andi Pratama"/><TextField label="Nama panggilan" name="groom_nickname" maxLength="80" required value={i.groom_nickname} placeholder="Andi"/></div></Card><Card title="Mempelai wanita"><div className="field-grid"><TextField full label="Nama lengkap" name="bride_full_name" maxLength="150" required value={i.bride_full_name} placeholder="Contoh: Nisa Maharani"/><TextField label="Nama panggilan" name="bride_nickname" maxLength="80" required value={i.bride_nickname} placeholder="Nisa"/></div></Card></section>
         <section className="form-step" data-step="1" data-title="Data Orang Tua"><Intro icon="⌂" title="Nama orang tua" copy="Lengkapi nama ayah dan ibu dari masing-masing mempelai."/><Card title="Orang tua mempelai pria"><div className="field-grid"><TextField label="Nama ayah" name="groom_father" required value={i.groom_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="groom_mother" required value={i.groom_mother} placeholder="Ibu ..."/></div></Card><Card title="Orang tua mempelai wanita"><div className="field-grid"><TextField label="Nama ayah" name="bride_father" required value={i.bride_father} placeholder="Bapak ..."/><TextField label="Nama ibu" name="bride_mother" required value={i.bride_mother} placeholder="Ibu ..."/></div></Card></section>
         <section className="form-step" data-step="2" data-title="Jadwal Acara"><Intro icon="◫" title="Kapan hari bahagianya?" copy="Isi waktu akad dan resepsi sesuai jadwal yang telah ditentukan."/><EventFields title="Akad Nikah" prefix="akad" invitation={i}/><EventFields title="Resepsi" prefix="reception" invitation={i}/></section>
@@ -228,7 +331,7 @@ export default function BuilderPage({token}){
             </div>
           </Card>
         </section>
-        <section className="form-step" data-step="4" data-title="Cerita dan Foto"><Intro icon="✦" title="Hidupkan ceritamu" copy="Tambahkan cerita singkat dan foto pilihan. Gambar akan dikompres sebelum diunggah."/><Card><label className="field full"><span>Kisah singkat pasangan <b>*</b></span><textarea name="love_story" rows="6" maxLength="3000" required defaultValue={i.love_story||''}/><small><span data-char-count="love_story">0</span>/3000 karakter</small></label><TextField full label="Instagram pasangan (opsional)" name="instagram" value={i.instagram} placeholder="andindanisa"/></Card>
+        <section className="form-step" data-step="4" data-title="Cerita dan Foto"><Intro icon="✦" title="Hidupkan ceritamu" copy={isVintageTheme ? 'Khusus Vintage Classic: susun perjalanan cintamu menjadi peta tahunan singkat yang rapi dan foto pilihan.' : 'Tambahkan cerita singkat dan foto pilihan. Gambar akan dikompres sebelum diunggah.'}/>{isVintageTheme ? (<><input type="hidden" name="love_story" value={vintageStoryText} readOnly /><VintageStoryEditor value={vintageStoryText} onChange={handleVintageStoryChange} /><Card><div className="field-grid"><TextField full label="Instagram pasangan (opsional)" name="instagram" value={i.instagram} placeholder="andindanisa"/></div></Card></>) : (<Card><label className="field full"><span>Kisah singkat pasangan <b>*</b></span><textarea name="love_story" rows="6" maxLength="3000" required defaultValue={i.love_story||''}/><small><span data-char-count="love_story">0</span>/3000 karakter</small></label><TextField full label="Instagram pasangan (opsional)" name="instagram" value={i.instagram} placeholder="andindanisa"/></Card>)}
         {['verdant_vow', 'aurelia_grande'].includes(currentTemplateCode) && (
           <div className="form-section-card upload-section verdant-couple-card" id="verdantCoupleStudio">
             <div className="upload-heading">
@@ -359,7 +462,7 @@ export default function BuilderPage({token}){
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
         <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover elegan, profil mempelai, rangkaian acara, keluarga yang turut mengundang, serta petunjuk lokasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
       </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
-      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions"><button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button><button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
+      <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions">{isVintageTheme && <button type="button" className="btn-preview-change-theme" onClick={handleJumpToColorPanel} title="Atur warna latar &amp; ornamen">🎨 Warna</button>}<button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button><button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
     <dialog className="publish-activation-dialog" id="publishActivationDialog"><div className="publish-activation-card"><span className="publish-activation-icon">✓</span><span className="eyebrow">Undangan berhasil diterbitkan</span><h2>Link aktif selama 2 bulan</h2><p>Masa aktif dimulai hari ini. Tamu dapat membuka undangan sampai:</p><strong className="publish-active-until" id="publishActiveUntil">-</strong><small>Tanggal berakhir ini tidak berubah saat undangan diedit ulang.</small><button className="button button-primary button-wide" id="continueAfterPublish" type="button">Lihat tautan undangan →</button></div></dialog>
     <dialog className="invitee-edit-dialog" id="inviteeEditDialog">

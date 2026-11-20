@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { del, get, mediaUrl, post, put } from '../lib/api.js';
 import AdminCoverAdjusterModal from './AdminCoverAdjusterModal.jsx';
+import VintageColorCustomizer from './VintageColorCustomizer.jsx';
+import VintageStoryEditor from './VintageStoryEditor.jsx';
+import { isVintageTemplateCode, normalizeVintageColors } from '../lib/vintageThemeColors.js';
 
 const BANK_PROVIDERS = [
   'BCA',
@@ -1672,15 +1675,23 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                   <span className="box-title">📖 Kisah Pasangan &amp; Instagram</span>
                 </div>
                 <div className="editor-fields-group">
-                  <label className="editor-field">
-                    <span>Kisah Singkat (Love Story)</span>
-                    <textarea
-                      rows="3"
+                  {isVintageTemplateCode(template?.code) ? (
+                    <VintageStoryEditor
+                      compact
                       value={invitation.love_story || ''}
-                      onChange={(e) => handleFieldChange('love_story', e.target.value)}
-                      placeholder="Ceritakan awal mula bertemu dan perjalanan cinta..."
+                      onChange={(nextStory) => handleFieldChange('love_story', nextStory)}
                     />
-                  </label>
+                  ) : (
+                    <label className="editor-field">
+                      <span>Kisah Singkat (Love Story)</span>
+                      <textarea
+                        rows="3"
+                        value={invitation.love_story || ''}
+                        onChange={(e) => handleFieldChange('love_story', e.target.value)}
+                        placeholder="Ceritakan awal mula bertemu dan perjalanan cinta..."
+                      />
+                    </label>
+                  )}
                   <label className="editor-field">
                     <span>Username Instagram Pasangan (opsional)</span>
                     <input
@@ -1692,6 +1703,15 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                   </label>
                 </div>
               </div>
+
+              {isVintageTemplateCode(template?.code) && (
+                <VintageColorCustomizer
+                  compact
+                  defaultOpen={true}
+                  value={invitation.theme_colors}
+                  onChange={(nextColors) => handleFieldChange('theme_colors', normalizeVintageColors(nextColors))}
+                />
+              )}
 
               {/* Bottom Sticky Action Bar */}
               <div className="editor-form-bottom-bar">

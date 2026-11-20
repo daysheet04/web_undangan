@@ -50,6 +50,7 @@ create table public.invitations (
   akad_date date, akad_start_time time, akad_end_time time, reception_date date, reception_start_time time, reception_end_time time,
   venue_name varchar(180), venue_address text, maps_url varchar(500), nearest_landmark varchar(240), route_directions text, transportation_guide text, love_story text, instagram varchar(100),
   cover_image varchar(255), groom_photo varchar(255), bride_photo varchar(255), music_file varchar(255), music_title varchar(150),
+  theme_colors jsonb,
   published_at timestamptz, active_until timestamptz, created_at timestamptz not null default timezone('utc', now()), updated_at timestamptz not null default timezone('utc', now())
 );
 create table public.invitation_media (

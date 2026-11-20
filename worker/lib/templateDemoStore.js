@@ -216,15 +216,92 @@ export function getDefaultTemplateDemo(templateCode) {
         created_at: '2026-10-28T16:45:00.000Z',
       },
     ];
+  } else if (code.includes('vintage')) {
+    base.groom_full_name = 'Rayhan Mahendra, S.T.';
+    base.groom_nickname = 'Rayhan';
+    base.groom_father = 'Bpk. Surya Mahendra';
+    base.groom_mother = 'Ibu Lestari Putri';
+    base.bride_full_name = 'Nadia Kusuma, S.Ars.';
+    base.bride_nickname = 'Nadia';
+    base.bride_father = 'Bpk. Hendra Kusuma';
+    base.bride_mother = 'Ibu Ratna Sari';
+    base.venue_name = 'Rumah Kaca Heritage';
+    base.venue_address = 'Jl. Diponegoro No. 28, Citarum, Kota Bandung, Jawa Barat';
+    base.nearest_landmark = '200 meter dari Taman Lansia Bandung';
+    base.love_story = [
+      '2023 · Awal Perkenalan\nPertemuan sederhana pada sebuah sore membawa percakapan hangat yang perlahan menumbuhkan rasa saling percaya.',
+      '2024 · Menjalin Kasih\nDalam perjalanan yang tenang, kami belajar saling menjaga dan berjalan beriringan melewati setiap musim.',
+      '2026 · Melangkah Bersama\nDengan restu kedua orang tua, kami mengikrarkan janji suci untuk memulai lembaran hidup baru bersama.',
+    ].join('\n\n');
+    base.instagram = 'nadia.rayhan';
+    base.cover_image = '/assets/images/templates/vintage-classic/demo-cover.webp';
+    base.bride_photo = '/assets/images/templates/vintage-classic/demo-bride.webp';
+    base.groom_photo = '/assets/images/templates/vintage-classic/demo-groom.webp';
+    base.stage_photo = '/assets/images/templates/vintage-classic/demo-gallery-3.webp';
+    base.gift_accounts = [
+      { id: 'gift-1', provider: 'BCA', account_number: '8420 1938 41', account_name: 'Rayhan Mahendra', label: 'Rekening Mempelai Pria' },
+      { id: 'gift-2', provider: 'Mandiri', account_number: '1320 0948 1120', account_name: 'Nadia Kusuma', label: 'Rekening Mempelai Wanita' },
+    ];
+    base.greetings = [
+      {
+        id: 'greet-1',
+        guest_name: 'Keluarga Besar Kusuma',
+        attendance_status: 'attending',
+        message: 'Selamat menempuh hidup baru Nadia & Rayhan. Semoga menjadi keluarga yang sakinah, mawaddah, warahmah.',
+        created_at: '2026-10-28T14:05:00.000Z',
+      },
+      {
+        id: 'greet-2',
+        guest_name: 'Dimas & Farah',
+        attendance_status: 'attending',
+        message: 'Turut berbahagia untuk kalian berdua! Semoga penuh keberkahan hingga akhir hayat.',
+        created_at: '2026-10-28T15:20:00.000Z',
+      },
+      {
+        id: 'greet-3',
+        guest_name: 'Rekan Studio Bandung',
+        attendance_status: 'attending',
+        message: 'Happy wedding Nadia & Rayhan, lancar sampai hari H dan langgeng selalu!',
+        created_at: '2026-10-28T16:45:00.000Z',
+      },
+      {
+        id: 'greet-4',
+        guest_name: 'Rani Pratiwi',
+        attendance_status: 'unsure',
+        message: 'Semoga acaranya berjalan khidmat dan penuh kebahagiaan.',
+        created_at: '2026-10-28T17:10:00.000Z',
+      },
+    ];
   }
+
+  const defaultVintageGallery = code.includes('vintage')
+    ? {
+        essential: [
+          { id: 'vc-g-1', file_path: '/assets/images/templates/vintage-classic/demo-gallery-1.webp' },
+          { id: 'vc-g-2', file_path: '/assets/images/templates/vintage-classic/demo-gallery-3.webp' },
+        ],
+        signature: [
+          { id: 'vc-g-1', file_path: '/assets/images/templates/vintage-classic/demo-gallery-1.webp' },
+          { id: 'vc-g-2', file_path: '/assets/images/templates/vintage-classic/demo-gallery-3.webp' },
+          { id: 'vc-g-3', file_path: '/assets/images/templates/vintage-classic/demo-gallery-2.webp' },
+        ],
+        prestige: [
+          { id: 'vc-g-1', file_path: '/assets/images/templates/vintage-classic/demo-gallery-1.webp' },
+          { id: 'vc-g-2', file_path: '/assets/images/templates/vintage-classic/demo-gallery-3.webp' },
+          { id: 'vc-g-3', file_path: '/assets/images/templates/vintage-classic/demo-gallery-2.webp' },
+          { id: 'vc-g-4', file_path: '/assets/images/templates/vintage-classic/demo-cover.webp' },
+          { id: 'vc-g-5', file_path: '/assets/images/templates/vintage-classic/demo-gallery-1.webp' },
+        ],
+      }
+    : {
+        essential: [],
+        signature: [],
+        prestige: [],
+      };
 
   return {
     invitation: base,
-    gallery: {
-      essential: [],
-      signature: [],
-      prestige: [],
-    },
+    gallery: defaultVintageGallery,
   };
 }
 
@@ -265,9 +342,9 @@ export async function getTemplateDemoData(env, templateCode) {
               greetings: rawGreetings,
             },
             gallery: {
-              essential: Array.isArray(parsed.gallery?.essential) ? parsed.gallery.essential : [],
-              signature: Array.isArray(parsed.gallery?.signature) ? parsed.gallery.signature : [],
-              prestige: Array.isArray(parsed.gallery?.prestige) ? parsed.gallery.prestige : [],
+              essential: Array.isArray(parsed.gallery?.essential) && parsed.gallery.essential.length ? parsed.gallery.essential : (defaultDemo.gallery?.essential || []),
+              signature: Array.isArray(parsed.gallery?.signature) && parsed.gallery.signature.length ? parsed.gallery.signature : (defaultDemo.gallery?.signature || []),
+              prestige: Array.isArray(parsed.gallery?.prestige) && parsed.gallery.prestige.length ? parsed.gallery.prestige : (defaultDemo.gallery?.prestige || []),
             },
           };
           memStore.set(code, { data: merged, cachedAt: Date.now() });
@@ -298,9 +375,9 @@ export async function getTemplateDemoData(env, templateCode) {
               greetings: rawGreetings,
             },
             gallery: {
-              essential: Array.isArray(parsed.gallery?.essential) ? parsed.gallery.essential : [],
-              signature: Array.isArray(parsed.gallery?.signature) ? parsed.gallery.signature : [],
-              prestige: Array.isArray(parsed.gallery?.prestige) ? parsed.gallery.prestige : [],
+              essential: Array.isArray(parsed.gallery?.essential) && parsed.gallery.essential.length ? parsed.gallery.essential : (defaultDemo.gallery?.essential || []),
+              signature: Array.isArray(parsed.gallery?.signature) && parsed.gallery.signature.length ? parsed.gallery.signature : (defaultDemo.gallery?.signature || []),
+              prestige: Array.isArray(parsed.gallery?.prestige) && parsed.gallery.prestige.length ? parsed.gallery.prestige : (defaultDemo.gallery?.prestige || []),
             },
           };
           memStore.set(code, { data: merged, cachedAt: Date.now() });

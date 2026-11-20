@@ -3,6 +3,7 @@ import { database } from '../lib/database.js';
 import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
 import { allTemplates, canonicalTemplateCode, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
+import { extractVintageColorsFromPayload } from '../../src/lib/vintageThemeColors.js';
 import {
   deleteTemplateGalleryPhoto,
   deleteTemplateMusic,
@@ -2107,6 +2108,11 @@ admin.put('/admin/templates/:templateCode/editor-demo', async (c) => {
         })).filter((g) => g.guest_name && g.message)
       : [],
   };
+
+  const themeColors = extractVintageColorsFromPayload(invitation);
+  if (themeColors) {
+    cleanInvitation.theme_colors = themeColors;
+  }
 
   const updated = await saveTemplateDemoData(c.env, templateCode, { invitation: cleanInvitation });
   return c.json({

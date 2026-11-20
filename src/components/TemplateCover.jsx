@@ -8,6 +8,7 @@ const DEFAULT_COVERS = {
   lunara_azure: '/assets/images/templates/lunara-azure/lunara-opening-aurora-contour-v1.webp',
   aurelia_grande: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
   verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+  vintage_classic: '/assets/images/templates/vintage-classic/demo-cover.webp',
 };
 
 export function defaultTemplateCover(code) {

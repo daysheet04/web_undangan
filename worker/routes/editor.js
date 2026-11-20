@@ -1,11 +1,14 @@
 import { Hono } from 'hono';
 import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
-import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras, activeTemplates, canonicalTemplateCode } from '../lib/repositories.js';
+import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras, activeTemplates, canonicalTemplateCode, updateInvitationWithThemeColors } from '../lib/repositories.js';
 import { validUploadedMedia } from '../lib/mediaValidation.js';
+import { extractVintageColorsFromPayload } from '../../src/lib/vintageThemeColors.js';
 
 const editor = new Hono();
-const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
+const fallbackDemoState = globalThis.__daymoment_demo_state__ || { orders: new Map() };
+globalThis.__daymoment_demo_state__ = fallbackDemoState;
+const getDemoOrders = () => globalThis.__daymoment_demo_state__?.orders || fallbackDemoState.orders;
 
 const TEMPLATE_COVERS = {
   java_vibes: '/assets/images/templates/puspa-jawi/puspa-cover-washi-v2.webp',
@@ -17,6 +20,8 @@ const TEMPLATE_COVERS = {
   luxury_vibes: '/assets/images/templates/aurelia-grande/grand-ballroom-stage.webp',
   verdant_vow: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
   modern_javanese: '/assets/images/templates/verdant-vow/cinematic/scene-01-grand-gate-v1.webp',
+  vintage_classic: '/assets/images/templates/vintage-classic/demo-cover.webp',
+  classic_vintage: '/assets/images/templates/vintage-classic/demo-cover.webp',
 };
 
 function resolveTemplateThumbnail(t) {
@@ -28,9 +33,10 @@ function resolveTemplateThumbnail(t) {
 }
 
 function demoInvitationByToken(token) {
-  const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === token);
+  const order = [...(getDemoOrders().values() || [])].find((item) => item.editor_token === token);
   if (!order) return null;
   return {
+    ...order,
     id: `demo-${order.order_code}`,
     editor_token: order.editor_token,
     order_id: order.order_id || order.id,
@@ -49,13 +55,14 @@ function demoInvitationByToken(token) {
     has_wishes: Boolean(order.package_has_wishes || order.has_wishes),
     gallery_limit: order.gallery_limit || 2,
     slug: order.slug || 'demo-undangan',
+    theme_colors: extractVintageColorsFromPayload(order) || null,
     customer_name: order.customer_name,
     customer_email: order.customer_email,
     customer_phone: order.customer_phone,
     is_active: Boolean(order.is_active && order.website_enabled !== false),
     active_until: order.active_until || null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: order.created_at || new Date().toISOString(),
+    updated_at: order.updated_at || new Date().toISOString(),
     published_at: order.published_at || null,
   };
 }
@@ -77,7 +84,7 @@ async function ensurePublishedActiveUntil(env, invitation) {
   if (invitation.order_status !== 'published' || !invitation.published_at || invitation.active_until) return invitation;
   const activeUntil = invitationActiveUntil(new Date(invitation.published_at));
   if (!hasRealSupabaseConfig(env)) {
-    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    const order = [...(getDemoOrders().values() || [])].find((item) => item.editor_token === invitation.editor_token);
     if (order) order.active_until = activeUntil;
   } else {
     const { error } = await database(env).from('invitations').update({ active_until: activeUntil }).eq('id', invitation.id);
@@ -203,7 +210,7 @@ editor.post('/invitation/change-template', async (c) => {
   }
 
   if (!hasRealSupabaseConfig(c.env)) {
-    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    const order = [...(getDemoOrders().values() || [])].find((item) => item.editor_token === invitation.editor_token);
     if (order) {
       order.template_id = targetTemplate.id;
       order.template_code = targetTemplate.code;
@@ -249,6 +256,7 @@ editor.post('/invitation/autosave', async (c) => {
   const input = await c.req.json();
   const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
   const clean = invitationInput(input, false);
+  const themeColors = extractVintageColorsFromPayload(input);
   let slug = null;
   if (Object.hasOwn(input, 'slug')) {
     const state = await slugState(c.env, input.slug, invitation.id);
@@ -256,17 +264,12 @@ editor.post('/invitation/autosave', async (c) => {
     if (!String(input.slug || '').trim()) clean.slug = null;
     else if (state.available) clean.slug = state.slug;
   }
-  if (Object.keys(clean).length) {
-    if (!hasRealSupabaseConfig(c.env)) {
-      const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
-      if (order) Object.assign(order, clean);
-    } else {
-    const { error } = await database(c.env).from('invitations').update(clean).eq('id', invitation.id);
-    if (error) throw error;
-    }
+  if (Object.keys(clean).length || themeColors) {
+    await updateInvitationWithThemeColors(c.env, invitation, clean, themeColors);
   }
   await purgeInvitationCache(invitation.slug);
-  return c.json({ ok: true, message: 'Tersimpan', saved: clean, slug: slug?.slug || '', slug_available: slug?.available || false, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
+  const saved = themeColors ? { ...clean, theme_colors: themeColors } : clean;
+  return c.json({ ok: true, message: 'Tersimpan', saved, slug: slug?.slug || '', slug_available: slug?.available || false, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
 });
 
 function uploadRules(kind) {
@@ -680,6 +683,7 @@ editor.post('/invitation/publish', async (c) => {
   const input = await c.req.json();
   const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
   const clean = invitationInput(input, true);
+  const themeColors = extractVintageColorsFromPayload(input);
   const required = {
     groom_full_name: 'Nama lengkap mempelai pria', groom_nickname: 'Nama panggilan mempelai pria', groom_father: 'Nama ayah mempelai pria', groom_mother: 'Nama ibu mempelai pria',
     bride_full_name: 'Nama lengkap mempelai wanita', bride_nickname: 'Nama panggilan mempelai wanita', bride_father: 'Nama ayah mempelai wanita', bride_mother: 'Nama ibu mempelai wanita',
@@ -697,9 +701,10 @@ editor.post('/invitation/publish', async (c) => {
   const publishedAt = firstPublish ? new Date().toISOString() : invitation.published_at;
   const activeUntil = firstPublish || !invitation.active_until ? invitationActiveUntil(new Date(publishedAt)) : invitation.active_until;
   if (!hasRealSupabaseConfig(c.env)) {
-    const order = [...(DEMO_STATE.orders.values() || [])].find((item) => item.editor_token === invitation.editor_token);
+    const order = [...(getDemoOrders().values() || [])].find((item) => item.editor_token === invitation.editor_token);
     if (order) {
       Object.assign(order, clean, { slug: clean.slug, status: 'published' });
+      if (themeColors) order.theme_colors = themeColors;
       if (firstPublish) Object.assign(order, { published_at: publishedAt, is_active: true, active_until: activeUntil });
       else if (!invitation.active_until) order.active_until = activeUntil;
     }
@@ -709,8 +714,7 @@ editor.post('/invitation/publish', async (c) => {
   const invitationUpdate = { ...clean };
   if (firstPublish) Object.assign(invitationUpdate, { published_at: publishedAt, is_active: true, active_until: activeUntil });
   else if (!invitation.active_until) invitationUpdate.active_until = activeUntil;
-  const { error: invitationError } = await db.from('invitations').update(invitationUpdate).eq('id', invitation.id);
-  if (invitationError) throw invitationError;
+  await updateInvitationWithThemeColors(c.env, invitation, invitationUpdate, themeColors);
   const { error: orderError } = await db.from('orders').update({ status: 'published' }).eq('id', invitation.order_id);
   if (orderError) throw orderError;
   return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', first_publish: firstPublish, active_until: activeUntil, active_until_label: invitationDateLabel(activeUntil), redirect: `/success/${invitation.editor_token}` });
