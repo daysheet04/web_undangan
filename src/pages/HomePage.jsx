@@ -42,19 +42,26 @@ const TemplateCard = memo(function TemplateCard({ template, eager, hidden }) {
   );
 });
 
+function normalizeCategoryFilter(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/\btemplates?\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+  const label = cleaned || raw;
+  return { key: label.toLowerCase(), label };
+}
+
 const TemplateCatalogSection = memo(function TemplateCatalogSection({ templates, loading, error }) {
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const categories = useMemo(() => {
     const map = new Map();
     for (const template of templates) {
-      const label = String(template?.category || '').trim();
-      if (!label) continue;
-      const key = label.toLowerCase();
-      if (!map.has(key)) {
-        map.set(key, { key, label, count: 1 });
+      const normalized = normalizeCategoryFilter(template?.category);
+      if (!normalized) continue;
+      if (!map.has(normalized.key)) {
+        map.set(normalized.key, { ...normalized, count: 1 });
       } else {
-        map.get(key).count += 1;
+        map.get(normalized.key).count += 1;
       }
     }
     return [...map.values()];
@@ -69,7 +76,7 @@ const TemplateCatalogSection = memo(function TemplateCatalogSection({ templates,
   const visibleCount = useMemo(() => {
     if (selectedCategory === 'all') return templates.length;
     return templates.reduce(
-      (count, template) => (String(template?.category || '').trim().toLowerCase() === selectedCategory ? count + 1 : count),
+      (count, template) => (normalizeCategoryFilter(template?.category)?.key === selectedCategory ? count + 1 : count),
       0,
     );
   }, [templates, selectedCategory]);
@@ -140,7 +147,7 @@ const TemplateCatalogSection = memo(function TemplateCatalogSection({ templates,
               key={template.id}
               template={template}
               eager={index < 3}
-              hidden={selectedCategory !== 'all' && String(template?.category || '').trim().toLowerCase() !== selectedCategory}
+              hidden={selectedCategory !== 'all' && normalizeCategoryFilter(template?.category)?.key !== selectedCategory}
             />
           ))}
         </div>
