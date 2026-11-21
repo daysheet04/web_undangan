@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
-import { templatePreviewPath } from '../lib/templateSlug.js';
+import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 import { defaultTemplateCover, templatePhoneCoverUrl } from '../components/TemplateCover.jsx';
 
 function OrderPhonePreview({ template, previewUrl }) {
@@ -84,12 +84,23 @@ export default function OrderPage() {
   const previewUrl = `${templatePreviewPath(template)}${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''}`;
   return <Layout className="order-page" title="Data Pemesan — Daymoment">
     <section className="flow-page">
-      <a className="back-link" href="/#templates">← Kembali memilih template</a>
       <div className="flow-grid">
         <aside className="choice-summary">
           <span className="eyebrow">Template pilihanmu</span>
           <OrderPhonePreview template={template} previewUrl={previewUrl} />
-          <span className="category-pill">{template.category}</span>
+          <div className="preview-meta-row">
+            <a
+              className="back-link preview-back-circle"
+              href={`/#template-card-${encodeURIComponent(templateSlug(template))}`}
+              aria-label="Kembali memilih template"
+              title="Kembali memilih template"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </a>
+            <span className="category-pill">{template.category}</span>
+          </div>
           <h1>{template.name}</h1><p>{template.description}</p>
           <a className="text-link" href={previewUrl}>Lihat preview penuh →</a>
         </aside>
