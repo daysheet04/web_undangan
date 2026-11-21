@@ -295,13 +295,33 @@ orders.post('/orders/:code/payment-token', async (c) => {
   return c.json({ ok: true, ...snap });
 });
 
+async function fetchMidtransStatusOrNull(env, gatewayOrderId) {
+  try {
+    const payload = await transactionStatus(env, gatewayOrderId);
+    const statusCode = String(payload?.status_code || '');
+    const message = String(payload?.status_message || '');
+    if (statusCode === '404' || (!payload?.transaction_status && /doesn't exist|not found/i.test(message))) {
+      return null;
+    }
+    return payload;
+  } catch (failure) {
+    const statusCode = String(failure?.midtrans?.status_code || '');
+    const message = String(failure?.midtrans?.status_message || failure?.message || '');
+    if (statusCode === '404' || /doesn't exist|not found/i.test(message)) {
+      return null;
+    }
+    throw failure;
+  }
+}
+
 orders.post('/orders/:code/payment-status', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) {
     const order = DEMO_ORDERS.get(c.req.param('code'));
     if (!order) return c.json({ ok: false, message: 'Order demo tidak ditemukan.' }, 404);
     if (order.payment_status === 'paid') return c.json({ ok: true, payment_status: 'paid', redirect: `/edit/${order.editor_token}?payment=success` });
     if (!order.gateway_order_id) return c.json({ ok: true, payment_status: 'pending', redirect: null });
-    const payload = await transactionStatus(c.env, order.gateway_order_id);
+    const payload = await fetchMidtransStatusOrNull(c.env, order.gateway_order_id);
+    if (!payload) return c.json({ ok: true, payment_status: order.payment_status || 'pending', redirect: null });
     const status = normalizedPaymentStatus(payload);
     order.payment_status = status;
     if (status === 'paid') {
@@ -317,7 +337,8 @@ orders.post('/orders/:code/payment-status', async (c) => {
   }
   const payment = await paymentForOrder(c.env, order.id);
   if (!payment.gateway_order_id) return c.json({ ok: true, payment_status: payment.status || 'pending', redirect: null });
-  const payload = await transactionStatus(c.env, payment.gateway_order_id);
+  const payload = await fetchMidtransStatusOrNull(c.env, payment.gateway_order_id);
+  if (!payload) return c.json({ ok: true, payment_status: payment.status || 'pending', redirect: null });
   const result = await applyPaymentStatus(c.env, order, payment, payload);
   if (result.status === 'paid') queuePaymentConfirmedEmail(c, order, result.payment);
   return c.json({ ok: true, payment_status: result.status, redirect: result.redirect });

@@ -1,7 +1,59 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
+
+const SNAP_RETURN_STORAGE_PREFIX = 'daymoment:snap-return:';
+const NOTICE_PAYMENT_PENDING = 'Instruksi pembayaran sudah dibuat. Setelah membayar, klik Cek Status Pembayaran.';
+const NOTICE_PAYMENT_INCOMPLETE = 'Pembayaran belum diselesaikan. Kamu dapat membuka pembayaran kembali.';
+const NOTICE_PAYMENT_ERROR = 'Pembayaran gagal diproses. Silakan coba kembali.';
+const NOTICE_PAYMENT_VERIFYING = 'Memverifikasi pembayaran…';
+
+function shouldUseSnapRedirect() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '')) {
+    return true;
+  }
+  return Boolean(
+    window.matchMedia?.('(max-width: 900px) and (pointer: coarse)').matches
+    || window.matchMedia?.('(max-width: 768px)').matches,
+  );
+}
+
+function isSafeMidtransRedirectUrl(url) {
+  return /^https:\/\/app(?:\.sandbox)?\.midtrans\.com\//i.test(String(url || '').trim());
+}
+
+function snapReturnStorageKey(code) {
+  return `${SNAP_RETURN_STORAGE_PREFIX}${code}`;
+}
+
+function readSnapReturnFlag(code) {
+  if (!code || typeof sessionStorage === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(snapReturnStorageKey(code)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeSnapReturnFlag(code) {
+  if (!code || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(snapReturnStorageKey(code), '1');
+  } catch {
+    // Ignore storage restrictions in private browsing.
+  }
+}
+
+function clearSnapReturnFlag(code) {
+  if (!code || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.removeItem(snapReturnStorageKey(code));
+  } catch {
+    // Ignore storage restrictions in private browsing.
+  }
+}
 
 function loadSnap({ scriptUrl, clientKey }) {
   return new Promise((resolve, reject) => {
@@ -36,11 +88,9 @@ export default function PaymentPage({ code }) {
     if (editorUrl) window.location.replace(editorUrl);
   }, [editorUrl]);
 
-  if (loading) return <Layout className="payment-page"><Loading fullscreen /></Layout>;
-  if (error) return <Layout className="payment-page"><ErrorState error={error} /></Layout>;
-  const order = data.order;
+  const hasLoadedOrder = Boolean(!loading && !error && data?.order);
 
-  const checkStatus = async (quiet = false) => {
+  const checkStatus = useCallback(async (quiet = false, { pendingNotice = '' } = {}) => {
     setChecking(true);
     try {
       const result = await post(`/api/orders/${code}/payment-status`, {});
@@ -49,7 +99,7 @@ export default function PaymentPage({ code }) {
         return;
       }
       setNotice(result.payment_status === 'pending'
-        ? 'Pembayaran belum diterima. Selesaikan pembayaran, lalu cek kembali.'
+        ? (pendingNotice || 'Pembayaran belum diterima. Selesaikan pembayaran, lalu cek kembali.')
         : `Status pembayaran: ${result.payment_status}.`);
       reload();
     } catch (failure) {
@@ -57,31 +107,88 @@ export default function PaymentPage({ code }) {
     } finally {
       setChecking(false);
     }
-  };
+  }, [code, reload]);
+
+  useEffect(() => {
+    if (!hasLoadedOrder || editorUrl) return;
+    const url = new URL(window.location.href);
+    const hasSnapParams = url.searchParams.has('order_id')
+      || url.searchParams.has('status_code')
+      || url.searchParams.has('transaction_status');
+    const hasReturnFlag = readSnapReturnFlag(code);
+    if (!hasSnapParams && !hasReturnFlag) return;
+
+    const txStatus = String(url.searchParams.get('transaction_status') || '').toLowerCase();
+    if (hasSnapParams) {
+      url.searchParams.delete('order_id');
+      url.searchParams.delete('status_code');
+      url.searchParams.delete('transaction_status');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+    clearSnapReturnFlag(code);
+    setWorking(false);
+
+    let initialNotice = NOTICE_PAYMENT_INCOMPLETE;
+    let pendingNotice = NOTICE_PAYMENT_INCOMPLETE;
+    if (txStatus === 'settlement' || txStatus === 'capture') {
+      initialNotice = NOTICE_PAYMENT_VERIFYING;
+      pendingNotice = '';
+    } else if (txStatus === 'pending') {
+      initialNotice = NOTICE_PAYMENT_PENDING;
+      pendingNotice = NOTICE_PAYMENT_PENDING;
+    }
+    setNotice(initialNotice);
+    checkStatus(true, { pendingNotice });
+  }, [code, hasLoadedOrder, editorUrl, checkStatus]);
+
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      setWorking(false);
+      if (event.persisted && readSnapReturnFlag(code)) {
+        clearSnapReturnFlag(code);
+        setNotice(NOTICE_PAYMENT_INCOMPLETE);
+        checkStatus(true, { pendingNotice: NOTICE_PAYMENT_INCOMPLETE });
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, [code, checkStatus]);
+
+  if (loading) return <Layout className="payment-page"><Loading fullscreen /></Layout>;
+  if (error) return <Layout className="payment-page"><ErrorState error={error} /></Layout>;
+  const order = data.order;
 
   const pay = async () => {
     setWorking(true);
     setNotice('');
+    let redirecting = false;
     try {
       const result = await post(`/api/orders/${code}/payment-token`, {});
       if (result.redirect) {
+        redirecting = true;
         window.location.href = result.redirect;
+        return;
+      }
+      if (shouldUseSnapRedirect() && isSafeMidtransRedirectUrl(result.redirectUrl)) {
+        redirecting = true;
+        writeSnapReturnFlag(code);
+        window.location.assign(result.redirectUrl);
         return;
       }
       const snap = await loadSnap(result);
       snap.pay(result.token, {
         onSuccess: () => checkStatus(),
         onPending: () => {
-          setNotice('Instruksi pembayaran sudah dibuat. Setelah membayar, klik Cek Status Pembayaran.');
-          checkStatus(true);
+          setNotice(NOTICE_PAYMENT_PENDING);
+          checkStatus(true, { pendingNotice: NOTICE_PAYMENT_PENDING });
         },
-        onError: () => setNotice('Pembayaran gagal diproses. Silakan coba kembali.'),
-        onClose: () => setNotice('Pembayaran belum diselesaikan. Kamu dapat membuka pembayaran kembali.'),
+        onError: () => setNotice(NOTICE_PAYMENT_ERROR),
+        onClose: () => setNotice(NOTICE_PAYMENT_INCOMPLETE),
       });
     } catch (failure) {
       window.showToast?.(failure.message, 'error');
     } finally {
-      setWorking(false);
+      if (!redirecting) setWorking(false);
     }
   };
 
