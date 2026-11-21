@@ -3,6 +3,35 @@ import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
 import { templatePreviewPath } from '../lib/templateSlug.js';
+import { defaultTemplateCover, templatePhoneCoverUrl } from '../components/TemplateCover.jsx';
+
+function OrderPhonePreview({ template, previewUrl }) {
+  const fallback = defaultTemplateCover(template?.code);
+  const [source, setSource] = useState(() => templatePhoneCoverUrl(template));
+
+  useEffect(() => {
+    setSource(templatePhoneCoverUrl(template));
+  }, [template?.code, template?.phone_cover, template?.phone_cover_url, template?.thumbnail, template?.thumbnail_url]);
+
+  return (
+    <div className="phone-mockup order-summary-phone">
+      <div className="phone-speaker" aria-hidden="true" />
+      <a className="order-phone-screen" href={previewUrl} aria-label={`Lihat preview template ${template.name}`}>
+        <img
+          src={source}
+          alt={`Sampul template undangan ${template.name}`}
+          width="244"
+          height="488"
+          loading="eager"
+          decoding="async"
+          onError={() => {
+            if (source !== fallback) setSource(fallback);
+          }}
+        />
+      </a>
+    </div>
+  );
+}
 
 export default function OrderPage() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -59,7 +88,7 @@ export default function OrderPage() {
       <div className="flow-grid">
         <aside className="choice-summary">
           <span className="eyebrow">Template pilihanmu</span>
-          <div className={`summary-mini visual-${template.code}`}><div className="collection-mini"><span>PREVIEW</span><i/><small>The Wedding of</small><strong>A <em>&amp;</em> N</strong><b>{template.name}</b></div></div>
+          <OrderPhonePreview template={template} previewUrl={previewUrl} />
           <span className="category-pill">{template.category}</span>
           <h1>{template.name}</h1><p>{template.description}</p>
           <a className="text-link" href={previewUrl}>Lihat preview penuh →</a>

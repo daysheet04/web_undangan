@@ -20,7 +20,7 @@ export function Layout({ children, title, className = '', navigation = null }) {
   const showAffiliateNavigation = navigation?.showAffiliate !== false;
   const stylesReady = useHeadLinks([
     '/assets/css/app.css?v=20261113-nav',
-    ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css', '/assets/css/homepage-overrides.css?v=20261121-card-align'] : []),
+    ...(bodyClasses.some((name) => ['homepage', 'order-page', 'preview-page'].includes(name)) ? ['/assets/css/homepage.css', '/assets/css/homepage-overrides.css?v=20261121-order-phone-wrap'] : []),
     ...(bodyClasses.includes('affiliate-store-page') ? ['/assets/css/affiliate-store.css'] : []),
     ...(bodyClasses.includes('admin-page') ? ['/assets/css/admin.css', '/assets/css/admin-withdrawals.css', '/assets/css/admin-commissions.css', '/assets/css/admin-orders.css', '/assets/css/admin-free-orders.css'] : []),
   ]);
