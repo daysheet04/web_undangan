@@ -68,7 +68,7 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   const templateName = state.data?.invitation?.template_name || state.data?.template?.name || (activeCode === 'java_vibes' || activeCode === 'puspa_jawi' ? 'Java Vibes' : (runtime?.title ? runtime.title.replace(/\s*—\s*Daymoment.*$/, '') : 'Undangan Pernikahan'));
   useDocumentTitle(`${templateName} — Daymoment`);
   useHeadLinks(runtime?[runtime.font]:[]);
-  const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20260918-1',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/templates/mobile-template-fixes.css?v=20261024-2','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
+  const templateStylesReady=useHeadLinks(runtime?['/assets/css/templates/base.css?v=20261121-embed-noscrollbar',runtime.css,'/assets/css/templates/daymoment-shared.css?v=20261023-1','/assets/css/templates/mobile-template-fixes.css?v=20261024-2','/assets/css/invitation-blocked.css?v=20261023-1']:[]);
   useEffect(()=>{
     const isJawi = activeCode==='java_vibes' || activeCode==='puspa_jawi';
     const isLunara = activeCode==='lunara_azure' || activeCode==='butterfly_blum' || activeCode==='butterfly_bloom';
