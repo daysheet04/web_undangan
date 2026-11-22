@@ -503,14 +503,15 @@ export async function publishedInvitation(env, slug) {
   return hydrateInvitationThemeColors(env, mergeInvitationOrder(invitation, order));
 }
 
-export async function invitationExtras(env, invitationId, { guestPage, guestLimit } = {}) {
+export async function invitationExtras(env, invitationId, { guestPage, guestLimit, greetingLimit = 20 } = {}) {
   if (!hasRealSupabaseConfig(env)) {
     return { media: [], giftAccounts: [], greetings: [], invitees: [], inviteeCount: 0 };
   }
   const db = database(env);
   const mediaQuery = db.from('invitation_media').select('*').eq('invitation_id', invitationId).order('sort_order').order('id');
   const giftQuery = db.from('gift_accounts').select('*').eq('invitation_id', invitationId).eq('is_active', true).order('sort_order').order('id');
-  const greetingQuery = db.from('guest_messages').select('id,guest_name,attendance_status,guest_count,message,created_at').eq('invitation_id', invitationId).eq('is_approved', true).order('created_at', { ascending: false }).limit(20);
+  const safeGreetingLimit = Math.max(1, Math.min(5000, Number(greetingLimit) || 20));
+  const greetingQuery = db.from('guest_messages').select('id,guest_name,attendance_status,guest_count,message,created_at').eq('invitation_id', invitationId).eq('is_approved', true).order('created_at', { ascending: false }).limit(safeGreetingLimit);
   let guestQuery = db.from('invitation_guests').select('*', { count: 'exact' }).eq('invitation_id', invitationId).order('created_at', { ascending: false }).order('id', { ascending: false });
   if (guestPage && guestLimit) guestQuery = guestQuery.range((guestPage - 1) * guestLimit, guestPage * guestLimit - 1);
   const [media, giftAccounts, greetings, invitees] = await Promise.all([many(mediaQuery), many(giftQuery), many(greetingQuery), many(guestQuery)]);

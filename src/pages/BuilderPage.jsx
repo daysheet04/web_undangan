@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Loading, ErrorState } from '../components/Layout.jsx';
+import BuilderRsvpPanel from '../components/BuilderRsvpPanel.jsx';
 import VintageColorCustomizer from '../components/VintageColorCustomizer.jsx';
 import VintageStoryEditor from '../components/VintageStoryEditor.jsx';
 import { mediaUrl } from '../lib/api.js';
@@ -42,7 +43,7 @@ function getTemplateCover(tpl) {
 
 export default function BuilderPage({token}){
   useBodyClass('builder-page'); useDocumentTitle('Editor Undangan — Daymoment');
-  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261121-gift-hapus-fix','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261121-1','/assets/css/vintage-color-customizer.css?v=20261120-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
+  useHeadLinks(['/assets/css/app.css','/assets/css/builder.css?v=20261121-gift-hapus-fix','/assets/css/builder-pdf.css?v=20261030-2','/assets/css/builder-fixes.css?v=20261122-rsvp1','/assets/css/vintage-color-customizer.css?v=20261120-3','/assets/css/builder-invitee-edit.css?v=20261023-wa2','/assets/css/builder-photo-adjuster.css?v=20261023-wa2','/assets/css/invitation-blocked.css?v=20261023-1']);
   const state=useRemote(`/api/editor/${token}`,[token]);
   useLegacyScripts(['/assets/js/builder.js?v=20261023-wa2','/assets/js/builder-invitee-edit.js?v=20261023-wa2','/assets/js/builder-photo-adjuster.js?v=20261023-photo4'],!state.loading&&!state.error);
   const [showPaymentSuccess,setShowPaymentSuccess]=useState(()=>new URLSearchParams(window.location.search).get('payment')==='success');
@@ -86,7 +87,7 @@ export default function BuilderPage({token}){
     }
     return <ErrorState error={state.error}/>;
   }
-  const {invitation:i,media,giftAccounts,invitees,appUrl,availableTemplates}=state.data;
+  const {invitation:i,media,giftAccounts,invitees,greetings=[],appUrl,availableTemplates}=state.data;
   const currentTemplateCode = selectedTemplateCode || i.template_code;
   const currentTemplateName = selectedTemplateName || i.template_name;
   const isVintageTheme = isVintageTemplateCode(currentTemplateCode);
@@ -189,7 +190,8 @@ export default function BuilderPage({token}){
   const customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple'));
   const customCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null);
   const galleryMedia = media.filter(m => !m.file_path?.includes('custom-couple'));
-  const galleryLimit=Math.max(1,Number(i.gallery_limit)||2), hasGift=Boolean(i.has_gift),hasMusic=Boolean(i.has_music);
+  const galleryLimit=Math.max(1,Number(i.gallery_limit)||2), hasGift=Boolean(i.has_gift),hasMusic=Boolean(i.has_music),hasWishes=Boolean(i.has_wishes);
+  const rsvpStepIndex = (hasGift || hasMusic) ? '9' : '8';
   const published=i.order_status==='published'&&Boolean(i.published_at), activeUntilLabel=invitationDateLabel(i.active_until), activeExpired=Boolean(i.active_until&&new Date(i.active_until)<new Date());
   const coupleNames = (() => {
     const g = (i.groom_nickname || i.groom_full_name || '').trim();
@@ -300,7 +302,7 @@ export default function BuilderPage({token}){
       </div>
     </div>
     <div className="mobile-builder-tabs" role="tablist"><button type="button" className="active" data-builder-tab="form">Form</button><button type="button" data-builder-tab="preview">Preview</button></div>
-    <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div><nav className="builder-step-pills" aria-label="Navigasi langkah editor"><button type="button" className="btn-step-pill active" data-step-target="0">1. Pengantin</button><button type="button" className="btn-step-pill" data-step-target="1">2. Orang Tua</button><button type="button" className="btn-step-pill" data-step-target="2">3. Acara</button><button type="button" className="btn-step-pill" data-step-target="3">4. Lokasi</button><button type="button" className="btn-step-pill" data-step-target="4">5. Cerita &amp; Foto</button>{(hasGift||hasMusic)&&<button type="button" className="btn-step-pill" data-step-target="5">6. {hasGift?'Hadiah & Musik':'Musik'}</button>}<button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'6':'5'}>Daftar Tamu</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'7':'6'}>URL Undangan</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'8':'7'}>Publish</button></nav>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
+    <div className="builder-content"><section className="builder-form-pane" data-builder-pane="form"><div className="builder-progress"><div className="progress-line"><span id="progressBar" style={{width:'11.111%'}}/></div><div className="progress-copy"><span id="stepCaption">Langkah 1 dari 9</span><strong id="stepTitle">Data Pengantin</strong></div><nav className="builder-step-pills" aria-label="Navigasi langkah editor"><button type="button" className="btn-step-pill active" data-step-target="0">1. Pengantin</button><button type="button" className="btn-step-pill" data-step-target="1">2. Orang Tua</button><button type="button" className="btn-step-pill" data-step-target="2">3. Acara</button><button type="button" className="btn-step-pill" data-step-target="3">4. Lokasi</button><button type="button" className="btn-step-pill" data-step-target="4">5. Cerita &amp; Foto</button>{(hasGift||hasMusic)&&<button type="button" className="btn-step-pill" data-step-target="5">6. {hasGift?'Hadiah & Musik':'Musik'}</button>}<button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'6':'5'}>Daftar Tamu</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'7':'6'}>URL Undangan</button><button type="button" className="btn-step-pill" data-step-target={hasGift||hasMusic?'8':'7'}>Publish</button>{hasWishes&&<button type="button" className="btn-step-pill" data-step-target={rsvpStepIndex}>Ucapan &amp; RSVP</button>}</nav>{published&&activeUntilLabel&&<div className={`builder-expiry-line ${activationState}`}><span>{activationState==='active'?'●':'○'}</span><span>{activationTitle}</span></div>}</div>
       {isVintageTheme && (
         <VintageColorCustomizer
           value={vintageColors}
@@ -467,7 +469,18 @@ export default function BuilderPage({token}){
         </section>
         <section className="form-step" data-step="7" data-title="URL Undangan"><Intro icon="↗" title="Pilih alamat undangan" copy="Buat URL singkat yang mudah diingat dan dibagikan."/><Card><label className="field full"><span>Slug URL <b>*</b></span><div className="url-field"><span>{String(appUrl||location.origin).replace(/\/$/,'')}/</span><input name="slug" maxLength="120" defaultValue={i.slug||''} placeholder="andi-nisa" pattern="[a-z0-9-]+"/></div><small>Hanya huruf kecil, angka, dan tanda hubung.</small><small className="slug-status" id="slugStatus"/><div className="slug-suggestions" id="slugSuggestions"/></label><div className="reserved-note"><strong>Alamat yang tidak tersedia</strong><p>admin, api, assets, media, template, order, payment, edit, publish, dan success.</p></div></Card></section>
         <section className="form-step" data-step="8" data-title="Preview dan Publish"><Intro icon="✓" title="Semua siap untuk diterbitkan" copy="Periksa preview, lengkapi penanda yang belum hijau, lalu terbitkan."/><Card title="Ringkasan kesiapan"><ul id="publishChecklist">{[['couple','Data pengantin dan orang tua'],['event','Jadwal dan lokasi acara'],['story','Cerita pasangan'],['slug','URL undangan unik']].map(v=><li data-check-group={v[0]} key={v[0]}><span>{v[1]}</span><b>Periksa</b></li>)}</ul></Card><div className="builder-print-pdf-card"><span className="builder-print-pdf-icon">PDF</span><div><strong>Undangan cetak A4 · 4 halaman</strong><p>Cover elegan, profil mempelai, rangkaian acara, keluarga yang turut mengundang, serta petunjuk lokasi.</p></div><button type="button" className="button button-secondary" disabled={pdfWorking} onClick={downloadPrintPdf}>{pdfWorking?'Membuat PDF...':'Download PDF'}</button></div><div className={`invitation-activation-status ${activationState}`}><span className="activation-status-icon">{activationState==='active'?'✓':activationState==='pending'?'◷':'!'}</span><div><strong>{activationTitle}</strong><p>{activationCopy}</p></div></div><div className="locked-copy"><span>🔒</span><div><strong>Teks undangan utama dikunci</strong><p>Salam pembuka, judul bagian, dan teks penutup sudah disiapkan agar tetap rapi dan konsisten.</p></div></div><div className="publish-errors" id="publishErrors" hidden/><button type="button" className="button button-primary button-wide publish-button" id="publishButton">{published?'Simpan dan Lihat Undangan':'Selesai dan Publish'}</button><small className="publish-hint">{published?'Menyimpan ulang tidak memperpanjang masa aktif undangan.':'Masa aktif dua bulan dimulai saat undangan pertama kali dipublish.'}</small></section>
-      </form><div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
+      </form>{hasWishes && (
+        <section className="form-step" data-step={rsvpStepIndex} data-title="Ucapan dan RSVP">
+          <BuilderRsvpPanel
+            initialGreetings={greetings}
+            token={token}
+            coupleNames={coupleNames}
+            orderCode={i.order_code}
+            packageName={i.package_name}
+            templateName={currentTemplateName}
+          />
+        </section>
+      )}<div className="builder-nav"><button type="button" className="button button-secondary" id="prevStep" disabled>← Sebelumnya</button><button type="button" className="button button-primary" id="nextStep">Selanjutnya →</button></div></section>
       <aside className="builder-preview-pane" data-builder-pane="preview"><div className="preview-toolbar"><div><span>Live Preview</span><small id="previewTemplateName">{currentTemplateName}</small></div><div className="preview-toolbar-actions">{isVintageTheme && <button type="button" className="btn-preview-change-theme" onClick={handleJumpToColorPanel} title="Atur warna latar &amp; ornamen">🎨 Warna</button>}{canChangeTheme && <button type="button" className="btn-preview-change-theme" onClick={()=>setShowThemeModal(true)} title="Pilih tema lain">🎨 Ganti Tema</button>}<button type="button" data-refresh-preview title="Refresh Preview">↻</button></div></div><div className="device-frame"><div className="device-notch"/><iframe id="livePreview" title="Live preview undangan" src={`/template/${currentTemplateCode}?embed=1&token=${token}`}/></div><p className="preview-tip">Perubahan form tampil langsung di sini dan disimpan otomatis.</p></aside>
     </div>
     <dialog className="publish-activation-dialog" id="publishActivationDialog"><div className="publish-activation-card"><span className="publish-activation-icon">✓</span><span className="eyebrow">Undangan berhasil diterbitkan</span><h2>Link aktif selama 2 bulan</h2><p>Masa aktif dimulai hari ini. Tamu dapat membuka undangan sampai:</p><strong className="publish-active-until" id="publishActiveUntil">-</strong><small>Tanggal berakhir ini tidak berubah saat undangan diedit ulang.</small><button className="button button-primary button-wide" id="continueAfterPublish" type="button">Lihat tautan undangan →</button></div></dialog>

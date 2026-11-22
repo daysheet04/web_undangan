@@ -151,7 +151,7 @@ editor.get('/editor/:token', async (c) => {
       invitation,
       media: [],
       giftAccounts: [],
-      greetings: [],
+      greetings: Array.isArray(invitation.greetings) ? invitation.greetings : [],
       invitees: [],
       inviteeCount: 0,
       can_change_template: !isCurrentVintage,
@@ -161,7 +161,7 @@ editor.get('/editor/:token', async (c) => {
   }
   let invitation = await invitationByToken(c.env, c.req.param('token'));
   invitation = await ensurePublishedActiveUntil(c.env, invitation);
-  const extras = await invitationExtras(c.env, invitation.id);
+  const extras = await invitationExtras(c.env, invitation.id, { greetingLimit: 2000 });
 
   const allTpls = await activeTemplates(c.env);
   const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
@@ -184,6 +184,29 @@ editor.get('/editor/:token', async (c) => {
     }));
 
   return c.json({ ok: true, invitation, ...extras, can_change_template: !isCurrentVintage, availableTemplates, appUrl: c.env.APP_URL });
+});
+
+editor.get('/editor/:token/greetings', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    const invitation = demoInvitationByToken(c.req.param('token'));
+    if (!invitation) return c.json({ ok: false, message: 'Akses editor tidak valid.' }, 404);
+    return c.json({
+      ok: true,
+      greetings: Array.isArray(invitation.greetings) ? invitation.greetings : [],
+    });
+  }
+  const invitation = await invitationByToken(c.env, c.req.param('token'));
+  const db = database(c.env);
+  const { data: greetings } = await many(
+    db
+      .from('guest_messages')
+      .select('id,guest_name,attendance_status,guest_count,message,created_at')
+      .eq('invitation_id', invitation.id)
+      .eq('is_approved', true)
+      .order('created_at', { ascending: false })
+      .limit(2000),
+  );
+  return c.json({ ok: true, greetings: greetings || [] });
 });
 
 editor.post('/invitation/change-template', async (c) => {
