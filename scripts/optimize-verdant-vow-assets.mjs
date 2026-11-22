@@ -118,7 +118,7 @@ async function generatePortraitStoryFrame() {
   });
 }
 
-async function optimizeWebp(relPath, { width = null, height = null, quality = 78, alphaQuality = 88, effort = 5, outputRelPath = null }) {
+async function optimizeWebp(relPath, { width = null, height = null, fit = 'inside', quality = 78, alphaQuality = 88, effort = 5, outputRelPath = null }) {
   const srcPath = path.join(baseDir, relPath);
   const dstPath = path.join(baseDir, outputRelPath || relPath);
   if (!fs.existsSync(srcPath)) {
@@ -128,24 +128,30 @@ async function optimizeWebp(relPath, { width = null, height = null, quality = 78
   const beforeSize = fs.statSync(srcPath).size;
   const inputBuf = fs.readFileSync(srcPath);
   const meta = await sharp(inputBuf).metadata();
+  const isSameFile = !outputRelPath || outputRelPath === relPath;
+  const needsResize = fit === 'fill'
+    ? ((width && meta.width !== width) || (height && meta.height !== height))
+    : ((width && meta.width > width) || (height && meta.height > height));
+
+  if (isSameFile && !needsResize) {
+    console.log(`${relPath.padEnd(56)} already target size (${meta.width}x${meta.height}, ${(beforeSize / 1024).toFixed(1)} KB)`);
+    return { before: beforeSize, after: beforeSize };
+  }
 
   let pipeline = sharp(inputBuf, { limitInputPixels: 40_000_000 });
   if (width || height) {
     pipeline = pipeline.resize({
       width: width || undefined,
       height: height || undefined,
-      fit: 'inside',
-      withoutEnlargement: true,
+      fit,
+      withoutEnlargement: fit !== 'fill',
     });
   }
   const outBuf = await pipeline
     .webp({ quality, alphaQuality, effort, smartSubsample: true })
     .toBuffer();
 
-  // Only overwrite existing asset if it shrank (or resized down significantly); always write new derivatives
-  const isSameFile = !outputRelPath || outputRelPath === relPath;
-  const resized = (width && meta.width > width) || (height && meta.height > height);
-  if (!isSameFile || resized || outBuf.length < beforeSize) {
+  if (!isSameFile || needsResize || outBuf.length < beforeSize) {
     fs.writeFileSync(dstPath, outBuf);
     const outMeta = await sharp(outBuf).metadata();
     console.log(
@@ -169,6 +175,12 @@ const jobs = [
   ['rsvp/rsvp-guestbook-bg-desktop-v1.webp', { width: 1920, quality: 78 }],
   ['closing/closing-pendopo-night-bg-desktop-v1.webp', { width: 1920, quality: 78 }],
   ['events/events-pendopo-bg-mobile-v2.webp', { width: 800, quality: 76 }],
+
+  // 1B. Trim excessively tall mobile-perf backgrounds down to crisp 2x Retina proportions (zero blur)
+  ['gallery/gallery-heirloom-bg-mobile-perf-v1.webp', { width: 780, height: 1680, fit: 'fill', quality: 82 }],
+  ['rsvp/rsvp-guestbook-bg-mobile-perf-v1.webp', { width: 780, height: 1920, fit: 'fill', quality: 82 }],
+  ['gift/gift-heirloom-bg-mobile-perf-v1.webp', { width: 780, height: 1440, fit: 'fill', quality: 82 }],
+  ['closing/closing-pendopo-night-bg-mobile-perf-v2.webp', { width: 780, height: 1440, fit: 'inside', quality: 82 }],
 
   // 2. Oversized section ornaments (down to <= 720-1200px wide)
   ['layers/section-wedding-edge-ornament-indonesian-v2.webp', { width: 720, quality: 80, alphaQuality: 88 }],

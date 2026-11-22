@@ -3556,6 +3556,98 @@ body.embed-preview .vv-replay-cinematic {
    - Portrait (3:4) rounded-rectangle ("kotak radius") horizontal swipe gallery
    ========================================================================== */
 
+/* Native root document scrolling once cinematic completes (hardware compositor scroll on mobile) */
+html.vv-doc-scroll-active,
+html:has(.verdant-vow.is-cinematic-done) {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+  scroll-behavior: auto !important;
+}
+
+body.vv-doc-scroll-active:not(:has(.vv-lightbox)),
+body:has(.verdant-vow.is-cinematic-done):not(:has(.vv-lightbox)),
+body.vv-doc-scroll-active #root,
+body:has(.verdant-vow.is-cinematic-done) #root {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+  scroll-behavior: auto !important;
+}
+
+.verdant-vow.vv-redesign.is-cinematic-done {
+  position: relative !important;
+  inset: auto !important;
+  width: 100%;
+  height: auto !important;
+  min-height: 100svh;
+  overflow: visible !important;
+}
+
+.verdant-vow.vv-redesign.is-cinematic-done .vv-scroll {
+  position: static !important;
+  inset: auto !important;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  will-change: auto !important;
+}
+
+.vv-redesign.is-cinematic-done .vv-journey.is-retired {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  background: none !important;
+}
+
+body.embed-preview.vv-doc-scroll-active,
+html.vv-doc-scroll-active.vv-embed-scroll-hide {
+  scrollbar-width: none;
+}
+
+body.embed-preview.vv-doc-scroll-active::-webkit-scrollbar,
+html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Suppress mount-time backwards CSS transitions during initial layout setup */
+.vv-redesign.vv-reveal-init .vv-scroll-reveal,
+.vv-redesign.vv-reveal-init .vv-scroll-reveal * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Remove backdrop-filter blur repaints from fixed/floating navigation and buttons */
+.vv-redesign .vv-nav,
+.vv-redesign .vv-music-toggle,
+.vv-redesign .vv-replay-cinematic,
+.vv-redesign .vv-custom-dropdown-menu,
+.vv-redesign .vv-photo-zoom-hint {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.vv-redesign .vv-nav {
+  background: rgba(10, 47, 37, 0.92);
+}
+
+/* Disable crystal glint pseudo-elements on mobile / non-high tiers so zero infinite animations tick */
+.vv-redesign:not(.vv-perf-high) .vv-wedding-ornaments::before,
+.vv-redesign:not(.vv-perf-high) .vv-wedding-ornaments::after {
+  display: none !important;
+  animation: none !important;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-wedding-ornaments::before,
+  .vv-redesign .vv-wedding-ornaments::after {
+    display: none !important;
+    animation: none !important;
+  }
+}
+
 /* 1. Eliminate per-frame backdrop-filter, blur, and dynamic drop-shadow repaints
       across the gate opening and all scrolling invitation sections on BOTH desktop & mobile */
 .vv-redesign .vv-gate-portal,
@@ -3575,6 +3667,125 @@ body.embed-preview .vv-replay-cinematic {
   filter: none !important;
 }
 
+/* Keep static half-clip on mobile bottom wedding leaves & convert entrance to pure compositor transform+opacity */
+@media (max-width: 800px) {
+  .vv-redesign .vv-wedding-bottom-ornament-left {
+    clip-path: inset(0 50% 0 0);
+  }
+  .vv-redesign .vv-wedding-bottom-ornament-right {
+    clip-path: inset(0 0 0 50%);
+  }
+  .vv-redesign .vv-person-card,
+  .vv-redesign .vv-event-card,
+  .vv-redesign .vv-story-glass,
+  .vv-redesign .vv-gallery-grid figure,
+  .vv-redesign .vv-gift-card-single,
+  .vv-redesign .vv-rsvp-form,
+  .vv-redesign .vv-rsvp-wishes-shell {
+    box-shadow: 0 10px 22px rgba(31, 55, 40, 0.11) !important;
+  }
+}
+
+@keyframes vv-wedding-bottom-left-in {
+  0% { opacity: 0; transform: translate(-56%, 32%) scale(0.88) rotate(-3deg); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1) rotate(0); }
+}
+
+@keyframes vv-wedding-bottom-right-in {
+  0% { opacity: 0; transform: translate(-44%, 32%) scale(0.88) rotate(3deg); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1) rotate(0); }
+}
+
+@keyframes vv-couple-kicker-in {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes vv-events-kicker-in {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes vv-events-card-gold-line {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: .65; transform: scaleX(1); }
+}
+
+@keyframes vv-wedding-copy-in { from { opacity: 0; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
+@keyframes vv-couple-orbit-left-in { from { opacity: 0; transform: translate(-24%, 18%) scale(.84) rotate(-10deg); } to { opacity: .94; transform: translate(0, 0) scale(1) rotate(-5deg); } }
+@keyframes vv-couple-orbit-right-in { from { opacity: 0; transform: translate(24%, 18%) scaleX(-1) scale(.84) rotate(-10deg); } to { opacity: .94; transform: translate(0, 0) scaleX(-1) scale(1) rotate(-5deg); } }
+@keyframes vv-story-side-left-in { from { opacity: 0; transform: translate(-48%, 22%) rotate(-8deg) scale(.88); } to { opacity: .92; transform: translate(0, 0) rotate(-2deg) scale(1); } }
+@keyframes vv-story-side-right-in { from { opacity: 0; transform: translate(48%, 22%) scaleX(-1) rotate(-8deg) scale(.88); } to { opacity: .92; transform: translate(0, 0) scaleX(-1) rotate(-2deg) scale(1); } }
+@keyframes vv-gallery-corner-tl-in { from { opacity: 0; transform: translate(-32%, -30%) scale(.86) rotate(-5deg); } to { opacity: .9; transform: none; } }
+@keyframes vv-gallery-corner-tr-in { from { opacity: 0; transform: translate(32%, -30%) scaleX(-1) scale(.86) rotate(-5deg); } to { opacity: .9; transform: scaleX(-1); } }
+@keyframes vv-gallery-corner-bl-in { from { opacity: 0; transform: translate(-32%, 30%) scaleY(-1) scale(.86) rotate(-5deg); } to { opacity: .9; transform: scaleY(-1); } }
+@keyframes vv-gallery-corner-br-in { from { opacity: 0; transform: translate(32%, 30%) scale(-1) scale(.86) rotate(-5deg); } to { opacity: .9; transform: scale(-1); } }
+@keyframes vv-gift-left-in { from { opacity: 0; transform: translate(-24%, 26%) rotate(-5deg) scale(.9); } to { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); } }
+@keyframes vv-gift-right-in { from { opacity: 0; transform: translate(24%, 26%) rotate(5deg) scaleX(-1) scale(.9); } to { opacity: 1; transform: translate(0, 0) rotate(0) scaleX(-1) scale(1); } }
+@keyframes vv-rsvp-ledger-in { from { opacity: 0; transform: translate(-50%, 28%) scale(.92); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes vv-closing-canopy-in { from { opacity: 0; transform: translate(-50%, -25%) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes vv-mob-orn-tl { from { opacity: 0; transform: translate3d(-28px, -18px, 0); } to { opacity: .9; transform: translate3d(0, 0, 0); } }
+@keyframes vv-mob-orn-tr { from { opacity: 0; transform: translate3d(28px, -18px, 0) scaleX(-1); } to { opacity: .9; transform: translate3d(0, 0, 0) scaleX(-1); } }
+@keyframes vv-mob-orn-bl { from { opacity: 0; transform: translate3d(-28px, 18px, 0) scaleY(-1); } to { opacity: .9; transform: translate3d(0, 0, 0) scaleY(-1); } }
+@keyframes vv-mob-orn-br { from { opacity: 0; transform: translate3d(28px, 18px, 0) scale(-1); } to { opacity: .9; transform: translate3d(0, 0, 0) scale(-1); } }
+@keyframes vv-mob-orn-left { from { opacity: 0; transform: translate3d(-32px, 14px, 0); } to { opacity: .92; transform: translate3d(0, 0, 0); } }
+@keyframes vv-mob-orn-right { from { opacity: 0; transform: translate3d(32px, 14px, 0) scaleX(-1); } to { opacity: .92; transform: translate3d(0, 0, 0) scaleX(-1); } }
+@keyframes vv-mob-orn-up-center { from { opacity: 0; transform: translate3d(-50%, 26px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
+@keyframes vv-mob-orn-down-center { from { opacity: 0; transform: translate3d(-50%, -26px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
+
+/* Run ONLY the one-time entrance choreography (no secondary 8-11s idle float/glow loops) */
+.vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-left {
+  animation: vv-wedding-ornament-left-in 1.45s .12s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-right {
+  animation: vv-wedding-ornament-right-in 1.45s .2s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-left {
+  animation: vv-wedding-bottom-left-in 1.35s .2s cubic-bezier(.16,.84,.18,1) both !important;
+}
+.vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-right {
+  animation: vv-wedding-bottom-right-in 1.35s .3s cubic-bezier(.16,.84,.18,1) both !important;
+}
+.vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:first-child {
+  animation: vv-couple-orbit-left-in 1.35s .15s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:last-child {
+  animation: vv-couple-orbit-right-in 1.35s .22s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-couple.is-revealed .vv-person-amp {
+  animation: vv-couple-amp-in .85s .55s cubic-bezier(.18,.9,.24,1.25) both !important;
+}
+.vv-redesign .vv-full-events.is-revealed .vv-events-corner-tl {
+  animation: vv-events-corner-tl-desktop-in 1.35s .14s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-events.is-revealed .vv-events-corner-tr {
+  animation: vv-events-corner-tr-desktop-in 1.35s .22s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-events.is-revealed .vv-events-corner-bl {
+  animation: vv-events-corner-bl-desktop-in 1.35s .3s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-full-events.is-revealed .vv-events-corner-br {
+  animation: vv-events-corner-br-desktop-in 1.35s .38s cubic-bezier(.16,.82,.22,1) both !important;
+}
+.vv-redesign .vv-story.is-revealed .vv-story-side-left {
+  animation: vv-story-side-left-in 1.3s .16s cubic-bezier(.16,.84,.2,1) both !important;
+}
+.vv-redesign .vv-story.is-revealed .vv-story-side-right {
+  animation: vv-story-side-right-in 1.3s .25s cubic-bezier(.16,.84,.2,1) both !important;
+}
+.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tl {
+  animation: vv-gallery-corner-tl-in 1.25s .14s cubic-bezier(.16,.84,.2,1) both !important;
+}
+.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tr {
+  animation: vv-gallery-corner-tr-in 1.25s .22s cubic-bezier(.16,.84,.2,1) both !important;
+}
+.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-bl {
+  animation: vv-gallery-corner-bl-in 1.25s .3s cubic-bezier(.16,.84,.2,1) both !important;
+}
+.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-br {
+  animation: vv-gallery-corner-br-in 1.25s .38s cubic-bezier(.16,.84,.2,1) both !important;
+}
+
 /* Disable full-screen ::before background zoom/blur keyframes on desktop as well as mobile */
 .vv-redesign .vv-story::before,
 .vv-redesign .vv-gallery::before,
@@ -3586,13 +3797,17 @@ body.embed-preview .vv-replay-cinematic {
   transform: none !important;
   opacity: 1 !important;
 }
+.vv-redesign .vv-full-events::before {
+  display: none !important;
+  animation: none !important;
+}
 
 /* Paint & layout isolation per section reduces full-page repaints while scrolling */
 .vv-redesign .vv-after {
   contain: layout style paint;
 }
 
-/* Promote ONLY near-viewport revealing elements to GPU layers during entrance, then release immediately */
+/* Preserve pure compositor transitions (zero clip-path/will-change thrashing during scroll) */
 .vv-redesign .vv-after *,
 .vv-redesign .vv-after *::before,
 .vv-redesign .vv-after *::after,
@@ -3600,10 +3815,20 @@ body.embed-preview .vv-replay-cinematic {
   will-change: auto !important;
 }
 
-.vv-redesign .vv-scroll-reveal.is-gpu-ready:not(.is-motion-settled) {
-  will-change: transform, opacity !important;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+.vv-redesign.has-component-reveals .vv-after .vv-scroll-reveal {
+  clip-path: none !important;
+  transition-property: opacity, transform !important;
+}
+
+@keyframes vv-story-image-open {
+  from {
+    opacity: 0.01;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Eliminate clip-path animation repaints on reveal-type (keep crisp compositor reveal) */
@@ -3662,7 +3887,7 @@ body.embed-preview .vv-replay-cinematic {
 .vv-redesign.vv-perf-low .vv-scroll-reveal {
   --vv-reveal-enter: translate3d(0, 20px, 0);
   animation: none !important;
-  transition-duration: 0.65s, 0.8s !important;
+  transition-duration: 0.88s, 1.08s !important;
   transition-timing-function: ease-out, cubic-bezier(0.22, 0.85, 0.36, 1) !important;
 }
 
@@ -3702,13 +3927,157 @@ body.embed-preview .vv-replay-cinematic {
   display: none !important;
 }
 
-.vv-redesign.vv-perf-balanced.has-component-reveals .vv-after .vv-scroll-reveal.vv-reveal-left.is-component-visible,
-.vv-redesign.vv-perf-balanced.has-component-reveals .vv-after .vv-scroll-reveal.vv-reveal-bounce.is-component-visible {
+.vv-redesign.has-component-reveals .vv-after .vv-scroll-reveal,
+.vv-redesign.has-component-reveals:not(.vv-perf-low) .vv-after .vv-scroll-reveal.vv-reveal-left.is-component-visible,
+.vv-redesign.has-component-reveals:not(.vv-perf-low) .vv-after .vv-scroll-reveal.vv-reveal-bounce.is-component-visible {
+  animation: none !important;
+}
+
+.vv-redesign .vv-story .vv-story-photo-img,
+.vv-redesign .vv-rsvp-redesign .vv-wishes article {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+.vv-redesign .vv-full-events.is-revealed .vv-event-card::before,
+.vv-redesign .vv-full-events.is-revealed .vv-event-card::after {
   animation: none !important;
 }
 
 .vv-redesign.vv-perf-balanced .vv-scroll-reveal {
-  transition-duration: 0.85s, 1.02s !important;
+  transition-duration: 1.02s, 1.28s !important;
+  transition-timing-function: ease-out, cubic-bezier(0.16, 0.86, 0.24, 1) !important;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-story::after,
+  .vv-redesign .vv-gallery::after,
+  .vv-redesign .vv-gift-redesign::after,
+  .vv-redesign .vv-rsvp-redesign::after,
+  .vv-redesign .vv-closing-redesign::after,
+  .vv-redesign .vv-rsvp-contour,
+  .vv-redesign .vv-closing-floor-sigil {
+    display: none !important;
+  }
+  .vv-redesign .vv-full-events.is-revealed .vv-after-heading::after {
+    animation: none !important;
+    opacity: .85;
+    transform: none;
+  }
+  .vv-redesign .vv-event-card {
+    background: #faf6e8;
+    box-shadow: 0 12px 26px rgba(52, 55, 33, .12);
+  }
+  .vv-redesign .vv-rsvp-redesign .vv-rsvp-form {
+    backdrop-filter: none !important;
+    background: linear-gradient(180deg, rgba(255, 253, 242, .97), rgba(242, 235, 216, .96));
+    box-shadow: 0 14px 32px rgba(30, 58, 42, .13);
+  }
+  .vv-redesign .vv-rsvp-redesign .vv-rsvp-wishes-shell {
+    backdrop-filter: none !important;
+    background: rgba(249, 243, 227, .96);
+    box-shadow: 0 12px 28px rgba(36, 57, 42, .1);
+  }
+  .vv-redesign .vv-rsvp-redesign .vv-wishes article {
+    background: rgba(255, 253, 244, .96);
+    box-shadow: 0 4px 12px rgba(41, 62, 45, .07);
+  }
+  .vv-redesign .vv-rsvp-redesign .vv-wishes article strong {
+    padding-right: 104px;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal {
+    --vv-reveal-enter: translate3d(0, 34px, 0);
+    --vv-reveal-rest: translate3d(0, 0, 0);
+    transition-property: opacity, transform !important;
+    transition-duration: 0.92s, 1.18s !important;
+    transition-timing-function: ease-out, cubic-bezier(0.16, 0.86, 0.24, 1) !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-left {
+    --vv-reveal-enter: translate3d(-38px, 14px, 0);
+    transition-timing-function: ease-out, cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-right {
+    --vv-reveal-enter: translate3d(38px, 14px, 0);
+    transition-timing-function: ease-out, cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-up {
+    --vv-reveal-enter: translate3d(0, 34px, 0);
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-bounce {
+    --vv-reveal-enter: translate3d(0, 40px, 0);
+    transition-duration: 0.96s, 1.22s !important;
+    transition-timing-function: ease-out, cubic-bezier(0.18, 1.14, 0.32, 1) !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-zoom {
+    --vv-reveal-enter: translate3d(0, 24px, 0) scale(0.94);
+    transition-timing-function: ease-out, cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-gallery-carousel.vv-scroll-reveal.vv-reveal-zoom {
+    --vv-reveal-enter: translate3d(0, 34px, 0);
+    --vv-reveal-rest: translate3d(0, 0, 0);
+    overflow-x: clip;
+    contain: layout style;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-type {
+    --vv-reveal-enter: translate3d(0, 22px, 0);
+    --vv-reveal-rest: translate3d(0, 0, 0);
+    transition-duration: 0.88s, 1.12s !important;
+  }
+  .vv-redesign:not(.vv-perf-low) .vv-closing-couple.vv-scroll-reveal,
+  .vv-redesign:not(.vv-perf-low) .vv-closing-couple.vv-scroll-reveal.vv-reveal-up {
+    --vv-reveal-enter: translate3d(-50%, 34px, 0);
+    --vv-reveal-rest: translate3d(-50%, 0, 0);
+  }
+  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-left,
+  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-left,
+  .vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:first-child,
+  .vv-redesign .vv-story.is-revealed .vv-story-side-left,
+  .vv-redesign .vv-gift-redesign.is-revealed .vv-gift-seserahan-left {
+    animation-name: vv-mob-orn-left !important;
+  }
+  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-right,
+  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-right,
+  .vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:last-child,
+  .vv-redesign .vv-story.is-revealed .vv-story-side-right,
+  .vv-redesign .vv-gift-redesign.is-revealed .vv-gift-seserahan-right {
+    animation-name: vv-mob-orn-right !important;
+  }
+  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-tl,
+  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tl {
+    animation-name: vv-mob-orn-tl !important;
+  }
+  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-tr,
+  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tr {
+    animation-name: vv-mob-orn-tr !important;
+  }
+  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-bl,
+  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-bl {
+    animation-name: vv-mob-orn-bl !important;
+  }
+  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-br,
+  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-br {
+    animation-name: vv-mob-orn-br !important;
+  }
+  .vv-redesign .vv-rsvp-redesign.is-revealed .vv-rsvp-ledger {
+    animation-name: vv-mob-orn-up-center !important;
+  }
+  .vv-redesign .vv-closing-redesign.is-revealed .vv-closing-canopy {
+    animation-name: vv-mob-orn-down-center !important;
+  }
+  .vv-redesign .vv-after.is-revealed .vv-wedding-ornament,
+  .vv-redesign .vv-after.is-revealed .vv-wedding-bottom-ornament,
+  .vv-redesign .vv-after.is-revealed .vv-couple-ornaments img,
+  .vv-redesign .vv-after.is-revealed .vv-events-corner,
+  .vv-redesign .vv-after.is-revealed .vv-story-side,
+  .vv-redesign .vv-after.is-revealed .vv-gallery-corner,
+  .vv-redesign .vv-after.is-revealed .vv-gift-seserahan,
+  .vv-redesign .vv-after.is-revealed .vv-rsvp-ledger,
+  .vv-redesign .vv-after.is-revealed .vv-closing-canopy {
+    animation-duration: 1.15s !important;
+    animation-iteration-count: 1 !important;
+    animation-timing-function: cubic-bezier(0.16, 0.84, 0.22, 1) !important;
+  }
 }
 
 .vv-redesign.vv-perf-balanced .vv-person-card,
@@ -3717,8 +4086,15 @@ body.embed-preview .vv-replay-cinematic {
 .vv-redesign.vv-perf-balanced .vv-gallery-grid figure,
 .vv-redesign.vv-perf-balanced .vv-gift-card-single,
 .vv-redesign.vv-perf-balanced .vv-rsvp-form,
-.vv-redesign.vv-perf-balanced .vv-rsvp-wishes-shell {
-  box-shadow: 0 14px 32px rgba(55, 42, 24, 0.13) !important;
+.vv-redesign.vv-perf-balanced .vv-rsvp-wishes-shell,
+.vv-redesign.vv-perf-balanced .vv-rsvp-redesign .vv-wishes article,
+.vv-redesign.vv-perf-balanced .vv-closing-couple {
+  box-shadow: 0 12px 26px rgba(55, 42, 24, 0.12) !important;
+}
+
+.vv-redesign.vv-perf-low .vv-rsvp-redesign .vv-wishes article,
+.vv-redesign.vv-perf-low .vv-closing-couple {
+  box-shadow: 0 6px 14px rgba(31, 55, 40, 0.08) !important;
 }
 
 /* 2C. Adaptive Tier: HIGH & Viewport Gating for Sparkles
@@ -3859,7 +4235,7 @@ body.embed-preview .vv-replay-cinematic {
   overflow-x: auto;
   overflow-y: visible;
   scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
@@ -3902,6 +4278,10 @@ body.embed-preview .vv-replay-cinematic {
   border: 1px solid rgba(139, 98, 48, 0.42) !important;
   border-radius: 22px !important;
   clip-path: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
   background: linear-gradient(155deg, rgba(255, 253, 244, 0.98), rgba(235, 223, 195, 0.94)) !important;
   box-shadow:
     inset 0 0 0 4px rgba(255, 250, 232, 0.58),
@@ -4072,6 +4452,22 @@ body.embed-preview .vv-replay-cinematic {
   .vv-redesign .vv-gallery-grid.vv-gallery-slider figure:nth-child(n) {
     padding: 10px 10px 0 !important;
     border-radius: 20px !important;
+    box-shadow: 0 8px 18px rgba(42, 34, 20, 0.1) !important;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider {
+    contain: layout style;
+  }
+
+  .vv-redesign .vv-person-card,
+  .vv-redesign .vv-event-card,
+  .vv-redesign .vv-story-glass,
+  .vv-redesign .vv-gift-card-single,
+  .vv-redesign .vv-rsvp-form,
+  .vv-redesign .vv-rsvp-wishes-shell,
+  .vv-redesign .vv-rsvp-redesign .vv-wishes article,
+  .vv-redesign .vv-closing-couple {
+    box-shadow: 0 8px 18px rgba(42, 34, 20, 0.1) !important;
   }
 
   .vv-redesign .vv-gallery-grid.vv-gallery-slider figure[data-vv-reveal-seen="true"] {

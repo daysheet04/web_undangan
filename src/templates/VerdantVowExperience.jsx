@@ -3,6 +3,7 @@ import { mediaUrl } from '../lib/api.js';
 import TemplateFooter from '../components/TemplateFooter.jsx';
 import VerdantOpeningScene from './verdant-vow/VerdantOpeningScene.jsx';
 import VerdantCinematicJourney from './verdant-vow/VerdantCinematicJourney.jsx';
+import useCrispMediaWarmup from './verdant-vow/useCrispMediaWarmup.js';
 import './verdant-vow/experience.css';
 
 const BASE = '/assets/images/templates/verdant-vow';
@@ -15,9 +16,32 @@ const CLOSING = BASE + '/closing';
 
 const VerdantCountdownGrid = React.memo(function VerdantCountdownGrid({ eventDate, active }) {
   const [clock, setClock] = useState(() => Date.now());
+  const [inViewport, setInViewport] = useState(true);
+  const gridRef = useRef(null);
 
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active || typeof window === 'undefined') {
+      setInViewport(false);
+      return undefined;
+    }
+    const node = gridRef.current;
+    if (!node || typeof IntersectionObserver !== 'function') {
+      setInViewport(true);
+      return undefined;
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setInViewport(entry.isIntersecting);
+      },
+      { root: null, rootMargin: '120px 0px 120px 0px', threshold: 0 },
+    );
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [active]);
+
+  useEffect(() => {
+    if (!active || !inViewport) return undefined;
     setClock(Date.now());
     const timer = window.setInterval(() => {
       if (typeof document === 'undefined' || !document.hidden) {
@@ -25,7 +49,7 @@ const VerdantCountdownGrid = React.memo(function VerdantCountdownGrid({ eventDat
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, inViewport]);
 
   const countdown = useMemo(() => {
     const target = new Date(String(eventDate || '').slice(0, 10) + 'T00:00:00');
@@ -39,7 +63,7 @@ const VerdantCountdownGrid = React.memo(function VerdantCountdownGrid({ eventDat
   }, [eventDate, clock]);
 
   return (
-    <div className='vv-countdown-grid'>
+    <div className='vv-countdown-grid' ref={gridRef}>
       {countdown.map((value, index) => (
         <span key={index}>
           <b>{String(value).padStart(2, '0')}</b>
@@ -63,8 +87,15 @@ const detectPerformanceTier = () => {
   const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return 'low';
   const isCompact = window.matchMedia('(max-width: 800px)').matches;
+  const isCoarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   const memory = Number(navigator.deviceMemory || 0);
   const cores = Number(navigator.hardwareConcurrency || 0);
+  if (isCompact || isCoarse) {
+    if ((memory && memory <= 4) || (cores && cores <= 4) || connection?.effectiveType === '3g') {
+      return 'low';
+    }
+    return 'balanced';
+  }
   const renderedPixels = window.innerWidth * window.innerHeight * Math.pow(window.devicePixelRatio || 1, 2);
   let pressure = 0;
   if (memory) {
@@ -78,11 +109,7 @@ const detectPerformanceTier = () => {
     else if (cores <= 6) pressure += 1;
   }
   if (connection?.effectiveType === '3g') pressure += 1;
-  if (isCompact) {
-    pressure += 1;
-    if (renderedPixels > 3600000) pressure += 1;
-    if (!memory && (!cores || cores < 8)) pressure = Math.max(pressure, cores && cores <= 4 ? 4 : 2);
-  }
+  if (renderedPixels > 3600000) pressure += 1;
   if (pressure >= 4) return 'low';
   if (pressure >= 2) return 'balanced';
   return 'high';
@@ -110,7 +137,8 @@ function VvSymbols() {
     </svg>
   );
 }
-function Person({ role, name, nickname, photo, father, mother, onPhotoClick }) {
+function Person({ role, name, nickname, photo, displayPhoto, father, mother, onPhotoClick }) {
+  const src = displayPhoto || (photo ? mediaUrl(photo) : '');
   return (
     <article className='vv-person-card'>
       {photo && (
@@ -122,7 +150,7 @@ function Person({ role, name, nickname, photo, father, mother, onPhotoClick }) {
           aria-label={`Lihat foto ${name} ukuran penuh`}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPhotoClick?.(); } }}
         >
-          <img src={mediaUrl(photo)} alt={name} decoding='async'/>
+          <img src={src} alt={name} width='900' height='1200' decoding='async'/>
           <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
         </figure>
       )}
@@ -298,7 +326,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     };
   }, [lightbox]);
 
-  const [performanceTier,setPerformanceTier] = useState(detectPerformanceTier);
+  const [performanceTier] = useState(detectPerformanceTier);
+  const [isCompactViewport, setIsCompactViewport] = useState(() => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 800px)').matches : false));
   const [opened,setOpened] = useState(false), [cinematicDone,setCinematicDone] = useState(false), [replayId,setReplayId] = useState(0), [menuOpen,setMenuOpen] = useState(false), [autoReplayOpening,setAutoReplayOpening] = useState(false);
   const [openingPhase,setOpeningPhase] = useState('idle');
   const [eventsPhase,setEventsPhase] = useState('idle');
@@ -312,6 +341,37 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const [selectedGiftIndex, setSelectedGiftIndex] = useState(0);
   const [isGiftDropdownOpen, setIsGiftDropdownOpen] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(max-width: 800px)');
+    const sync = () => setIsCompactViewport(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    return () => mq.removeEventListener?.('change', sync);
+  }, []);
+
+  const groomPhotoRaw = i.groom_photo || media[1]?.file_path || i.cover_image;
+  const bridePhotoRaw = i.bride_photo || media[0]?.file_path || i.cover_image;
+  const storyPhotoRaw = i.cover_image || media[0]?.file_path;
+  const closingPhotoOrig = customCoupleUrl || (LAYER + '/couple-cinematic-v2.webp');
+  const warmupPhotoUrls = useMemo(() => [
+    groomPhotoRaw ? mediaUrl(groomPhotoRaw) : null,
+    bridePhotoRaw ? mediaUrl(bridePhotoRaw) : null,
+    storyPhotoRaw ? mediaUrl(storyPhotoRaw) : null,
+    ...photos.map((p) => (p?.file_path ? mediaUrl(p.file_path) : null)),
+    closingPhotoOrig || null,
+  ].filter(Boolean), [groomPhotoRaw, bridePhotoRaw, storyPhotoRaw, photos, closingPhotoOrig]);
+
+  const { getDisplaySrc } = useCrispMediaWarmup({
+    photoUrls: warmupPhotoUrls,
+    performanceTier,
+    isCompact: isCompactViewport,
+    canWarm: !opened || (opened && cinematicDone),
+  });
+
+  const showOrnaments = performanceTier !== 'low';
+  const showSparkles = performanceTier === 'high' && !isCompactViewport;
   const defaultGiftAccounts = useMemo(() => [
     { provider: 'BCA', account_number: '8410 9283 1928', account_name: `${groom} & ${bride}`, label: 'Rekening Utama' },
     { provider: 'BNI', account_number: '0912 3847 1920', account_name: `${groom} & ${bride}`, label: 'Rekening Hadiah' },
@@ -381,134 +441,36 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   },[opened,i.has_music,i.music_file]);
   useEffect(() => {
     if (!opened || !cinematicDone) return undefined;
-    const root = scrollRef.current;
-    if (!root) return undefined;
     const observer = new IntersectionObserver(entries => {
       const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => b.intersectionRatio-a.intersectionRatio)[0];
       if (visible) syncActiveNavDom(visible.target.id);
-    },{root,rootMargin:'-14% 0px -55% 0px',threshold:[0,.15,.4]});
-    sections.forEach(([id]) => { const element = root.querySelector('#'+id); if (element) observer.observe(element); });
+    },{root:null,rootMargin:'-14% 0px -55% 0px',threshold:[0,.15,.4]});
+    sections.forEach(([id]) => { const element = scrollRef.current?.querySelector('#'+id); if (element) observer.observe(element); });
     return () => observer.disconnect();
   },[opened,cinematicDone,i.love_story,i.has_gift,i.has_wishes,syncActiveNavDom]);
 
-  // Retire the cinematic before the browser paints the invitation.
+  // Retire the cinematic, mount native document scrolling before paint.
   useLayoutEffect(() => {
     if (!opened || !cinematicDone) return undefined;
-    const root = scrollRef.current;
-    if (!root) return undefined;
-    root.scrollTo({ top: 0, behavior: 'auto' });
+    const html = document.documentElement;
+    const body = document.body;
+    html.classList.add('vv-doc-scroll-active');
+    html.classList.toggle('vv-embed-scroll-hide', body.classList.contains('embed-preview'));
+    body.classList.add('vv-doc-scroll-active');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
     setJourneyMounted(false);
     normalRef.current?.classList.add('is-revealed', 'is-in-viewport');
     activeNormalRef.current = 'vv-full-opening';
     setActiveNormal('vv-full-opening');
-    return undefined;
+    return () => {
+      html.classList.remove('vv-doc-scroll-active', 'vv-embed-scroll-hide');
+      body.classList.remove('vv-doc-scroll-active');
+    };
   },[opened,cinematicDone,replayId]);
 
-  // Adaptive live frame-drop downgrader & staggered idle image pre-decoding
-  useEffect(() => {
-    if (!opened || !cinematicDone) return undefined;
-    const root = scrollRef.current;
-    if (!root) return undefined;
-    let cancelled = false;
-    let jankFrames = 0;
-    let severeFrames = 0;
-    let sampleCount = 0;
-    let sampling = false;
-    let lastTs = 0;
-    let rafId = 0;
-    let scrollIdleTimer = 0;
-    const forced = getForcedPerfTier();
-
-    const stepSample = (now) => {
-      if (cancelled || !sampling) return;
-      const dt = now - lastTs;
-      lastTs = now;
-      if (dt > 34 && dt < 250) jankFrames += 1;
-      if (dt > 46 && dt < 250) severeFrames += 1;
-      sampleCount += 1;
-      if (!forced) {
-        if (performanceTier === 'high' && jankFrames >= 4) {
-          setPerformanceTier('balanced');
-          sampling = false;
-          return;
-        }
-        if (performanceTier === 'balanced' && (severeFrames >= 5 || jankFrames >= 7)) {
-          setPerformanceTier('low');
-          sampling = false;
-          return;
-        }
-      }
-      if (sampleCount < 48) {
-        rafId = window.requestAnimationFrame(stepSample);
-      } else {
-        sampling = false;
-      }
-    };
-
-    const onScroll = () => {
-      if (forced || performanceTier === 'low' || sampleCount >= 48) return;
-      window.clearTimeout(scrollIdleTimer);
-      scrollIdleTimer = window.setTimeout(() => { sampling = false; }, 180);
-      if (!sampling) {
-        sampling = true;
-        lastTs = performance.now();
-        rafId = window.requestAnimationFrame(stepSample);
-      }
-    };
-
-    if (!forced && performanceTier !== 'low') {
-      root.addEventListener('scroll', onScroll, { passive: true });
-    }
-
-    let idleHandle = 0;
-    let stepTimer = 0;
-    let startTimer = 0;
-    if (performanceTier !== 'low') {
-      const warmImages = () => {
-        if (cancelled) return;
-        const imgs = Array.from(root.querySelectorAll('img[loading="lazy"]'));
-        let idx = 0;
-        const warmNext = () => {
-          if (cancelled || idx >= imgs.length) return;
-          const img = imgs[idx++];
-          if (!img || img.complete) {
-            stepTimer = window.setTimeout(warmNext, 12);
-            return;
-          }
-          img.loading = 'eager';
-          if (typeof img.decode === 'function') {
-            img.decode().catch(() => {}).finally(() => {
-              if (!cancelled) stepTimer = window.setTimeout(warmNext, 45);
-            });
-          } else {
-            stepTimer = window.setTimeout(warmNext, 45);
-          }
-        };
-        warmNext();
-      };
-      startTimer = window.setTimeout(() => {
-        if (cancelled) return;
-        if ('requestIdleCallback' in window) {
-          idleHandle = window.requestIdleCallback(warmImages, { timeout: 1500 });
-        } else {
-          warmImages();
-        }
-      }, 450);
-    }
-
-    return () => {
-      cancelled = true;
-      root.removeEventListener('scroll', onScroll);
-      window.clearTimeout(scrollIdleTimer);
-      window.clearTimeout(startTimer);
-      window.clearTimeout(stepTimer);
-      if (rafId) window.cancelAnimationFrame(rafId);
-      if (idleHandle && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleHandle);
-    };
-  }, [opened, cinematicDone, performanceTier]);
-  // One observer drives every content block, so reveals follow the viewport instead
-  // of firing an entire section at once.
-  useEffect(() => {
+  // Apply reveal classes synchronously before first paint (0 mount transition storm).
+  useLayoutEffect(() => {
     if (!opened || !cinematicDone) return undefined;
     const root = scrollRef.current;
     if (!root) return undefined;
@@ -523,7 +485,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       '.vv-story-glass',
       '.vv-story-photo',
       '.vv-gallery > .vv-after-heading',
-      '.vv-gallery-grid figure',
+      '.vv-gallery-carousel',
       '.vv-gift-redesign > .vv-after-heading',
       '.vv-gift-redesign > p',
       '.vv-gift-selector-container',
@@ -541,7 +503,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     ];
     const targets = Array.from(root.querySelectorAll(selectors.join(',')));
     const revealVariants = ['vv-reveal-left','vv-reveal-right','vv-reveal-up','vv-reveal-bounce','vv-reveal-zoom','vv-reveal-type'];
-    const getRevealVariant = (el,index) => {
+    const getRevealVariant = (el) => {
       if (el.matches('.vv-full-couple > .vv-after-heading')) return 'vv-reveal-up';
       if (el.matches('.vv-person-card')) return el === el.parentElement?.querySelector('.vv-person-card') ? 'vv-reveal-left' : 'vv-reveal-right';
       if (el.matches('.vv-person-amp')) return 'vv-reveal-zoom';
@@ -550,7 +512,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       if (el.matches('.vv-story-glass')) return 'vv-reveal-left';
       if (el.matches('.vv-story-photo')) return 'vv-reveal-right';
       if (el.matches('.vv-gallery > .vv-after-heading')) return 'vv-reveal-up';
-      if (el.matches('.vv-gallery-grid figure')) return ['vv-reveal-left','vv-reveal-up','vv-reveal-right','vv-reveal-zoom'][index%4];
+      if (el.matches('.vv-gallery-carousel')) return 'vv-reveal-zoom';
       if (el.matches('.vv-gift-redesign > .vv-after-heading')) return 'vv-reveal-zoom';
       if (el.matches('.vv-gift-redesign > p')) return 'vv-reveal-type';
       if (el.matches('.vv-gift-selector-container')) return 'vv-reveal-up';
@@ -566,117 +528,63 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       if (el.matches('.vv-closing-copy > time')) return 'vv-reveal-right';
       return 'vv-reveal-up';
     };
+
+    experience?.classList.add('vv-reveal-init');
     const sectionOrder = new Map();
-    targets.forEach((el,index) => {
+    targets.forEach((el) => {
       const section = el.closest('.vv-after');
       const order = sectionOrder.get(section) || 0;
       sectionOrder.set(section, order + 1);
-      el.classList.add('vv-scroll-reveal',getRevealVariant(el,index));
-      const delay = mobileReveal ? Math.min(order * 90, 320) : Math.min(order * 75, 280);
+      el.classList.add('vv-scroll-reveal',getRevealVariant(el));
+      const delay = mobileReveal ? Math.min(order * 95, 285) : Math.min(order * 85, 255);
       el.style.setProperty('--vv-reveal-delay', `${delay}ms`);
     });
     experience?.classList.add('has-component-reveals');
 
-    const galleryFigures = Array.from(root.querySelectorAll('.vv-gallery-grid figure'));
-    const settleTimers = [];
-    const rafIds = [];
-    const settleCleanups = [];
-
-    const gpuWarmObserver = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const el = entry.target;
-        if (entry.isIntersecting) {
-          if (!el.classList.contains('is-motion-settled')) {
-            el.classList.add('is-gpu-ready');
-          }
-        } else if (el.dataset.vvRevealSeen !== 'true') {
-          el.classList.remove('is-gpu-ready');
-        }
+    let releaseInitRaf2 = 0;
+    const releaseInitRaf1 = window.requestAnimationFrame(() => {
+      releaseInitRaf2 = window.requestAnimationFrame(() => {
+        experience?.classList.remove('vv-reveal-init');
       });
-    }, {
-      root,
-      rootMargin: '220px 0px 220px 0px',
-      threshold: 0,
     });
 
     const revealTargetOnce = (el) => {
       if (!el || el.dataset.vvRevealSeen === 'true') return;
       el.dataset.vvRevealSeen = 'true';
       el.classList.remove('is-component-exiting-up');
-      el.classList.add('is-gpu-ready');
-      gpuWarmObserver.unobserve(el);
+      el.classList.add('is-component-visible');
       componentObserver.unobserve(el);
-
-      let settled = false;
-      const onDone = (ev) => {
-        if (ev.target !== el) return;
-        if (ev.type === 'transitionend' && ev.propertyName !== 'transform' && ev.propertyName !== 'opacity') return;
-        settle();
-      };
-      const settle = () => {
-        if (settled) return;
-        settled = true;
-        el.classList.remove('is-gpu-ready');
-        el.classList.add('is-motion-settled');
-        el.removeEventListener('transitionend', onDone);
-        el.removeEventListener('animationend', onDone);
-      };
-      el.addEventListener('transitionend', onDone);
-      el.addEventListener('animationend', onDone);
-      settleCleanups.push(() => {
-        el.removeEventListener('transitionend', onDone);
-        el.removeEventListener('animationend', onDone);
-      });
-      const timer = window.setTimeout(settle, 1800);
-      settleTimers.push(timer);
-
-      const raf = window.requestAnimationFrame(() => {
-        el.classList.add('is-component-visible');
-      });
-      rafIds.push(raf);
     };
 
     const componentObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const rootTop = entry.rootBounds?.top ?? 0;
         if (!entry.isIntersecting && entry.boundingClientRect.top >= rootTop) return;
-        const el = entry.target;
-        revealTargetOnce(el);
-        if (el.matches('.vv-gallery > .vv-after-heading, .vv-gallery-grid figure')) {
-          galleryFigures.forEach((fig) => revealTargetOnce(fig));
-        }
+        revealTargetOnce(entry.target);
       });
     }, {
-      root,
-      rootMargin: '2400px 0px -2% 0px',
+      root: null,
+      rootMargin: '2400px 0px -9% 0px',
       threshold: 0.01
     });
-    targets.forEach((el) => {
-      gpuWarmObserver.observe(el);
-      componentObserver.observe(el);
-    });
+    targets.forEach((el) => componentObserver.observe(el));
 
     return () => {
-      gpuWarmObserver.disconnect();
+      window.cancelAnimationFrame(releaseInitRaf1);
+      window.cancelAnimationFrame(releaseInitRaf2);
       componentObserver.disconnect();
-      settleTimers.forEach((t) => window.clearTimeout(t));
-      rafIds.forEach((id) => window.cancelAnimationFrame(id));
-      settleCleanups.forEach((fn) => fn());
-      experience?.classList.remove('has-component-reveals');
+      experience?.classList.remove('vv-reveal-init','has-component-reveals');
       targets.forEach(el => {
-        el.classList.remove('vv-scroll-reveal','is-gpu-ready','is-component-visible','is-component-exiting-up','is-motion-settled',...revealVariants);
+        el.classList.remove('vv-scroll-reveal','is-component-visible','is-component-exiting-up',...revealVariants);
         el.style.removeProperty('--vv-reveal-delay');
         delete el.dataset.vvRevealSeen;
       });
     };
   }, [opened, cinematicDone, replayId, photos.length, greetings.length]);
 
-  // One-time section reveal coordinator: manipulates DOM classes directly so scrolling
-  // triggers ZERO React component re-renders and never reverses on scroll up.
+  // One-time section reveal coordinator (uses viewport root, zero scroll-time React renders).
   useEffect(() => {
     if (!opened || !cinematicDone) return undefined;
-    const root = scrollRef.current;
-    if (!root) return undefined;
 
     const sectionEls = [
       normalRef.current,
@@ -706,30 +614,32 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         });
       },
       {
-        root,
-        rootMargin: '2400px 0px -8% 0px',
-        threshold: 0.02,
+        root: null,
+        rootMargin: '2400px 0px -6% 0px',
+        threshold: 0.01,
       }
     );
 
-    const viewportObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          entry.target.classList.toggle('is-in-viewport', entry.isIntersecting);
-        });
-      },
-      {
-        root,
-        rootMargin: '300px 0px 300px 0px',
-        threshold: 0,
-      }
-    );
+    const viewportObserver = showSparkles
+      ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              entry.target.classList.toggle('is-in-viewport', entry.isIntersecting);
+            });
+          },
+          {
+            root: null,
+            rootMargin: '300px 0px 300px 0px',
+            threshold: 0,
+          }
+        )
+      : null;
 
-    const rootRect = root.getBoundingClientRect();
+    const viewBottom = window.innerHeight || 900;
     sectionEls.forEach((el) => {
-      viewportObserver.observe(el);
+      viewportObserver?.observe(el);
       const rect = el.getBoundingClientRect();
-      if (rect.top <= rootRect.bottom * 0.94) {
+      if (rect.top <= viewBottom * 0.94) {
         revealSectionOnce(el);
       } else {
         revealObserver.observe(el);
@@ -738,20 +648,24 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
 
     return () => {
       revealObserver.disconnect();
-      viewportObserver.disconnect();
+      viewportObserver?.disconnect();
       if (galleryScrollRafRef.current) {
         window.cancelAnimationFrame(galleryScrollRafRef.current);
         galleryScrollRafRef.current = 0;
       }
     };
-  }, [opened, cinematicDone, journeyMounted, replayId, i.love_story, i.has_gift, i.has_wishes, photos.length]);
+  }, [opened, cinematicDone, journeyMounted, showSparkles, replayId, i.love_story, i.has_gift, i.has_wishes, photos.length]);
 
   const finishCinematic = useCallback(() => {
+    setOpened(true);
+    setAutoReplayOpening(false);
     setCinematicDone(true);
   },[]);
   const replayCinematic = useCallback(() => {
-    const root = scrollRef.current;
-    if (root) root.scrollTo({ top: 0, behavior: 'auto' });
+    document.documentElement.classList.remove('vv-doc-scroll-active', 'vv-embed-scroll-hide');
+    document.body.classList.remove('vv-doc-scroll-active');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
     setOpened(false);
     setCinematicDone(false);
     setJourneyMounted(true);
@@ -784,9 +698,12 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const navigateSection = id => {
     setMenuOpen(false);
     syncActiveNavDom(id);
-    const root = scrollRef.current;
-    const target = root?.querySelector('#'+id);
-    if (root && target) root.scrollTo({ top: target.offsetTop, behavior:'smooth' });
+    const target = scrollRef.current?.querySelector('#'+id);
+    if (target?.scrollIntoView) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (target) {
+      window.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+    }
   };
   const toggleMusic = () => {
     if (!audioRef.current) return;
@@ -846,12 +763,18 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       </section>
       {cinematicDone && <>
       <section className={'vv-after vv-full-opening is-revealed'} id='vv-full-opening' ref={normalRef}>
-        <div className='vv-wedding-ornaments' aria-hidden='true'>
-          <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
-          <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
-          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-left' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
-          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-right' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
-        </div>
+        {showOrnaments && (
+          <div className='vv-wedding-ornaments' aria-hidden='true'>
+            {!isCompactViewport && <>
+              <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+              <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+            </>}
+            {isCompactViewport && <>
+              <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-left' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' width='960' height='480' decoding='async'/>
+              <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-right' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' width='960' height='480' decoding='async'/>
+            </>}
+          </div>
+        )}
         <button type='button' className='vv-replay-cinematic' onClick={replayCinematic}>Ulangi Cinematic</button>
         <div className='vv-wedding-stage'>
           <div className='vv-after-heading'><small>Dengan penuh rasa syukur</small><h2>The Wedding</h2></div>
@@ -861,22 +784,25 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         </div>
       </section>
       <section className={'vv-after vv-full-couple '+(couplePhase === 'visible' ? 'is-revealed' : couplePhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-couple' ref={coupleRef}>
-        <div className='vv-couple-ornaments' aria-hidden='true'>
-          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' decoding='async'/>
-          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' decoding='async'/>
-        </div>
-        <div className='vv-couple-sparkles' aria-hidden='true'><i/><i/><i/><i/><i/><i/><i/><i/></div>
+        {showOrnaments && (
+          <div className='vv-couple-ornaments' aria-hidden='true'>
+            <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+            <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+          </div>
+        )}
+        {showSparkles && <div className='vv-couple-sparkles' aria-hidden='true'><i/><i/><i/><i/><i/><i/><i/><i/></div>}
         <div className='vv-after-heading'><small>Dua hati yang dipertemukan</small><h2>Mempelai</h2></div>
         <div className='vv-person-grid'>
           <Person
             role='Mempelai pria'
             name={groomFull}
             nickname={groom}
-            photo={i.groom_photo || media[1]?.file_path || i.cover_image}
+            photo={groomPhotoRaw}
+            displayPhoto={groomPhotoRaw ? getDisplaySrc(mediaUrl(groomPhotoRaw)) : ''}
             father={i.groom_father}
             mother={i.groom_mother}
             onPhotoClick={() => openPhoto({
-              src: mediaUrl(i.groom_photo || media[1]?.file_path || i.cover_image),
+              src: mediaUrl(groomPhotoRaw),
               title: `Mempelai Pria · ${groomFull}`,
               caption: `Putra dari ${i.groom_father || 'Bapak'} & ${i.groom_mother || 'Ibu'}`
             })}
@@ -886,11 +812,12 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
             role='Mempelai wanita'
             name={brideFull}
             nickname={bride}
-            photo={i.bride_photo || media[0]?.file_path || i.cover_image}
+            photo={bridePhotoRaw}
+            displayPhoto={bridePhotoRaw ? getDisplaySrc(mediaUrl(bridePhotoRaw)) : ''}
             father={i.bride_father}
             mother={i.bride_mother}
             onPhotoClick={() => openPhoto({
-              src: mediaUrl(i.bride_photo || media[0]?.file_path || i.cover_image),
+              src: mediaUrl(bridePhotoRaw),
               title: `Mempelai Wanita · ${brideFull}`,
               caption: `Putri dari ${i.bride_father || 'Bapak'} & ${i.bride_mother || 'Ibu'}`
             })}
@@ -899,13 +826,17 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       </section>
 
         <section className={'vv-after vv-full-events '+(eventsPhase === 'visible' ? 'is-revealed' : eventsPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-events' ref={eventsRef}>
-        <div className='vv-events-ornaments' aria-hidden='true'>
-          <img className='vv-events-corner vv-events-corner-tl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-events-corner vv-events-corner-tr' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-events-corner vv-events-corner-bl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-events-corner vv-events-corner-br' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' loading='lazy' decoding='async'/>
-        </div>
-        <div className='vv-events-sparkles' aria-hidden='true'>{Array.from({length: 10}, (_, n) => <i key={n}/>)}</div>
+        {showOrnaments && (
+          <div className='vv-events-ornaments' aria-hidden='true'>
+            <img className='vv-events-corner vv-events-corner-tl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+            {!isCompactViewport && <>
+              <img className='vv-events-corner vv-events-corner-tr' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+              <img className='vv-events-corner vv-events-corner-bl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+            </>}
+            <img className='vv-events-corner vv-events-corner-br' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+          </div>
+        )}
+        {showSparkles && <div className='vv-events-sparkles' aria-hidden='true'>{Array.from({length: 10}, (_, n) => <i key={n}/>)}</div>}
         <div className='vv-after-heading'><small>Catat hari bahagia kami</small><h2>Rangkaian Acara</h2></div>
         <div className='vv-event-grid'>
           <EventCard title='Akad Nikah' day={i.akad_date} start={i.akad_start_time} end={i.akad_end_time} venue={i.venue_name} address={i.venue_address} maps={i.maps_url}/>
@@ -913,24 +844,28 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         </div>
       </section>
        {i.love_story && <section className={'vv-after vv-story '+(storyPhase === 'visible' ? 'is-revealed' : storyPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-story' ref={storyRef}>
-        <div className='vv-story-ornaments' aria-hidden='true'>
-          <img className='vv-story-side vv-story-side-left' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-story-side vv-story-side-right' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <span className='vv-story-glint vv-story-glint-one'/>
-          <span className='vv-story-glint vv-story-glint-two'/>
-          <span className='vv-story-glint vv-story-glint-three'/>
-        </div>
+        {showOrnaments && (
+          <div className='vv-story-ornaments' aria-hidden='true'>
+            <img className='vv-story-side vv-story-side-left' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' width='720' height='1080' decoding='async'/>
+            <img className='vv-story-side vv-story-side-right' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' width='720' height='1080' decoding='async'/>
+            {showSparkles && <>
+              <span className='vv-story-glint vv-story-glint-one'/>
+              <span className='vv-story-glint vv-story-glint-two'/>
+              <span className='vv-story-glint vv-story-glint-three'/>
+            </>}
+          </div>
+        )}
         <div className='vv-story-glass'>
           <div className='vv-after-heading'><small>Kisah yang tumbuh</small><h2><span>Kisah</span><span>Kami</span></h2></div>
           <div className='vv-story-divider' aria-hidden='true'><i/><b>◆</b><i/></div>
           <p>{i.love_story}</p>
           <div className='vv-story-signature' aria-label={groom+' dan '+bride}><span>{groom}</span><i>&amp;</i><span>{bride}</span></div>
         </div>
-        {(i.cover_image || media[0]?.file_path) && <figure className='vv-story-photo'>
+        {storyPhotoRaw && <figure className='vv-story-photo'>
           <div
             className='vv-story-photo-window vv-clickable-photo'
             onClick={() => openPhoto({
-              src: mediaUrl(i.cover_image || media[0]?.file_path),
+              src: mediaUrl(storyPhotoRaw),
               title: `${groom} & ${bride}`,
               caption: 'Kisah Kami — Tumbuh, memilih, dan pulang bersama.'
             })}
@@ -941,28 +876,32 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 openPhoto({
-                  src: mediaUrl(i.cover_image || media[0]?.file_path),
+                  src: mediaUrl(storyPhotoRaw),
                   title: `${groom} & ${bride}`,
                   caption: 'Kisah Kami — Tumbuh, memilih, dan pulang bersama.'
                 });
               }
             }}
           >
-            <img className='vv-story-photo-img' src={mediaUrl(i.cover_image || media[0]?.file_path)} alt={groom+' dan '+bride} loading='lazy' decoding='async'/>
-            <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-portrait-v1.webp'} alt='' aria-hidden='true' loading='lazy' decoding='async'/>
+            <img className='vv-story-photo-img' src={getDisplaySrc(mediaUrl(storyPhotoRaw))} alt={groom+' dan '+bride} width='900' height='1200' decoding='async'/>
+            <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-portrait-v1.webp'} alt='' aria-hidden='true' width='900' height='1138' decoding='async'/>
             <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
           </div>
           <figcaption><small>Catatan perjalanan</small><span>Tumbuh, memilih, dan pulang bersama.</span></figcaption>
         </figure>}
       </section>}
        <section className={'vv-after vv-gallery '+(galleryPhase === 'visible' ? 'is-revealed' : galleryPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-gallery' ref={galleryRef}>
-        <div className='vv-gallery-ornaments' aria-hidden='true'>
-          <img className='vv-gallery-corner vv-gallery-corner-tl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-gallery-corner vv-gallery-corner-tr' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-gallery-corner vv-gallery-corner-bl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-gallery-corner vv-gallery-corner-br' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <i/><i/><i/><i/>
-        </div>
+        {showOrnaments && (
+          <div className='vv-gallery-ornaments' aria-hidden='true'>
+            <img className='vv-gallery-corner vv-gallery-corner-tl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+            {!isCompactViewport && <>
+              <img className='vv-gallery-corner vv-gallery-corner-tr' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+              <img className='vv-gallery-corner vv-gallery-corner-bl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+            </>}
+            <img className='vv-gallery-corner vv-gallery-corner-br' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+            {showSparkles && <><i/><i/><i/><i/></>}
+          </div>
+        )}
         <div className='vv-after-heading'><small>Potongan waktu yang kami simpan</small><h2>Galeri</h2><span aria-hidden='true'>Album Kenangan</span></div>
         {photos.length ? (
           <div className='vv-gallery-carousel'>
@@ -995,7 +934,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
                       }
                     }}
                   >
-                    <img src={mediaUrl(photo.file_path)} alt={'Momen '+(index+1)} loading='lazy' decoding='async' draggable='false'/>
+                    <img src={getDisplaySrc(mediaUrl(photo.file_path))} alt={'Momen '+(index+1)} width='900' height='1200' decoding='async' draggable='false'/>
                     <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
                   </div>
                   <figcaption><span>Memory</span><b>{String(index+1).padStart(2,'0')}</b></figcaption>
@@ -1043,12 +982,14 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         )}
       </section>
        {i.has_gift && <section className={'vv-after vv-gift vv-gift-redesign '+(giftPhase === 'visible' ? 'is-revealed' : giftPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-gift' ref={giftRef}>
-        <div className='vv-gift-ornaments' aria-hidden='true'>
-          <img className='vv-gift-seserahan vv-gift-seserahan-left' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-gift-seserahan vv-gift-seserahan-right' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <span className='vv-gift-gunungan'/>
-        </div>
-        <div className='vv-gift-sparkles' aria-hidden='true'>{Array.from({length: 8}, (_, n) => <i key={n}/>)}</div>
+        {showOrnaments && (
+          <div className='vv-gift-ornaments' aria-hidden='true'>
+            <img className='vv-gift-seserahan vv-gift-seserahan-left' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' width='840' height='560' decoding='async'/>
+            <img className='vv-gift-seserahan vv-gift-seserahan-right' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' width='840' height='560' decoding='async'/>
+            <span className='vv-gift-gunungan'/>
+          </div>
+        )}
+        {showSparkles && <div className='vv-gift-sparkles' aria-hidden='true'>{Array.from({length: 8}, (_, n) => <i key={n}/>)}</div>}
         <div className='vv-after-heading'><small>Tanda kasih</small><h2>Wedding Gift</h2><span aria-hidden='true'>Seserahan Kasih</span></div>
         <p>Doa restu Anda adalah hadiah terindah. Bagi yang ingin mengirimkan tanda kasih, tersedia rekening berikut.</p>
 
@@ -1105,12 +1046,14 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         )}
       </section>}
        {i.has_wishes && <section className={'vv-after vv-rsvp vv-rsvp-redesign '+(rsvpPhase === 'visible' ? 'is-revealed' : rsvpPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-rsvp' ref={rsvpRef}>
-        <div className='vv-rsvp-ornaments' aria-hidden='true'>
-          <img className='vv-rsvp-ledger' src={RSVP+'/rsvp-guestbook-ornament-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <span className='vv-rsvp-contour vv-rsvp-contour-left'/>
-          <span className='vv-rsvp-contour vv-rsvp-contour-right'/>
-          <i/><i/><i/><i/><i/><i/>
-        </div>
+        {showOrnaments && (
+          <div className='vv-rsvp-ornaments' aria-hidden='true'>
+            <img className='vv-rsvp-ledger' src={RSVP+'/rsvp-guestbook-ornament-v1.webp'} alt='' width='840' height='420' decoding='async'/>
+            <span className='vv-rsvp-contour vv-rsvp-contour-left'/>
+            <span className='vv-rsvp-contour vv-rsvp-contour-right'/>
+            {showSparkles && <><i/><i/><i/><i/><i/><i/></>}
+          </div>
+        )}
         <div className='vv-after-heading'><small>Ucapan &amp; konfirmasi</small><h2>Kehadiran Anda</h2><span aria-hidden='true'>Buku Tamu Nusantara</span></div>
         {preview && <p className='vv-preview-note'>Mode preview — form tidak mengirim data.</p>}
         <form className='vv-rsvp-form' {...(preview?{'data-preview-form':''}:{'data-greeting-form':''})} onSubmit={handleGreetingSubmit}>
@@ -1127,19 +1070,22 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         </div>
       </section>}
        <section className={'vv-after vv-closing vv-closing-redesign '+(closingPhase === 'visible' ? 'is-revealed' : closingPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-closing' ref={closingRef}>
-        <div className='vv-closing-ornaments' aria-hidden='true'>
-          <img className='vv-closing-canopy' src={CLOSING+'/closing-pendopo-canopy-ornament-v1.webp'} alt='' loading='lazy' decoding='async'/>
-          <span className='vv-closing-floor-sigil'/>
-          <i/><i/><i/><i/><i/><i/>
-        </div>
+        {showOrnaments && (
+          <div className='vv-closing-ornaments' aria-hidden='true'>
+            <img className='vv-closing-canopy' src={CLOSING+'/closing-pendopo-canopy-ornament-v1.webp'} alt='' width='1200' height='409' decoding='async'/>
+            <span className='vv-closing-floor-sigil'/>
+            {showSparkles && <><i/><i/><i/><i/><i/><i/></>}
+          </div>
+        )}
         <img
           className='vv-closing-couple vv-clickable-photo'
-          src={customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp')}
+          src={getDisplaySrc(closingPhotoOrig)}
           alt={`${groom} & ${bride}`}
-          loading='lazy'
+          width='900'
+          height='1200'
           decoding='async'
           onClick={() => openPhoto({
-            src: customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp'),
+            src: closingPhotoOrig,
             title: `${groom} & ${bride}`,
             caption: 'The Wedding — Bersama Menuju Bahagia'
           })}
@@ -1150,7 +1096,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               openPhoto({
-                src: customCoupleUrl || (LAYER+'/couple-cinematic-v2.webp'),
+                src: closingPhotoOrig,
                 title: `${groom} & ${bride}`,
                 caption: 'The Wedding — Bersama Menuju Bahagia'
               });
@@ -1167,7 +1113,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     {opened && cinematicDone && <nav className={'vv-nav '+(menuOpen?'is-expanded':'')} ref={navRef} aria-label='Navigasi undangan'>
       <button type='button' className='vv-nav-mobile-toggle' aria-expanded={menuOpen} onClick={() => setMenuOpen(value=>!value)}>{menuOpen?'Tutup':'Menu'}</button>
       <div className='vv-nav-scroller'><span className='vv-nav-group'>Undangan</span>
-        {sections.map(([id,label])=><button key={id} type='button' data-section-id={id} className={activeNormal===id?'is-active':''} aria-current={activeNormal===id?'location':undefined} onClick={()=>navigateSection(id)}>{label}</button>)}
+        {sections.map(([id,label])=><button key={id} type='button' data-section-id={id} className={activeNormalRef.current===id?'is-active':''} aria-current={activeNormalRef.current===id?'location':undefined} onClick={()=>navigateSection(id)}>{label}</button>)}
       </div>
     </nav>}
     {opened && i.has_music && i.music_file && <><audio ref={audioRef} data-wedding-audio loop src={mediaUrl(i.music_file)}/><button type='button' className={'vv-music-toggle '+(musicPlaying?'is-playing':'')} onClick={toggleMusic} aria-label={musicPlaying?'Matikan musik':'Putar musik'}>♫</button></>}
