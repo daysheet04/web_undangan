@@ -231,8 +231,9 @@ function InvitationDeactivatedScreen({ error, isExpired = false }) {
 }
 
 function InvitationLoading(){
+  const [animDelay] = useState(() => (typeof performance !== 'undefined' ? -Math.round(performance.now() % 1450) : 0));
   return <div className="invitation-loading" role="status" aria-label="Memuat undangan">
-    <img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true"/>
+    <img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" style={{ animationDelay: `${animDelay}ms` }}/>
   </div>;
 }
 

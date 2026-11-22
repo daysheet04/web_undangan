@@ -354,7 +354,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const groomPhotoRaw = i.groom_photo || media[1]?.file_path || i.cover_image;
   const bridePhotoRaw = i.bride_photo || media[0]?.file_path || i.cover_image;
   const storyPhotoRaw = i.cover_image || media[0]?.file_path;
-  const closingPhotoOrig = customCoupleUrl || (LAYER + '/couple-cinematic-v2.webp');
+  const closingPhotoOrig = customCoupleUrl || (LAYER + (isCompactViewport ? '/couple-cinematic-mobile-v2.webp' : '/couple-cinematic-v2.webp'));
   const warmupPhotoUrls = useMemo(() => [
     groomPhotoRaw ? mediaUrl(groomPhotoRaw) : null,
     bridePhotoRaw ? mediaUrl(bridePhotoRaw) : null,
@@ -364,7 +364,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   ].filter(Boolean), [groomPhotoRaw, bridePhotoRaw, storyPhotoRaw, photos, closingPhotoOrig]);
 
   const { getDisplaySrc } = useCrispMediaWarmup({
-    photoUrls: warmupPhotoUrls,
+    photoUrls: warmupPhotoUrls.filter((u) => u !== closingPhotoOrig),
+    predecodeOnlyUrls: closingPhotoOrig ? [closingPhotoOrig] : [],
     performanceTier,
     isCompact: isCompactViewport,
     canWarm: !opened || (opened && cinematicDone),
@@ -476,6 +477,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     if (!root) return undefined;
     const experience = root.closest('.vv-redesign');
     const mobileReveal = window.matchMedia('(max-width: 800px)').matches;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const useWaapiReveal = mobileReveal && !prefersReducedMotion && typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function';
     const selectors = [
       '.vv-full-couple > .vv-after-heading',
       '.vv-person-card',
@@ -529,6 +532,79 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       return 'vv-reveal-up';
     };
 
+    const getWaapiSpec = (el) => {
+      const isLow = performanceTier === 'low';
+      if (el.matches('.vv-rsvp-form')) {
+        return {
+          opacityOnly: true,
+          duration: isLow ? 1040 : 1240,
+          easing: 'cubic-bezier(0.22, 0.85, 0.36, 1)',
+        };
+      }
+      if (el.matches('.vv-closing-couple')) {
+        return {
+          from: isLow ? 'translate3d(-50%, 22px, 0)' : 'translate3d(-50%, 34px, 0)',
+          to: 'translate3d(-50%, 0, 0)',
+          duration: isLow ? 1040 : 1260,
+          easing: 'cubic-bezier(0.16, 0.88, 0.26, 1)',
+        };
+      }
+      if (el.matches('.vv-gallery-carousel')) {
+        return {
+          from: isLow ? 'translate3d(0, 22px, 0)' : 'translate3d(0, 34px, 0)',
+          to: 'translate3d(0, 0, 0)',
+          duration: isLow ? 1040 : 1260,
+          easing: 'cubic-bezier(0.16, 0.88, 0.26, 1)',
+        };
+      }
+      if (el.classList.contains('vv-reveal-left')) {
+        return {
+          from: isLow ? 'translate3d(-24px, 8px, 0)' : 'translate3d(-34px, 14px, 0)',
+          to: 'translate3d(0, 0, 0)',
+          duration: isLow ? 1040 : 1260,
+          easing: 'cubic-bezier(0.16, 0.92, 0.28, 1)',
+        };
+      }
+      if (el.classList.contains('vv-reveal-right')) {
+        return {
+          from: isLow ? 'translate3d(24px, 8px, 0)' : 'translate3d(34px, 14px, 0)',
+          to: 'translate3d(0, 0, 0)',
+          duration: isLow ? 1040 : 1260,
+          easing: 'cubic-bezier(0.16, 0.92, 0.28, 1)',
+        };
+      }
+      if (el.classList.contains('vv-reveal-bounce')) {
+        return {
+          from: isLow ? 'translate3d(0, 24px, 0)' : 'translate3d(0, 38px, 0)',
+          to: 'translate3d(0, 0, 0)',
+          duration: isLow ? 1040 : 1320,
+          easing: 'cubic-bezier(0.18, 1.08, 0.32, 1)',
+        };
+      }
+      if (el.classList.contains('vv-reveal-zoom')) {
+        return {
+          from: isLow ? 'translate3d(0, 18px, 0) scale(0.97)' : 'translate3d(0, 24px, 0) scale(0.95)',
+          to: 'translate3d(0, 0, 0) scale(1)',
+          duration: isLow ? 1040 : 1240,
+          easing: 'cubic-bezier(0.16, 0.92, 0.28, 1)',
+        };
+      }
+      if (el.classList.contains('vv-reveal-type')) {
+        return {
+          from: 'translate3d(0, 22px, 0)',
+          to: 'translate3d(0, 0, 0)',
+          duration: isLow ? 960 : 1120,
+          easing: 'cubic-bezier(0.16, 0.88, 0.26, 1)',
+        };
+      }
+      return {
+        from: isLow ? 'translate3d(0, 22px, 0)' : 'translate3d(0, 34px, 0)',
+        to: 'translate3d(0, 0, 0)',
+        duration: isLow ? 1040 : 1260,
+        easing: 'cubic-bezier(0.16, 0.88, 0.26, 1)',
+      };
+    };
+
     experience?.classList.add('vv-reveal-init');
     const sectionOrder = new Map();
     targets.forEach((el) => {
@@ -536,10 +612,12 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       const order = sectionOrder.get(section) || 0;
       sectionOrder.set(section, order + 1);
       el.classList.add('vv-scroll-reveal',getRevealVariant(el));
-      const delay = mobileReveal ? Math.min(order * 95, 285) : Math.min(order * 85, 255);
+      const delay = mobileReveal ? Math.min(order * 95, 260) : Math.min(order * 95, 285);
       el.style.setProperty('--vv-reveal-delay', `${delay}ms`);
+      el.dataset.vvRevealDelay = String(delay);
     });
     experience?.classList.add('has-component-reveals');
+    if (useWaapiReveal) experience?.classList.add('has-waapi-reveals');
 
     let releaseInitRaf2 = 0;
     const releaseInitRaf1 = window.requestAnimationFrame(() => {
@@ -548,35 +626,119 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       });
     });
 
-    const revealTargetOnce = (el) => {
+    const activeAnims = new Set();
+    const settleTimers = new Set();
+    const warmObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-will-animate');
+        warmObserver.unobserve(entry.target);
+      });
+    }, {
+      root: null,
+      rootMargin: '750px 0px 750px 0px',
+      threshold: 0,
+    });
+
+    const revealTargetOnce = (el, entry) => {
       if (!el || el.dataset.vvRevealSeen === 'true') return;
       el.dataset.vvRevealSeen = 'true';
       el.classList.remove('is-component-exiting-up');
       el.classList.add('is-component-visible');
       componentObserver.unobserve(el);
+      warmObserver.unobserve(el);
+
+      const markSettled = () => {
+        el.classList.remove('is-will-animate');
+        el.classList.add('is-motion-settled');
+      };
+
+      if (useWaapiReveal) {
+        if (entry?.boundingClientRect && entry.boundingClientRect.bottom < 0) {
+          markSettled();
+          return;
+        }
+        el.classList.add('is-will-animate');
+        const spec = getWaapiSpec(el);
+        const delay = Number(el.dataset.vvRevealDelay || 0);
+        const keyframes = spec.opacityOnly
+          ? [{ opacity: 0 }, { opacity: 1 }]
+          : [
+              { opacity: 0, transform: spec.from },
+              { opacity: 1, transform: spec.to },
+            ];
+        const anim = el.animate(
+          keyframes,
+          {
+            duration: spec.duration,
+            delay,
+            easing: spec.easing,
+            fill: 'backwards',
+          },
+        );
+        activeAnims.add(anim);
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          settleTimers.delete(timer);
+          activeAnims.delete(anim);
+          markSettled();
+        };
+        const timer = window.setTimeout(finish, spec.duration + delay + 250);
+        settleTimers.add(timer);
+        anim.onfinish = finish;
+        anim.oncancel = finish;
+      } else {
+        let settled = false;
+        const finish = (evt) => {
+          if (evt && evt.target !== el) return;
+          if (settled) return;
+          settled = true;
+          el.removeEventListener('transitionend', finish);
+          window.clearTimeout(timer);
+          settleTimers.delete(timer);
+          markSettled();
+        };
+        el.addEventListener('transitionend', finish);
+        const timer = window.setTimeout(() => finish(null), 1650);
+        settleTimers.add(timer);
+      }
     };
 
     const componentObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const rootTop = entry.rootBounds?.top ?? 0;
         if (!entry.isIntersecting && entry.boundingClientRect.top >= rootTop) return;
-        revealTargetOnce(entry.target);
+        revealTargetOnce(entry.target, entry);
       });
     }, {
       root: null,
-      rootMargin: '2400px 0px -9% 0px',
+      rootMargin: '2400px 0px -8% 0px',
       threshold: 0.01
     });
-    targets.forEach((el) => componentObserver.observe(el));
+    targets.forEach((el) => {
+      warmObserver.observe(el);
+      componentObserver.observe(el);
+    });
 
     return () => {
       window.cancelAnimationFrame(releaseInitRaf1);
       window.cancelAnimationFrame(releaseInitRaf2);
+      activeAnims.forEach((anim) => {
+        try { anim.cancel(); } catch {}
+      });
+      activeAnims.clear();
+      settleTimers.forEach((t) => window.clearTimeout(t));
+      settleTimers.clear();
+      warmObserver.disconnect();
       componentObserver.disconnect();
-      experience?.classList.remove('vv-reveal-init','has-component-reveals');
+      experience?.classList.remove('vv-reveal-init','has-component-reveals','has-waapi-reveals');
       targets.forEach(el => {
-        el.classList.remove('vv-scroll-reveal','is-component-visible','is-component-exiting-up',...revealVariants);
+        el.classList.remove('vv-scroll-reveal','is-component-visible','is-component-exiting-up','is-will-animate','is-motion-settled',...revealVariants);
         el.style.removeProperty('--vv-reveal-delay');
+        delete el.dataset.vvRevealDelay;
         delete el.dataset.vvRevealSeen;
       });
     };
@@ -763,16 +925,10 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       </section>
       {cinematicDone && <>
       <section className={'vv-after vv-full-opening is-revealed'} id='vv-full-opening' ref={normalRef}>
-        {showOrnaments && (
+        {showOrnaments && !isCompactViewport && (
           <div className='vv-wedding-ornaments' aria-hidden='true'>
-            {!isCompactViewport && <>
-              <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
-              <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
-            </>}
-            {isCompactViewport && <>
-              <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-left' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' width='960' height='480' decoding='async'/>
-              <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-right' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' width='960' height='480' decoding='async'/>
-            </>}
+            <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+            <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
           </div>
         )}
         <button type='button' className='vv-replay-cinematic' onClick={replayCinematic}>Ulangi Cinematic</button>
@@ -786,8 +942,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       <section className={'vv-after vv-full-couple '+(couplePhase === 'visible' ? 'is-revealed' : couplePhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-couple' ref={coupleRef}>
         {showOrnaments && (
           <div className='vv-couple-ornaments' aria-hidden='true'>
-            <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
-            <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' width='720' height='1080' decoding='async'/>
+            <img src={LAYER + (isCompactViewport ? '/section-couple-janur-orbit-ornament-mobile-v2.webp' : '/section-couple-janur-orbit-ornament-v2.webp')} alt='' width='720' height='1080' decoding='async'/>
+            <img src={LAYER + (isCompactViewport ? '/section-couple-janur-orbit-ornament-mobile-v2.webp' : '/section-couple-janur-orbit-ornament-v2.webp')} alt='' width='720' height='1080' decoding='async'/>
           </div>
         )}
         {showSparkles && <div className='vv-couple-sparkles' aria-hidden='true'><i/><i/><i/><i/><i/><i/><i/><i/></div>}
@@ -828,12 +984,12 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         <section className={'vv-after vv-full-events '+(eventsPhase === 'visible' ? 'is-revealed' : eventsPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-events' ref={eventsRef}>
         {showOrnaments && (
           <div className='vv-events-ornaments' aria-hidden='true'>
-            <img className='vv-events-corner vv-events-corner-tl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+            <img className='vv-events-corner vv-events-corner-tl' src={LAYER + (isCompactViewport ? '/events-janur-melati-corner-mobile-v2.webp' : '/events-janur-melati-corner-v2.webp')} alt='' width='760' height='800' decoding='async'/>
             {!isCompactViewport && <>
               <img className='vv-events-corner vv-events-corner-tr' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
               <img className='vv-events-corner vv-events-corner-bl' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
             </>}
-            <img className='vv-events-corner vv-events-corner-br' src={LAYER+'/events-janur-melati-corner-v2.webp'} alt='' width='760' height='800' decoding='async'/>
+            <img className='vv-events-corner vv-events-corner-br' src={LAYER + (isCompactViewport ? '/events-janur-melati-corner-mobile-v2.webp' : '/events-janur-melati-corner-v2.webp')} alt='' width='760' height='800' decoding='async'/>
           </div>
         )}
         {showSparkles && <div className='vv-events-sparkles' aria-hidden='true'>{Array.from({length: 10}, (_, n) => <i key={n}/>)}</div>}
@@ -846,8 +1002,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        {i.love_story && <section className={'vv-after vv-story '+(storyPhase === 'visible' ? 'is-revealed' : storyPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-story' ref={storyRef}>
         {showOrnaments && (
           <div className='vv-story-ornaments' aria-hidden='true'>
-            <img className='vv-story-side vv-story-side-left' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' width='720' height='1080' decoding='async'/>
-            <img className='vv-story-side vv-story-side-right' src={STORY+'/story-side-ornament-indonesian-v1.webp'} alt='' width='720' height='1080' decoding='async'/>
+            <img className='vv-story-side vv-story-side-left' src={STORY + (isCompactViewport ? '/story-side-ornament-indonesian-mobile-v1.webp' : '/story-side-ornament-indonesian-v1.webp')} alt='' width='720' height='1080' decoding='async'/>
+            <img className='vv-story-side vv-story-side-right' src={STORY + (isCompactViewport ? '/story-side-ornament-indonesian-mobile-v1.webp' : '/story-side-ornament-indonesian-v1.webp')} alt='' width='720' height='1080' decoding='async'/>
             {showSparkles && <>
               <span className='vv-story-glint vv-story-glint-one'/>
               <span className='vv-story-glint vv-story-glint-two'/>
@@ -884,7 +1040,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
             }}
           >
             <img className='vv-story-photo-img' src={getDisplaySrc(mediaUrl(storyPhotoRaw))} alt={groom+' dan '+bride} width='900' height='1200' decoding='async'/>
-            <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-portrait-v1.webp'} alt='' aria-hidden='true' width='900' height='1138' decoding='async'/>
+            <img className='vv-story-frame-overlay' src={STORY + (isCompactViewport ? '/story-photo-frame-indonesian-portrait-mobile-v1.webp' : '/story-photo-frame-indonesian-portrait-v1.webp')} alt='' aria-hidden='true' width='900' height='1138' decoding='async'/>
             <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
           </div>
           <figcaption><small>Catatan perjalanan</small><span>Tumbuh, memilih, dan pulang bersama.</span></figcaption>
@@ -893,12 +1049,12 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        <section className={'vv-after vv-gallery '+(galleryPhase === 'visible' ? 'is-revealed' : galleryPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-gallery' ref={galleryRef}>
         {showOrnaments && (
           <div className='vv-gallery-ornaments' aria-hidden='true'>
-            <img className='vv-gallery-corner vv-gallery-corner-tl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+            <img className='vv-gallery-corner vv-gallery-corner-tl' src={GALLERY + (isCompactViewport ? '/gallery-corner-ornament-indonesian-mobile-v1.webp' : '/gallery-corner-ornament-indonesian-v1.webp')} alt='' width='720' height='720' decoding='async'/>
             {!isCompactViewport && <>
               <img className='vv-gallery-corner vv-gallery-corner-tr' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
               <img className='vv-gallery-corner vv-gallery-corner-bl' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
             </>}
-            <img className='vv-gallery-corner vv-gallery-corner-br' src={GALLERY+'/gallery-corner-ornament-indonesian-v1.webp'} alt='' width='720' height='720' decoding='async'/>
+            <img className='vv-gallery-corner vv-gallery-corner-br' src={GALLERY + (isCompactViewport ? '/gallery-corner-ornament-indonesian-mobile-v1.webp' : '/gallery-corner-ornament-indonesian-v1.webp')} alt='' width='720' height='720' decoding='async'/>
             {showSparkles && <><i/><i/><i/><i/></>}
           </div>
         )}
@@ -984,8 +1140,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        {i.has_gift && <section className={'vv-after vv-gift vv-gift-redesign '+(giftPhase === 'visible' ? 'is-revealed' : giftPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-gift' ref={giftRef}>
         {showOrnaments && (
           <div className='vv-gift-ornaments' aria-hidden='true'>
-            <img className='vv-gift-seserahan vv-gift-seserahan-left' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' width='840' height='560' decoding='async'/>
-            <img className='vv-gift-seserahan vv-gift-seserahan-right' src={GIFT+'/gift-seserahan-ornament-indonesian-v1.webp'} alt='' width='840' height='560' decoding='async'/>
+            <img className='vv-gift-seserahan vv-gift-seserahan-left' src={GIFT + (isCompactViewport ? '/gift-seserahan-ornament-indonesian-mobile-v1.webp' : '/gift-seserahan-ornament-indonesian-v1.webp')} alt='' width='840' height='560' decoding='async'/>
+            <img className='vv-gift-seserahan vv-gift-seserahan-right' src={GIFT + (isCompactViewport ? '/gift-seserahan-ornament-indonesian-mobile-v1.webp' : '/gift-seserahan-ornament-indonesian-v1.webp')} alt='' width='840' height='560' decoding='async'/>
             <span className='vv-gift-gunungan'/>
           </div>
         )}
@@ -1048,7 +1204,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        {i.has_wishes && <section className={'vv-after vv-rsvp vv-rsvp-redesign '+(rsvpPhase === 'visible' ? 'is-revealed' : rsvpPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-rsvp' ref={rsvpRef}>
         {showOrnaments && (
           <div className='vv-rsvp-ornaments' aria-hidden='true'>
-            <img className='vv-rsvp-ledger' src={RSVP+'/rsvp-guestbook-ornament-v1.webp'} alt='' width='840' height='420' decoding='async'/>
+            <img className='vv-rsvp-ledger' src={RSVP + (isCompactViewport ? '/rsvp-guestbook-ornament-mobile-v1.webp' : '/rsvp-guestbook-ornament-v1.webp')} alt='' width='840' height='420' decoding='async'/>
             <span className='vv-rsvp-contour vv-rsvp-contour-left'/>
             <span className='vv-rsvp-contour vv-rsvp-contour-right'/>
             {showSparkles && <><i/><i/><i/><i/><i/><i/></>}
@@ -1072,14 +1228,14 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        <section className={'vv-after vv-closing vv-closing-redesign '+(closingPhase === 'visible' ? 'is-revealed' : closingPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-closing' ref={closingRef}>
         {showOrnaments && (
           <div className='vv-closing-ornaments' aria-hidden='true'>
-            <img className='vv-closing-canopy' src={CLOSING+'/closing-pendopo-canopy-ornament-v1.webp'} alt='' width='1200' height='409' decoding='async'/>
+            <img className='vv-closing-canopy' src={CLOSING + (isCompactViewport ? '/closing-pendopo-canopy-ornament-mobile-v1.webp' : '/closing-pendopo-canopy-ornament-v1.webp')} alt='' width='1200' height='409' decoding='async'/>
             <span className='vv-closing-floor-sigil'/>
             {showSparkles && <><i/><i/><i/><i/><i/><i/></>}
           </div>
         )}
         <img
           className='vv-closing-couple vv-clickable-photo'
-          src={getDisplaySrc(closingPhotoOrig)}
+          src={closingPhotoOrig}
           alt={`${groom} & ${bride}`}
           width='900'
           height='1200'

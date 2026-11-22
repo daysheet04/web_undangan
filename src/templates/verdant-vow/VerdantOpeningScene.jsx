@@ -14,6 +14,7 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
   const [leaving, setLeaving] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadedAssets, setLoadedAssets] = useState(0);
+  const [preludeAnimDelay] = useState(() => (typeof performance !== 'undefined' ? -Math.round(performance.now() % 1450) : 0));
   const finishTimer = useRef();
   const journeyTimer = useRef();
   const autoTimer = useRef();
@@ -123,8 +124,17 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
         </em>
       </div>
 
-      <div className="vv-gate-prelude" role="status" aria-hidden={canEnter}>
-        <i aria-hidden="true" />
+      <div className="vv-gate-prelude" role="status" aria-label="Memuat undangan" aria-hidden={canEnter}>
+        <img
+          className="vv-gate-prelude-logo"
+          src="/assets/images/brand/daymoment-logo.webp"
+          alt=""
+          width="900"
+          height="323"
+          fetchPriority="high"
+          aria-hidden="true"
+          style={{ animationDelay: `${preludeAnimDelay}ms` }}
+        />
       </div>
     </section>
   );

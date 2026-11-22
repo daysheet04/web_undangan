@@ -193,6 +193,17 @@ const jobs = [
   ['rsvp/rsvp-guestbook-ornament-v1.webp', { width: 840, quality: 80, alphaQuality: 88 }],
   ['closing/closing-pendopo-canopy-ornament-v1.webp', { width: 1200, quality: 80, alphaQuality: 88 }],
 
+  // 2B. Crisp 2x Retina dedicated mobile ornaments & default closing photo (leaves desktop untouched)
+  ['layers/couple-cinematic-v2.webp', { width: 960, quality: 86, alphaQuality: 94, outputRelPath: 'layers/couple-cinematic-mobile-v2.webp' }],
+  ['layers/section-couple-janur-orbit-ornament-v2.webp', { width: 560, quality: 82, alphaQuality: 90, outputRelPath: 'layers/section-couple-janur-orbit-ornament-mobile-v2.webp' }],
+  ['layers/events-janur-melati-corner-v2.webp', { width: 480, quality: 82, alphaQuality: 90, outputRelPath: 'layers/events-janur-melati-corner-mobile-v2.webp' }],
+  ['story/story-side-ornament-indonesian-v1.webp', { width: 440, quality: 82, alphaQuality: 90, outputRelPath: 'story/story-side-ornament-indonesian-mobile-v1.webp' }],
+  ['story/story-photo-frame-indonesian-portrait-v1.webp', { width: 740, quality: 84, alphaQuality: 92, outputRelPath: 'story/story-photo-frame-indonesian-portrait-mobile-v1.webp' }],
+  ['gallery/gallery-corner-ornament-indonesian-v1.webp', { width: 440, quality: 82, alphaQuality: 90, outputRelPath: 'gallery/gallery-corner-ornament-indonesian-mobile-v1.webp' }],
+  ['gift/gift-seserahan-ornament-indonesian-v1.webp', { width: 560, quality: 82, alphaQuality: 90, outputRelPath: 'gift/gift-seserahan-ornament-indonesian-mobile-v1.webp' }],
+  ['rsvp/rsvp-guestbook-ornament-v1.webp', { width: 720, quality: 82, alphaQuality: 90, outputRelPath: 'rsvp/rsvp-guestbook-ornament-mobile-v1.webp' }],
+  ['closing/closing-pendopo-canopy-ornament-v1.webp', { width: 820, quality: 82, alphaQuality: 90, outputRelPath: 'closing/closing-pendopo-canopy-ornament-mobile-v1.webp' }],
+
   // 3. Oversized WebGL cinematic textures
   ['cinematic/distant-indonesian-highland-panorama-garden-v4.webp', { width: 1440, quality: 76, outputRelPath: 'cinematic/distant-indonesian-highland-panorama-garden-mobile-v4.webp' }],
   ['cinematic/distant-indonesian-highland-panorama-garden-v4.webp', { width: 2048, quality: 80 }],

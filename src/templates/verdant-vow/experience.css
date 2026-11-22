@@ -1146,11 +1146,11 @@
 .vv-redesign .vv-journey { background: #dfe8d8 url('/assets/images/templates/verdant-vow/cinematic/distant-indonesian-highland-panorama-garden-v4.webp') center 58% / cover no-repeat; }
 .vv-redesign:not(.is-open) .vv3-loader { color: transparent; }
 .vv-redesign:not(.is-open) .vv3-loader i { visibility: hidden; }
-.vv-gate-prelude { position: absolute; z-index: 40; inset: 0; display: grid; place-items: center; background: #f7f4ef; transition: opacity .2s ease,visibility 0s linear .2s; }
-.vv-gate-prelude i { width: 34px; height: 34px; border: 2px solid rgba(16,43,74,.16); border-top-color: #102b4a; border-radius: 50%; animation: invitation-loading-spin .8s linear infinite; }
+.vv-gate-prelude { position: absolute; z-index: 40; inset: 0; display: grid; place-items: center; background: #fbfaf7; transition: opacity .28s ease,visibility 0s linear .28s; }
+.vv-gate-prelude-logo { display: block; width: 168px; max-width: 44vw; height: auto; aspect-ratio: 900 / 323; transform-origin: center center; backface-visibility: hidden; will-change: transform, opacity; animation: daymoment-loading-logo 1.45s cubic-bezier(.4, 0, .2, 1) infinite; }
 .vv-gate-opening.is-scene-ready .vv-gate-prelude { opacity: 0; visibility: hidden; pointer-events: none; }
 .vv-gate-opening.is-preparing .vv-gate-copy { opacity: 0; pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .vv-gate-prelude i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .vv-gate-prelude, .vv-gate-prelude-logo { transition: none; animation: none; } }
 .vv-gate-world { position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 56%; }
 .vv-gate-backdrop { position: absolute; inset: -3%; width: 106%; height: 106%; object-fit: cover; object-position: center 58%; filter: brightness(.95) saturate(1.05); animation: vv-gate-scene-in 1.4s ease-out both; }
 .vv-gate-sunset { position: absolute; z-index: 1; inset: 0; background: radial-gradient(circle at 14% 17%,rgba(255,238,185,.42),transparent 34%),linear-gradient(180deg,rgba(24,51,38,.02),rgba(15,45,31,.16)); }
@@ -2192,8 +2192,11 @@
   position: absolute;
   z-index: 1;
   inset: 0;
-  width: auto;
+  width: 100%;
+  height: 100%;
   max-width: none;
+  align-self: stretch;
+  justify-self: stretch;
   padding: 0;
   overflow: hidden;
   pointer-events: none;
@@ -2668,7 +2671,7 @@
 /* Viewport-driven content choreography. A single IntersectionObserver assigns
    these states, keeping the work on compositor-friendly opacity/transform. */
 @media (prefers-reduced-motion: no-preference) {
-  .vv-redesign .vv-scroll-reveal {
+  .vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal {
     --vv-reveal-enter: translate3d(0,38px,0) scale(.982);
     --vv-reveal-rest: translate3d(0,0,0) scale(1);
     --vv-reveal-exit: translate3d(0,-26px,0) scale(.99);
@@ -2708,20 +2711,20 @@
     transform: none !important;
   }
 
-  .vv-redesign .vv-scroll-reveal.is-component-visible {
+  .vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.is-component-visible {
     opacity: 1 !important;
     transform: var(--vv-reveal-rest) !important;
     transition-delay: var(--vv-reveal-delay,0ms) !important;
   }
 
-  .vv-redesign .vv-scroll-reveal.is-component-exiting-up {
+  .vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.is-component-exiting-up {
     opacity: 0 !important;
     transform: var(--vv-reveal-exit) !important;
     transition-duration: .96s,1.12s !important;
   }
 
-  .vv-redesign.has-component-reveals .vv-after.is-leaving .vv-scroll-reveal.is-component-visible,
-  .vv-redesign.has-component-reveals .vv-after.is-revealed .vv-scroll-reveal.is-component-visible {
+  .vv-redesign.has-component-reveals:not(.has-waapi-reveals) .vv-after.is-leaving .vv-scroll-reveal.is-component-visible,
+  .vv-redesign.has-component-reveals:not(.has-waapi-reveals) .vv-after.is-revealed .vv-scroll-reveal.is-component-visible {
     opacity: 1 !important;
     animation: none !important;
     transform: var(--vv-reveal-rest) !important;
@@ -2951,7 +2954,7 @@
     animation: vv-mobile-ball-bounce 1.62s var(--vv-reveal-delay,0ms) cubic-bezier(.18,.74,.2,1) both !important;
   }
 
-  .vv-redesign .vv-scroll-reveal.vv-reveal-type {
+  .vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.vv-reveal-type {
     --vv-reveal-enter: translate3d(0,0,0);
     --vv-reveal-exit: translate3d(0,-10px,0);
     clip-path: inset(0 100% 0 0) !important;
@@ -2960,7 +2963,7 @@
     transition-duration: .2s,1.65s !important;
     transition-timing-function: linear,steps(26,end) !important;
   }
-  .vv-redesign .vv-scroll-reveal.vv-reveal-type.is-component-visible {
+  .vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.vv-reveal-type.is-component-visible {
     opacity: 1 !important;
     clip-path: inset(0 0 0 0) !important;
     transform: none !important;
@@ -3733,57 +3736,9 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
 @keyframes vv-mob-orn-up-center { from { opacity: 0; transform: translate3d(-50%, 26px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
 @keyframes vv-mob-orn-down-center { from { opacity: 0; transform: translate3d(-50%, -26px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
 
-/* Run ONLY the one-time entrance choreography (no secondary 8-11s idle float/glow loops) */
-.vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-left {
-  animation: vv-wedding-ornament-left-in 1.45s .12s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-right {
-  animation: vv-wedding-ornament-right-in 1.45s .2s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-left {
-  animation: vv-wedding-bottom-left-in 1.35s .2s cubic-bezier(.16,.84,.18,1) both !important;
-}
-.vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-right {
-  animation: vv-wedding-bottom-right-in 1.35s .3s cubic-bezier(.16,.84,.18,1) both !important;
-}
-.vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:first-child {
-  animation: vv-couple-orbit-left-in 1.35s .15s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:last-child {
-  animation: vv-couple-orbit-right-in 1.35s .22s cubic-bezier(.16,.82,.22,1) both !important;
-}
+/* Decorative ornaments stay static so content reveals keep full GPU headroom */
 .vv-redesign .vv-full-couple.is-revealed .vv-person-amp {
   animation: vv-couple-amp-in .85s .55s cubic-bezier(.18,.9,.24,1.25) both !important;
-}
-.vv-redesign .vv-full-events.is-revealed .vv-events-corner-tl {
-  animation: vv-events-corner-tl-desktop-in 1.35s .14s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-events.is-revealed .vv-events-corner-tr {
-  animation: vv-events-corner-tr-desktop-in 1.35s .22s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-events.is-revealed .vv-events-corner-bl {
-  animation: vv-events-corner-bl-desktop-in 1.35s .3s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-full-events.is-revealed .vv-events-corner-br {
-  animation: vv-events-corner-br-desktop-in 1.35s .38s cubic-bezier(.16,.82,.22,1) both !important;
-}
-.vv-redesign .vv-story.is-revealed .vv-story-side-left {
-  animation: vv-story-side-left-in 1.3s .16s cubic-bezier(.16,.84,.2,1) both !important;
-}
-.vv-redesign .vv-story.is-revealed .vv-story-side-right {
-  animation: vv-story-side-right-in 1.3s .25s cubic-bezier(.16,.84,.2,1) both !important;
-}
-.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tl {
-  animation: vv-gallery-corner-tl-in 1.25s .14s cubic-bezier(.16,.84,.2,1) both !important;
-}
-.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tr {
-  animation: vv-gallery-corner-tr-in 1.25s .22s cubic-bezier(.16,.84,.2,1) both !important;
-}
-.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-bl {
-  animation: vv-gallery-corner-bl-in 1.25s .3s cubic-bezier(.16,.84,.2,1) both !important;
-}
-.vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-br {
-  animation: vv-gallery-corner-br-in 1.25s .38s cubic-bezier(.16,.84,.2,1) both !important;
 }
 
 /* Disable full-screen ::before background zoom/blur keyframes on desktop as well as mobile */
@@ -3832,7 +3787,7 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
 }
 
 /* Eliminate clip-path animation repaints on reveal-type (keep crisp compositor reveal) */
-.vv-redesign .vv-scroll-reveal.vv-reveal-type {
+.vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.vv-reveal-type {
   --vv-reveal-enter: translate3d(0, 18px, 0);
   --vv-reveal-rest: translate3d(0, 0, 0);
   clip-path: none !important;
@@ -3842,7 +3797,7 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
   transition-timing-function: ease-out, cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 
-.vv-redesign .vv-scroll-reveal.vv-reveal-type.is-component-visible {
+.vv-redesign:not(.has-waapi-reveals) .vv-scroll-reveal.vv-reveal-type.is-component-visible {
   transform: var(--vv-reveal-rest) !important;
 }
 
@@ -3957,7 +3912,8 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
   .vv-redesign .vv-rsvp-redesign::after,
   .vv-redesign .vv-closing-redesign::after,
   .vv-redesign .vv-rsvp-contour,
-  .vv-redesign .vv-closing-floor-sigil {
+  .vv-redesign .vv-closing-floor-sigil,
+  .vv-redesign .vv-wedding-bottom-ornament {
     display: none !important;
   }
   .vv-redesign .vv-full-events.is-revealed .vv-after-heading::after {
@@ -3971,6 +3927,7 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
   }
   .vv-redesign .vv-rsvp-redesign .vv-rsvp-form {
     backdrop-filter: none !important;
+    contain: layout style;
     background: linear-gradient(180deg, rgba(255, 253, 242, .97), rgba(242, 235, 216, .96));
     box-shadow: 0 14px 32px rgba(30, 58, 42, .13);
   }
@@ -4017,7 +3974,7 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
     --vv-reveal-enter: translate3d(0, 34px, 0);
     --vv-reveal-rest: translate3d(0, 0, 0);
     overflow-x: clip;
-    contain: layout style;
+    contain: layout style paint;
   }
   .vv-redesign:not(.vv-perf-low) .vv-scroll-reveal.vv-reveal-type {
     --vv-reveal-enter: translate3d(0, 22px, 0);
@@ -4029,55 +3986,105 @@ html.vv-doc-scroll-active.vv-embed-scroll-hide::-webkit-scrollbar {
     --vv-reveal-enter: translate3d(-50%, 34px, 0);
     --vv-reveal-rest: translate3d(-50%, 0, 0);
   }
-  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-left,
-  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-left,
-  .vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:first-child,
-  .vv-redesign .vv-story.is-revealed .vv-story-side-left,
-  .vv-redesign .vv-gift-redesign.is-revealed .vv-gift-seserahan-left {
-    animation-name: vv-mob-orn-left !important;
-  }
-  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-ornament-right,
-  .vv-redesign .vv-full-opening.is-revealed .vv-wedding-bottom-ornament-right,
-  .vv-redesign .vv-full-couple.is-revealed .vv-couple-ornaments img:last-child,
-  .vv-redesign .vv-story.is-revealed .vv-story-side-right,
-  .vv-redesign .vv-gift-redesign.is-revealed .vv-gift-seserahan-right {
-    animation-name: vv-mob-orn-right !important;
-  }
-  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-tl,
-  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tl {
-    animation-name: vv-mob-orn-tl !important;
-  }
-  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-tr,
-  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-tr {
-    animation-name: vv-mob-orn-tr !important;
-  }
-  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-bl,
-  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-bl {
-    animation-name: vv-mob-orn-bl !important;
-  }
-  .vv-redesign .vv-full-events.is-revealed .vv-events-corner-br,
-  .vv-redesign .vv-gallery.is-revealed .vv-gallery-corner-br {
-    animation-name: vv-mob-orn-br !important;
-  }
-  .vv-redesign .vv-rsvp-redesign.is-revealed .vv-rsvp-ledger {
-    animation-name: vv-mob-orn-up-center !important;
-  }
-  .vv-redesign .vv-closing-redesign.is-revealed .vv-closing-canopy {
-    animation-name: vv-mob-orn-down-center !important;
-  }
-  .vv-redesign .vv-after.is-revealed .vv-wedding-ornament,
-  .vv-redesign .vv-after.is-revealed .vv-wedding-bottom-ornament,
-  .vv-redesign .vv-after.is-revealed .vv-couple-ornaments img,
-  .vv-redesign .vv-after.is-revealed .vv-events-corner,
-  .vv-redesign .vv-after.is-revealed .vv-story-side,
-  .vv-redesign .vv-after.is-revealed .vv-gallery-corner,
-  .vv-redesign .vv-after.is-revealed .vv-gift-seserahan,
-  .vv-redesign .vv-after.is-revealed .vv-rsvp-ledger,
-  .vv-redesign .vv-after.is-revealed .vv-closing-canopy {
-    animation-duration: 1.15s !important;
-    animation-iteration-count: 1 !important;
-    animation-timing-function: cubic-bezier(0.16, 0.84, 0.22, 1) !important;
-  }
+}
+
+/* Render all decorative corner/side/canopy/ledger ornaments statically with no entrance/float loops */
+.vv-redesign .vv-after .vv-wedding-ornaments img,
+.vv-redesign .vv-after .vv-couple-ornaments img,
+.vv-redesign .vv-after .vv-events-corner,
+.vv-redesign .vv-after .vv-story-side,
+.vv-redesign .vv-after .vv-gallery-corner,
+.vv-redesign .vv-after .vv-gift-seserahan,
+.vv-redesign .vv-after .vv-rsvp-ledger,
+.vv-redesign .vv-after .vv-closing-canopy {
+  animation: none !important;
+  transition: none !important;
+  will-change: auto !important;
+  filter: none !important;
+}
+.vv-redesign .vv-wedding-ornaments::before,
+.vv-redesign .vv-wedding-ornaments::after {
+  display: none !important;
+  animation: none !important;
+}
+.vv-redesign .vv-after .vv-wedding-ornament-left {
+  opacity: 0.96 !important;
+  transform: none !important;
+}
+.vv-redesign .vv-after .vv-wedding-ornament-right {
+  opacity: 0.96 !important;
+  transform: scaleX(-1) !important;
+}
+.vv-redesign .vv-after .vv-couple-ornaments img:first-child {
+  opacity: 0.94 !important;
+  transform: rotate(-5deg) !important;
+}
+.vv-redesign .vv-after .vv-couple-ornaments img:last-child {
+  opacity: 0.94 !important;
+  transform: scaleX(-1) rotate(-5deg) !important;
+}
+.vv-redesign .vv-after .vv-events-corner-tl,
+.vv-redesign .vv-after .vv-gallery-corner-tl {
+  opacity: 0.9 !important;
+  transform: none !important;
+}
+.vv-redesign .vv-after .vv-events-corner-tr,
+.vv-redesign .vv-after .vv-gallery-corner-tr {
+  opacity: 0.9 !important;
+  transform: scaleX(-1) !important;
+}
+.vv-redesign .vv-after .vv-events-corner-bl,
+.vv-redesign .vv-after .vv-gallery-corner-bl {
+  opacity: 0.9 !important;
+  transform: scaleY(-1) !important;
+}
+.vv-redesign .vv-after .vv-events-corner-br,
+.vv-redesign .vv-after .vv-gallery-corner-br {
+  opacity: 0.9 !important;
+  transform: scale(-1) !important;
+}
+.vv-redesign .vv-after .vv-story-side-left {
+  opacity: 0.92 !important;
+  transform: rotate(-2deg) !important;
+}
+.vv-redesign .vv-after .vv-story-side-right {
+  opacity: 0.92 !important;
+  transform: scaleX(-1) rotate(-2deg) !important;
+}
+.vv-redesign .vv-after .vv-gift-seserahan-left {
+  opacity: 1 !important;
+  transform: none !important;
+}
+.vv-redesign .vv-after .vv-gift-seserahan-right {
+  opacity: 1 !important;
+  transform: scaleX(-1) !important;
+}
+.vv-redesign .vv-after .vv-rsvp-ledger,
+.vv-redesign .vv-after .vv-closing-canopy {
+  opacity: 1 !important;
+  transform: translateX(-50%) !important;
+}
+
+main.vv-redesign.has-waapi-reveals .vv-after .vv-scroll-reveal {
+  animation: none !important;
+  transition: none !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+main.vv-redesign.has-waapi-reveals .vv-after .vv-scroll-reveal:not(.is-component-visible) {
+  opacity: 0;
+  transform: translate3d(0, 0, 0);
+}
+main.vv-redesign.has-waapi-reveals .vv-after .vv-scroll-reveal.is-component-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+main.vv-redesign.has-waapi-reveals .vv-after .vv-closing-couple.vv-scroll-reveal:not(.is-component-visible),
+main.vv-redesign.has-waapi-reveals .vv-after .vv-closing-couple.vv-scroll-reveal.is-component-visible {
+  transform: translate3d(-50%, 0, 0);
+}
+.vv-redesign .vv-after .vv-scroll-reveal.is-will-animate:not(.is-motion-settled) {
+  will-change: transform, opacity !important;
 }
 
 .vv-redesign.vv-perf-balanced .vv-person-card,

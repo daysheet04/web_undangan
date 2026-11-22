@@ -320,14 +320,83 @@ function addSwayingVines(scene) {
   return vines;
 }
 
-function addImagePlane(scene, texture, { x, y, z, width, height, rotationY = 0, alphaTest = .03, renderOrder = 4 }) {
-  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest, side: THREE.DoubleSide, depthWrite: true, toneMapped: true });
+function addImagePlane(scene, texture, { x, y, z, width, height, rotationY = 0, alphaTest = .03, renderOrder = 4, fog = true, toneMapped = true }) {
+  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest, side: THREE.DoubleSide, depthWrite: true, fog, toneMapped });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
   plane.position.set(x, y, z);
   plane.rotation.y = rotationY;
   plane.renderOrder = renderOrder;
   scene.add(plane);
   return plane;
+}
+
+function createCrispCoupleTexture(sourceTexture, renderer, performanceTier = 'balanced') {
+  if (!sourceTexture?.image) return sourceTexture;
+  const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const applySampling = (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = maxAniso;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = true;
+    tex.needsUpdate = true;
+    return tex;
+  };
+  const img = sourceTexture.image;
+  const srcW = img.naturalWidth || img.videoWidth || img.width || 0;
+  const srcH = img.naturalHeight || img.videoHeight || img.height || 0;
+  if (!srcW || !srcH || typeof document === 'undefined') return applySampling(sourceTexture);
+
+  const maxDim = performanceTier === 'low' ? 1200 : performanceTier === 'balanced' ? 1600 : 2048;
+  const scale = Math.min(maxDim / Math.max(srcW, srcH), 1);
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return applySampling(sourceTexture);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // Gentle one-time RGB unsharp pass strictly inside opaque pixels (preserves alpha cutouts with zero halos)
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src);
+    const amount = 0.24;
+    const rowStride = w * 4;
+    for (let y = 1; y < h - 1; y += 1) {
+      const rowOffset = y * rowStride;
+      for (let x = 1; x < w - 1; x += 1) {
+        const idx = rowOffset + x * 4;
+        if (
+          src[idx + 3] <= 200 ||
+          src[idx - 4 + 3] <= 200 ||
+          src[idx + 4 + 3] <= 200 ||
+          src[idx - rowStride + 3] <= 200 ||
+          src[idx + rowStride + 3] <= 200
+        ) {
+          continue;
+        }
+        for (let c = 0; c < 3; c += 1) {
+          const i = idx + c;
+          const lap = 4 * src[i] - src[i - 4] - src[i + 4] - src[i - rowStride] - src[i + rowStride];
+          out[i] = src[i] + amount * lap;
+        }
+      }
+    }
+    imageData.data.set(out);
+    ctx.putImageData(imageData, 0, 0);
+
+    const crisp = applySampling(new THREE.CanvasTexture(canvas));
+    sourceTexture.dispose?.();
+    return crisp;
+  } catch {
+    return applySampling(sourceTexture);
+  }
 }
 
 function addRealisticGuestRows(scene, textures) {
@@ -383,7 +452,7 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl, per
   const isLow = performanceTier === 'low';
   const isBalanced = performanceTier === 'balanced';
   const maxAniso = isLow ? 1 : isBalanced ? 2 : Math.min(4, renderer.capabilities.getMaxAnisotropy());
-  const defaultCoupleUrl = `${LAYER}/couple-cinematic-v2.webp`;
+  const defaultCoupleUrl = isLow ? `${LAYER}/couple-cinematic-mobile-v2.webp` : `${LAYER}/couple-cinematic-v2.webp`;
   const panoramaUrl = (isLow || isBalanced || compact)
     ? `${CINEMATIC}/distant-indonesian-highland-panorama-garden-mobile-v4.webp`
     : `${CINEMATIC}/distant-indonesian-highland-panorama-garden-v4.webp`;
@@ -570,14 +639,15 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl, per
   addShadow(scene, -3.05, pedestalZ + .12, .72, .42, .2);
   addShadow(scene, 3.05, pedestalZ + .12, .72, .42, .2);
 
+  const crispCouple = createCrispCoupleTexture(couple, renderer, performanceTier);
   const coupleHeight = compact ? 6.8 : 7.5;
-  const coupleAspect = (couple?.image?.width && couple?.image?.height)
-    ? (couple.image.width / couple.image.height)
+  const coupleAspect = (crispCouple?.image?.width && crispCouple?.image?.height)
+    ? (crispCouple.image.width / crispCouple.image.height)
     : (4.22 / 7.5);
   const coupleWidth = customCoupleUrl
     ? Math.min(compact ? 4.8 : 5.4, Math.max(compact ? 3.2 : 3.6, coupleHeight * coupleAspect))
     : (compact ? 3.83 : 4.22);
-  const couplePlane = addImagePlane(scene, couple, {
+  const couplePlane = addImagePlane(scene, crispCouple, {
     x: 0,
     y: compact ? 3.35 : 3.72,
     z: -9.45,
@@ -585,6 +655,8 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl, per
     height: coupleHeight,
     alphaTest: .035,
     renderOrder: 5,
+    fog: false,
+    toneMapped: false,
   });
   addShadow(scene, 0, -9.05, 2.05, .74, .26);
 
@@ -712,7 +784,7 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = .94;
         renderer.shadowMap.enabled = false;
-        const pixelRatioCap = isLow ? 1.0 : isBalanced ? (mobile ? 1.15 : 1.25) : (mobile ? 1.35 : 1.5);
+        const pixelRatioCap = isLow ? 1.2 : isBalanced ? (mobile ? 1.55 : 1.5) : 1.75;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
         renderer.setSize(mount.clientWidth, mount.clientHeight, false);
         mount.replaceChildren(renderer.domElement);

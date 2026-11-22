@@ -11,6 +11,7 @@ export default function AdminCoverAdjusterModal({
   title,
   subtitle,
   hint,
+  highRes = false,
 }) {
   const isPhone = aspectRatio === 'phone';
   const isPortrait = aspectRatio === 'portrait' || aspectRatio === 'vertical' || aspectRatio === '3:4';
@@ -29,8 +30,8 @@ export default function AdminCoverAdjusterModal({
   } else if (isPortrait) {
     CANVAS_W = 600;
     CANVAS_H = 800;
-    exportW = 900;
-    exportH = 1200;
+    exportW = highRes ? 1440 : 900;
+    exportH = highRes ? 1920 : 1200;
   } else if (isSquare) {
     CANVAS_W = 600;
     CANVAS_H = 600;
@@ -326,7 +327,7 @@ export default function AdminCoverAdjusterModal({
             else reject(new Error('Gagal memproses gambar crop.'));
           },
           'image/webp',
-          0.92
+          isPortrait && highRes ? 0.95 : 0.92
         );
       });
 

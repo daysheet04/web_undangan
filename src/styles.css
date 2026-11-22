@@ -1,5 +1,5 @@
 #root { min-height: 100%; }
-html:has(.invitation-loading, .app-loading-fullscreen, .builder-loading-shell) {
+html:has(.invitation-loading, .app-loading-fullscreen, .builder-loading-shell, .vv-gate-opening.is-preparing) {
   overflow: hidden !important;
   scrollbar-gutter: auto !important;
 }
@@ -30,14 +30,6 @@ html:has(.invitation-loading, .app-loading-fullscreen, .builder-loading-shell) {
   background: #fbfaf7;
   overflow: hidden;
 }
-.invitation-loading-mark {
-  width: 34px;
-  height: 34px;
-  border: 2px solid rgba(16, 43, 74, .16);
-  border-top-color: #102b4a;
-  border-radius: 50%;
-  animation: invitation-loading-spin .8s linear infinite;
-}
 .invitation-loading-logo,
 .app-loading-logo {
   display: block;
@@ -63,13 +55,11 @@ html:has(.invitation-loading, .app-loading-fullscreen, .builder-loading-shell) {
   white-space: nowrap;
   margin: 0;
 }
-@keyframes invitation-loading-spin { to { transform: rotate(360deg); } }
 @keyframes daymoment-loading-logo {
   0%, 100% { opacity: .45; transform: translate3d(0, 0, 0) scale(.94); }
   50% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .invitation-loading-mark { animation: none; }
   .invitation-loading-logo, .app-loading-logo { animation: none; }
 }
 .app-error {

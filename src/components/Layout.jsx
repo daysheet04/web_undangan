@@ -259,9 +259,10 @@ export function Layout({ children, title, className = '', navigation = null }) {
 }
 
 export function Loading({ showLabel = false, fullscreen = false }) {
+  const [animDelay] = useState(() => (typeof performance !== 'undefined' ? -Math.round(performance.now() % 1450) : 0));
   return (
     <div className={fullscreen ? 'app-loading app-loading-fullscreen' : 'app-loading'} role="status" aria-live="polite" aria-label="Sedang memuat">
-      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" />
+      <img className="app-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" style={{ animationDelay: `${animDelay}ms` }} />
       {showLabel && <p>Memuat Daymoment…</p>}
     </div>
   );

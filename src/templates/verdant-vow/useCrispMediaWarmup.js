@@ -43,25 +43,36 @@ function getOrnamentUrls(performanceTier, isCompact) {
   const shared = ['/assets/images/brand/daymoment-logo.webp'];
   if (performanceTier === 'low') return shared;
   const layer = `${VV_IMG}/layers`;
+  if (isCompact) {
+    return [
+      `${layer}/section-couple-janur-orbit-ornament-mobile-v2.webp`,
+      `${layer}/events-janur-melati-corner-mobile-v2.webp`,
+      `${VV_IMG}/story/story-side-ornament-indonesian-mobile-v1.webp`,
+      `${VV_IMG}/gallery/gallery-corner-ornament-indonesian-mobile-v1.webp`,
+      `${VV_IMG}/gift/gift-seserahan-ornament-indonesian-mobile-v1.webp`,
+      `${VV_IMG}/rsvp/rsvp-guestbook-ornament-mobile-v1.webp`,
+      `${VV_IMG}/closing/closing-pendopo-canopy-ornament-mobile-v1.webp`,
+      `${VV_IMG}/story/story-photo-frame-indonesian-portrait-mobile-v1.webp`,
+      ...shared,
+    ];
+  }
   return [
-    ...shared,
-    isCompact
-      ? `${layer}/section-wedding-mobile-bottom-ornament-indonesian-v2.webp`
-      : `${layer}/section-wedding-edge-ornament-indonesian-v2.webp`,
+    `${layer}/section-wedding-edge-ornament-indonesian-v2.webp`,
     `${layer}/section-couple-janur-orbit-ornament-v2.webp`,
     `${layer}/events-janur-melati-corner-v2.webp`,
     `${VV_IMG}/story/story-side-ornament-indonesian-v1.webp`,
-    `${VV_IMG}/story/story-photo-frame-indonesian-portrait-v1.webp`,
     `${VV_IMG}/gallery/gallery-corner-ornament-indonesian-v1.webp`,
     `${VV_IMG}/gift/gift-seserahan-ornament-indonesian-v1.webp`,
     `${VV_IMG}/rsvp/rsvp-guestbook-ornament-v1.webp`,
     `${VV_IMG}/closing/closing-pendopo-canopy-ornament-v1.webp`,
+    `${VV_IMG}/story/story-photo-frame-indonesian-portrait-v1.webp`,
+    ...shared,
   ];
 }
 
 const RESIZE_WORKER_SRC = `
 self.onmessage = async (e) => {
-  const { id, url, maxW, maxH } = e.data;
+  const { id, url, maxW, maxH, minPixels } = e.data;
   try {
     const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
     if (!resp.ok) throw new Error('fetch failed');
@@ -69,7 +80,7 @@ self.onmessage = async (e) => {
     const bmp = await createImageBitmap(rawBlob);
     const natW = bmp.width || 0;
     const natH = bmp.height || 0;
-    if (natW * natH <= 1350000) {
+    if (natW * natH <= (minPixels || 1350000)) {
       bmp.close();
       self.postMessage({ id, skip: true });
       return;
@@ -84,11 +95,11 @@ self.onmessage = async (e) => {
     });
     bmp.close();
     const canvas = new OffscreenCanvas(dstW, dstH);
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('no 2d ctx');
     ctx.drawImage(resized, 0, 0);
     resized.close();
-    const outBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.91 });
+    const outBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.94 });
     self.postMessage({ id, blob: outBlob });
   } catch {
     self.postMessage({ id, error: true });
@@ -104,15 +115,6 @@ function canUseOffscreenWorker() {
   );
 }
 
-function scheduleIdle(fn, timeout = 160) {
-  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
-    const id = window.requestIdleCallback(fn, { timeout });
-    return () => window.cancelIdleCallback(id);
-  }
-  const id = window.setTimeout(fn, Math.min(timeout, 80));
-  return () => window.clearTimeout(id);
-}
-
 /**
  * Zero-jitter off-main-thread image pre-decoder & Retina normalizer.
  * 1) Pre-decodes active tier section backgrounds & ornaments via img.decode().
@@ -122,6 +124,7 @@ function scheduleIdle(fn, timeout = 160) {
  */
 export default function useCrispMediaWarmup({
   photoUrls = [],
+  predecodeOnlyUrls = [],
   performanceTier = 'balanced',
   isCompact = false,
   canWarm = false,
@@ -158,12 +161,13 @@ export default function useCrispMediaWarmup({
   }, []);
 
   const photoKey = photoUrls.filter(Boolean).join('|');
+  const predecodeKey = predecodeOnlyUrls.filter(Boolean).join('|');
 
   useEffect(() => {
     if (!canWarm || typeof window === 'undefined') return undefined;
 
     let cancelled = false;
-    let cancelScheduled = null;
+    let startTimer = 0;
     let stepTimer = 0;
     let worker = null;
     let workerUrl = null;
@@ -218,7 +222,8 @@ export default function useCrispMediaWarmup({
       }
       const absUrl = new URL(url, window.location.href).href;
       const maxW = isCompact ? 760 : 1080;
-      const maxH = isCompact ? 1020 : 1440;
+      const maxH = isCompact ? 1014 : 1440;
+      const minPixels = isCompact ? 800000 : 1350000;
       return new Promise((resolve) => {
         const reqId = `${Math.random()}`;
         const onMsg = (ev) => {
@@ -227,59 +232,29 @@ export default function useCrispMediaWarmup({
           resolve(ev.data);
         };
         worker.addEventListener('message', onMsg);
-        worker.postMessage({ id: reqId, url: absUrl, maxW, maxH });
+        worker.postMessage({ id: reqId, url: absUrl, maxW, maxH, minPixels });
       });
     };
 
     const runWarmup = async () => {
       const uniquePhotos = Array.from(new Set(photoUrls.filter(Boolean)));
 
-      const runPhotoNormalization = async () => {
-        if (canUseOffscreenWorker()) {
-          await Promise.all(
-            uniquePhotos.map(async (url) => {
-              if (cancelled || createdUrlsRef.current.has(url)) return;
-              const res = await resizeInWorker(url);
-              if (cancelled) return;
-              if (res?.blob) {
-                const blobUrl = URL.createObjectURL(res.blob);
-                await decodeIntoCache(blobUrl, false);
-                if (cancelled) {
-                  URL.revokeObjectURL(blobUrl);
-                  return;
-                }
-                createdUrlsRef.current.set(url, blobUrl);
-              } else {
-                await decodeIntoCache(url, Boolean(res?.skip));
-              }
-            }),
-          );
-        } else {
-          for (const url of uniquePhotos) {
-            if (cancelled) return;
-            await waitUntilScrollIdle();
-            if (cancelled) return;
-            await decodeIntoCache(url, false);
+      const isUrlOffscreenInDom = (origUrl) => {
+        const imgs = document.querySelectorAll('.vv-redesign img');
+        const vh = window.innerHeight || 844;
+        for (const node of imgs) {
+          const curSrc = node.getAttribute('src') || node.currentSrc || '';
+          if (curSrc !== origUrl) continue;
+          const rect = node.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0 && rect.bottom >= -120 && rect.top <= vh + 120) {
+            return false;
           }
         }
+        return true;
+      };
 
-        const isUrlOffscreenInDom = (origUrl) => {
-          const imgs = document.querySelectorAll('.vv-redesign img');
-          const vh = window.innerHeight || 844;
-          for (const node of imgs) {
-            const curSrc = node.getAttribute('src') || node.currentSrc || '';
-            if (curSrc !== origUrl) continue;
-            const rect = node.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0 && rect.bottom >= -120 && rect.top <= vh + 120) {
-              return false;
-            }
-          }
-          return true;
-        };
-
-        await waitUntilScrollIdle();
+      const commitReadyUrls = () => {
         if (cancelled) return;
-
         let changed = false;
         const allowAllAtTop = window.scrollY < 80;
         for (const [origUrl, blobUrl] of createdUrlsRef.current.entries()) {
@@ -294,31 +269,69 @@ export default function useCrispMediaWarmup({
         }
       };
 
-      const runAssetPredecode = async () => {
-        const assetUrls = [
-          ...getSectionBackgroundUrls(performanceTier, isCompact),
-          ...getOrnamentUrls(performanceTier, isCompact),
-        ];
-        for (let idx = 0; idx < assetUrls.length; idx += 3) {
+      const runPhotoNormalization = async () => {
+        const useWorker = canUseOffscreenWorker();
+        if (!isScrollingRef.current) commitReadyUrls();
+        for (const url of uniquePhotos) {
           if (cancelled) return;
           await waitUntilScrollIdle();
           if (cancelled) return;
-          await Promise.allSettled(
-            assetUrls.slice(idx, idx + 3).map((u) => decodeIntoCache(u, false)),
-          );
+          if (useWorker) {
+            if (createdUrlsRef.current.has(url)) continue;
+            const res = await resizeInWorker(url);
+            if (cancelled) return;
+            if (res?.blob) {
+              const blobUrl = URL.createObjectURL(res.blob);
+              await decodeIntoCache(blobUrl, false);
+              if (cancelled) {
+                URL.revokeObjectURL(blobUrl);
+                return;
+              }
+              createdUrlsRef.current.set(url, blobUrl);
+              if (!isScrollingRef.current) commitReadyUrls();
+            } else {
+              await decodeIntoCache(url, Boolean(res?.skip));
+            }
+          } else {
+            await decodeIntoCache(url, false);
+          }
+        }
+
+        await waitUntilScrollIdle();
+        if (cancelled) return;
+        commitReadyUrls();
+      };
+
+      const runAssetPredecode = async () => {
+        const bgUrls = getSectionBackgroundUrls(performanceTier, isCompact);
+        const ornUrls = getOrnamentUrls(performanceTier, isCompact);
+        const interleaved = [];
+        const maxLen = Math.max(bgUrls.length, ornUrls.length);
+        for (let idx = 0; idx < maxLen; idx += 1) {
+          if (bgUrls[idx]) interleaved.push(bgUrls[idx]);
+          if (ornUrls[idx]) interleaved.push(ornUrls[idx]);
+        }
+        for (const u of predecodeOnlyUrls) {
+          if (u && !interleaved.includes(u)) interleaved.push(u);
+        }
+        for (const u of interleaved) {
+          if (cancelled) return;
+          await waitUntilScrollIdle();
+          if (cancelled) return;
+          await decodeIntoCache(u, false);
         }
       };
 
       await Promise.all([runPhotoNormalization(), runAssetPredecode()]);
     };
 
-    cancelScheduled = scheduleIdle(() => {
+    startTimer = window.setTimeout(() => {
       if (!cancelled) runWarmup();
-    }, 160);
+    }, 16);
 
     return () => {
       cancelled = true;
-      if (cancelScheduled) cancelScheduled();
+      window.clearTimeout(startTimer);
       window.clearTimeout(stepTimer);
       if (worker) {
         worker.terminate();
@@ -329,7 +342,7 @@ export default function useCrispMediaWarmup({
         workerUrl = null;
       }
     };
-  }, [canWarm, performanceTier, isCompact, photoKey]);
+  }, [canWarm, performanceTier, isCompact, photoKey, predecodeKey]);
 
   const getDisplaySrc = useCallback(
     (originalUrl) => {

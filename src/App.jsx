@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 
 const HomePage = lazy(() => import('./pages/HomePage.jsx'));
 const AffiliateLandingPage = lazy(() => import('./pages/AffiliateLandingPage.jsx'));
@@ -12,7 +12,8 @@ const SuccessPage = lazy(() => import('./pages/SuccessPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 function RouteLoading() {
-  return <div className="invitation-loading" role="status" aria-label="Memuat halaman"><img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" /></div>;
+  const [animDelay] = useState(() => (typeof performance !== 'undefined' ? -Math.round(performance.now() % 1450) : 0));
+  return <div className="invitation-loading" role="status" aria-label="Memuat halaman"><img className="invitation-loading-logo" src="/assets/images/brand/daymoment-logo.webp" alt="" width="900" height="323" aria-hidden="true" style={{ animationDelay: `${animDelay}ms` }} /></div>;
 }
 
 export default function App() {

@@ -1892,6 +1892,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                                 target: 'package_stage',
                                 packageCode: activePkg,
                                 aspectRatio: '3:4',
+                                highRes: true,
                                 initialImageUrl: mediaUrl(effectiveStage),
                                 title: `Atur Posisi Foto Panggung — Paket ${currentPackage.name}`,
                                 subtitle: `Geser foto berdiri di panggung (kiri, kanan, atas, bawah) dan sesuaikan zoom agar proporsional.`,
@@ -2509,6 +2510,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
           title={adjusterConfig.title}
           subtitle={adjusterConfig.subtitle}
           hint={adjusterConfig.hint}
+          highRes={Boolean(adjusterConfig.highRes)}
           onSaveCover={handleSaveAdjustedPhoto}
         />
       )}
