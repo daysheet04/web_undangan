@@ -2367,28 +2367,39 @@ function affiliateFirstOrderMeta(affiliate) {
   const paidOrders = Number(bonus.paid_orders_count || 0);
   const pendingOrders = Number(bonus.pending_orders_count || 0);
   if (bonus.has_first_paid_order) {
+    const bonusAmount = Number(bonus.bonus_amount || 50000);
+    const bonusK = Math.round(bonusAmount / 1000);
+    const orderDetail = [bonus.first_paid_template_name, bonus.first_paid_package_name].filter(Boolean).join(' · ');
     return {
       badgeClass: 'is-done',
-      badgeText: '✓ Order Pertama Sukses · Komisi Done',
+      badgeText: `✓ Order #1 Sukses · Bonus ${bonusK}rb Done`,
       dlClass: 'is-done',
-      dlText: `✓ Done (+Rp 50.000) · ${bonus.first_paid_order_code || 'Lunas'}${paidOrders > 1 ? ` · ${paidOrders} order sukses` : ''}`,
+      dlText: `✓ Done (+${money(bonusAmount)}) · ${bonus.first_paid_order_code || 'Lunas'}${orderDetail ? ` (${orderDetail})` : ''}${paidOrders > 1 ? ` · ${paidOrders} order sukses` : ''}`,
+    };
+  }
+  if (bonus.bonus_status === 'essential_only' || paidOrders > 0) {
+    return {
+      badgeClass: 'is-pending',
+      badgeText: 'Order Essential · Bonus Belum Dapat',
+      dlClass: 'is-pending',
+      dlText: `Order Essential (${paidOrders} lunas) · Wajib Signature/Prestige untuk bonus`,
     };
   }
   if (totalOrders > 0) {
     return {
       badgeClass: 'is-pending',
-      badgeText: 'Order Belum Sukses · Komisi Belum Dapat',
+      badgeText: 'Order Belum Sukses · Bonus Belum Dapat',
       dlClass: 'is-pending',
       dlText: pendingOrders > 0
-        ? `Belum sukses (${pendingOrders} order menunggu) · Komisi belum didapat`
-        : `Belum ada order sukses (${totalOrders} order) · Komisi belum didapat`,
+        ? `Belum sukses (${pendingOrders} order menunggu) · Bonus belum didapat`
+        : `Belum ada order sukses (${totalOrders} order) · Bonus belum didapat`,
     };
   }
   return {
     badgeClass: 'is-empty',
-    badgeText: 'Belum Ada Orderan · Komisi Belum Dapat',
+    badgeText: 'Belum Ada Orderan · Bonus Belum Dapat',
     dlClass: 'is-empty',
-    dlText: 'Belum ada orderan · Komisi belum didapat',
+    dlText: 'Belum ada orderan · Bonus belum didapat',
   };
 }
 
@@ -2511,7 +2522,7 @@ Akun affiliate, sesi login, pengaturan produk, data traffic, dan riwayat penarik
     <section className="admin-affiliate-data-filter has-order-filter">
       <label><span>Cari affiliate</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nama, email, NIK, WhatsApp, atau kode referral"/></label>
       <AdminFilterDropdown label="Status akun" value={status} onChange={setStatus} options={[{ value: 'all', label: 'Semua status' }, { value: 'active', label: 'Aktif', description: 'Dapat login dan menggunakan dashboard' }, { value: 'suspended', label: 'Dinonaktifkan', description: 'Tidak dapat login ke akun' }]}/>
-      <AdminFilterDropdown label="Status order pertama" value={firstOrderFilter} onChange={setFirstOrderFilter} options={[{ value: 'all', label: 'Semua status order' }, { value: 'earned', label: 'Sudah order sukses (Done)', description: 'Sudah mendapat bonus Rp 50rb + komisi' }, { value: 'not_earned', label: 'Belum ada order sukses', description: 'Belum ada order lunas / komisi' }]}/>
+      <AdminFilterDropdown label="Status order pertama" value={firstOrderFilter} onChange={setFirstOrderFilter} options={[{ value: 'all', label: 'Semua status order' }, { value: 'earned', label: 'Sudah order sukses (Done)', description: 'Sudah mendapat bonus Rp 100rb/50rb (Signature/Prestige)' }, { value: 'not_earned', label: 'Belum ada order sukses', description: 'Belum ada order Signature/Prestige yang lunas' }]}/>
       <button type="button" onClick={() => { setQuery(''); setStatus('all'); setFirstOrderFilter('all'); }}>Reset filter</button>
       <small>{filtered.length} dari {affiliates.length} affiliate ditampilkan</small>
     </section>

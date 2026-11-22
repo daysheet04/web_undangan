@@ -1,4 +1,6 @@
--- Migration: Add one-time Rp 50.000 bonus for affiliate's first paid order in withdrawal balance RPC.
+-- Migration: One-time first-order bonus for affiliate's first qualifying paid order
+-- (Signature/Prestige only: Rp 100.000 for The Heritage, Rp 50.000 for other templates).
+-- Essential package purchases receive percentage commission only and do not trigger or consume the bonus.
 -- Date: 2026-11-22
 
 create or replace function public.request_affiliate_withdrawal(
@@ -14,6 +16,8 @@ security definer
 set search_path = public
 as $$
 declare
+  base_earned_amount numeric(12,2);
+  first_order_bonus_amount numeric(12,2);
   earned_amount numeric(12,2);
   reserved_amount numeric(12,2);
   available_amount numeric(12,2);
@@ -47,10 +51,30 @@ begin
   end if;
 
   select coalesce(sum(affiliate_commission_amount), 0)
-       + case when count(*) > 0 then 50000 else 0 end
-  into earned_amount
+  into base_earned_amount
   from public.orders
   where affiliate_id = p_affiliate_id and payment_status = 'paid';
+
+  select case
+    when lower(coalesce(t.code, '')) in ('vintage_classic', 'vintage-classic', 'the_heritage', 'the-heritage')
+      or lower(coalesce(t.name, '')) like '%the heritage%'
+      then 100000
+    else 50000
+  end
+  into first_order_bonus_amount
+  from public.orders o
+  join public.template_packages tp on tp.id = o.package_id
+  left join public.templates t on t.id = o.template_id
+  where o.affiliate_id = p_affiliate_id
+    and o.payment_status = 'paid'
+    and (
+      lower(coalesce(tp.code, '')) in ('signature', 'prestige')
+      or lower(coalesce(tp.name, '')) in ('signature', 'prestige')
+    )
+  order by o.created_at asc, o.id asc
+  limit 1;
+
+  earned_amount := coalesce(base_earned_amount, 0) + coalesce(first_order_bonus_amount, 0);
 
   select coalesce(sum(amount), 0)
   into reserved_amount

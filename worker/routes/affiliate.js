@@ -5,7 +5,6 @@ import { cleanText, normalizePhone, validEmail, validPhone } from '../lib/helper
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
 import { getAffiliateCustomCommissions, resolveAffiliateCommissionPercent } from '../lib/affiliateCommissions.js';
 import {
-  FIRST_ORDER_BONUS_AMOUNT,
   annotateAffiliateOrdersWithFirstOrderBonus,
   summarizeAffiliateFirstOrderStatus,
 } from '../lib/affiliateFirstOrderBonus.js';
@@ -863,10 +862,6 @@ affiliate.get('/affiliate/orders', async (c) => {
 
   const rawOrders = orderResult.data || [];
   const allOrders = summaryResult.data || [];
-  const annotatedRawOrders = annotateAffiliateOrdersWithFirstOrderBonus(rawOrders, allOrders);
-  const annotatedAllOrders = annotateAffiliateOrdersWithFirstOrderBonus(allOrders, allOrders);
-  const firstOrderBonus = summarizeAffiliateFirstOrderStatus(allOrders);
-
   const metadataOrders = [...rawOrders, ...allOrders];
   const templateIds = [...new Set(metadataOrders.map((order) => order.template_id).filter(Boolean))];
   const packageIds = [...new Set(metadataOrders.map((order) => order.package_id).filter(Boolean))];
@@ -882,6 +877,11 @@ affiliate.get('/affiliate/orders', async (c) => {
   if (packageResult.error) throw packageResult.error;
   const templates = new Map((templateResult.data || []).map((template) => [String(template.id), template]));
   const packages = new Map((packageResult.data || []).map((product) => [String(product.id), product]));
+
+  const lookup = { templateById: templates, packageById: packages };
+  const annotatedRawOrders = annotateAffiliateOrdersWithFirstOrderBonus(rawOrders, allOrders, lookup);
+  const annotatedAllOrders = annotateAffiliateOrdersWithFirstOrderBonus(allOrders, allOrders, lookup);
+  const firstOrderBonus = summarizeAffiliateFirstOrderStatus(allOrders, lookup);
   const orders = annotatedRawOrders.map(({ editor_token: editorToken, ...order }) => ({
     ...order,
     affiliate_commission_percent: Number(order.affiliate_commission_percent || 0),
@@ -1019,23 +1019,25 @@ affiliate.get('/affiliate/finance', async (c) => {
   if (settingsResult.error) throw settingsResult.error;
 
   const allOrders = orderResult.data || [];
-  const annotatedOrders = annotateAffiliateOrdersWithFirstOrderBonus(allOrders, allOrders);
-  const firstOrderBonus = summarizeAffiliateFirstOrderStatus(allOrders);
-  const rawEarnings = annotatedOrders.filter((order) => order.affiliate_commission_amount > 0 || order.base_commission_amount > 0);
-  const templateIds = [...new Set(rawEarnings.map((order) => order.template_id).filter(Boolean))];
-  const packageIds = [...new Set(rawEarnings.map((order) => order.package_id).filter(Boolean))];
+  const templateIds = [...new Set(allOrders.map((order) => order.template_id).filter(Boolean))];
+  const packageIds = [...new Set(allOrders.map((order) => order.package_id).filter(Boolean))];
   const [templateResult, packageResult] = await Promise.all([
     templateIds.length
-      ? current.db.from('templates').select('id,name').in('id', templateIds)
+      ? current.db.from('templates').select('id,code,name').in('id', templateIds)
       : Promise.resolve({ data: [], error: null }),
     packageIds.length
-      ? current.db.from('template_packages').select('id,name').in('id', packageIds)
+      ? current.db.from('template_packages').select('id,code,name').in('id', packageIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (templateResult.error) throw templateResult.error;
   if (packageResult.error) throw packageResult.error;
-  const templates = new Map((templateResult.data || []).map((template) => [String(template.id), template.name]));
-  const packages = new Map((packageResult.data || []).map((product) => [String(product.id), product.name]));
+  const templateMetaMap = new Map((templateResult.data || []).map((template) => [String(template.id), template]));
+  const packageMetaMap = new Map((packageResult.data || []).map((product) => [String(product.id), product]));
+  const lookup = { templateById: templateMetaMap, packageById: packageMetaMap };
+
+  const annotatedOrders = annotateAffiliateOrdersWithFirstOrderBonus(allOrders, allOrders, lookup);
+  const firstOrderBonus = summarizeAffiliateFirstOrderStatus(allOrders, lookup);
+  const rawEarnings = annotatedOrders.filter((order) => order.affiliate_commission_amount > 0 || order.base_commission_amount > 0);
 
   const earnings = rawEarnings.map((order) => ({
     ...order,
@@ -1044,8 +1046,8 @@ affiliate.get('/affiliate/finance', async (c) => {
     base_commission_amount: Number(order.base_commission_amount || 0),
     first_order_bonus_amount: Number(order.first_order_bonus_amount || 0),
     is_first_paid_order: Boolean(order.is_first_paid_order),
-    template_name: templates.get(String(order.template_id)) || 'Template',
-    product_name: packages.get(String(order.package_id)) || 'Paket',
+    template_name: templateMetaMap.get(String(order.template_id))?.name || 'Template',
+    product_name: packageMetaMap.get(String(order.package_id))?.name || 'Paket',
   }));
   const withdrawals = (withdrawalResult.data || []).map((withdrawal) => ({
     ...withdrawal,
@@ -1094,9 +1096,9 @@ affiliate.get('/affiliate/notifications', async (c) => {
   const current = await activeSession(c);
   if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
 
-  const [orderRes, withdrawalRes, proRes, firstPaidRes] = await Promise.all([
+  const [orderRes, withdrawalRes, proRes, paidOrdersRes] = await Promise.all([
     current.db.from('orders')
-      .select('id,order_code,customer_name,payment_status,affiliate_commission_amount,created_at')
+      .select('id,order_code,template_id,package_id,customer_name,payment_status,affiliate_commission_amount,created_at')
       .eq('affiliate_id', current.account.id)
       .order('created_at', { ascending: false })
       .limit(20),
@@ -1111,27 +1113,43 @@ affiliate.get('/affiliate/notifications', async (c) => {
       .order('created_at', { ascending: false })
       .limit(10),
     current.db.from('orders')
-      .select('id')
+      .select('id,order_code,template_id,package_id,payment_status,affiliate_commission_amount,created_at')
       .eq('affiliate_id', current.account.id)
       .eq('payment_status', 'paid')
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .limit(1000),
   ]);
 
-  const firstPaidOrderId = firstPaidRes?.data?.id !== undefined && firstPaidRes?.data?.id !== null
-    ? String(firstPaidRes.data.id)
-    : null;
+  const paidOrders = paidOrdersRes?.data || [];
+  const notifOrders = orderRes.data || [];
+  const allNotifMetaOrders = [...paidOrders, ...notifOrders];
+  const notifTplIds = [...new Set(allNotifMetaOrders.map((o) => o.template_id).filter(Boolean))];
+  const notifPkgIds = [...new Set(allNotifMetaOrders.map((o) => o.package_id).filter(Boolean))];
+  const [notifTplRes, notifPkgRes] = await Promise.all([
+    notifTplIds.length
+      ? current.db.from('templates').select('id,code,name').in('id', notifTplIds)
+      : Promise.resolve({ data: [], error: null }),
+    notifPkgIds.length
+      ? current.db.from('template_packages').select('id,code,name').in('id', notifPkgIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const notifTplMap = new Map((notifTplRes?.data || []).map((t) => [String(t.id), t]));
+  const notifPkgMap = new Map((notifPkgRes?.data || []).map((p) => [String(p.id), p]));
+  const annotatedNotifOrders = annotateAffiliateOrdersWithFirstOrderBonus(
+    notifOrders,
+    paidOrders,
+    { templateById: notifTplMap, packageById: notifPkgMap },
+  );
 
-  const orders = (orderRes.data || []).map((o) => {
-    const isFirstPaid = Boolean(firstPaidOrderId && String(o.id) === firstPaidOrderId && o.payment_status === 'paid');
-    const totalCommission = Number(o.affiliate_commission_amount || 0) + (isFirstPaid ? FIRST_ORDER_BONUS_AMOUNT : 0);
+  const orders = annotatedNotifOrders.map((o) => {
+    const bonusAmt = Number(o.first_order_bonus_amount || 0);
+    const totalCommission = Number(o.affiliate_commission_amount || 0);
     return {
       id: `order-${o.id}`,
       type: 'order',
       title: `Order ${o.order_code}`,
-      snippet: `${o.customer_name || 'Customer'} · Komisi Rp ${totalCommission.toLocaleString('id-ID')}${isFirstPaid ? ' (+ Bonus order #1 Rp 50.000)' : ''}`,
+      snippet: `${o.customer_name || 'Customer'} · Komisi Rp ${totalCommission.toLocaleString('id-ID')}${bonusAmt > 0 ? ` (+ Bonus order #1 Rp ${bonusAmt.toLocaleString('id-ID')})` : ''}`,
       status: o.payment_status,
       status_label: o.payment_status === 'paid' ? 'Lunas' : 'Menunggu',
       created_at: o.created_at,

@@ -254,8 +254,8 @@ export async function downloadAffiliateIncomeReport({
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(60, 75, 68);
       const pct = Number(item.affiliate_commission_percent || 0);
-      const hasFirstBonus = Number(item.first_order_bonus_amount || 0) > 0;
-      pdf.text(hasFirstBonus ? `${pct}% + 50rb` : `${pct}%`, colX.percent, currentY);
+      const bonusAmt = Number(item.first_order_bonus_amount || 0);
+      pdf.text(bonusAmt > 0 ? `${pct}% + ${Math.round(bonusAmt / 1000)}rb` : `${pct}%`, colX.percent, currentY);
 
       // Amount
       pdf.setFont('helvetica', 'bold');

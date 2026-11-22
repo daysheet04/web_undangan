@@ -653,7 +653,7 @@ admin.get('/admin/affiliates', async (c) => {
   if (platformResult.error) throw platformResult.error;
   const data = accountResult.data;
   const affiliateIds = (data || []).map((account) => account.id);
-  const [historyResult, customCommissionsMap, orderResult] = affiliateIds.length
+  const [historyResult, customCommissionsMap, orderResult, templateMetaResult, packageMetaResult] = affiliateIds.length
     ? await Promise.all([
       db.from('affiliate_review_history')
         .select('id,affiliate_id,action,note,created_at')
@@ -661,15 +661,22 @@ admin.get('/admin/affiliates', async (c) => {
         .order('created_at', { ascending: true }),
       getAffiliateCustomCommissionsMap(db, affiliateIds),
       db.from('orders')
-        .select('id,order_code,affiliate_id,payment_status,affiliate_commission_amount,created_at')
+        .select('id,order_code,affiliate_id,template_id,package_id,payment_status,affiliate_commission_amount,created_at')
         .in('affiliate_id', affiliateIds)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })
         .limit(10000),
+      db.from('templates').select('id,code,name'),
+      db.from('template_packages').select('id,code,name'),
     ])
-    : [{ data: [], error: null }, new Map(), { data: [], error: null }];
+    : [{ data: [], error: null }, new Map(), { data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   if (historyResult.error) throw historyResult.error;
   if (orderResult.error) throw orderResult.error;
+  if (templateMetaResult.error) throw templateMetaResult.error;
+  if (packageMetaResult.error) throw packageMetaResult.error;
+  const adminTemplateById = new Map((templateMetaResult.data || []).map((t) => [String(t.id), t]));
+  const adminPackageById = new Map((packageMetaResult.data || []).map((p) => [String(p.id), p]));
+  const bonusLookup = { templateById: adminTemplateById, packageById: adminPackageById };
   const historyByAffiliate = (historyResult.data || []).reduce((items, entry) => {
     if (!items.has(entry.affiliate_id)) items.set(entry.affiliate_id, []);
     items.get(entry.affiliate_id).push({ id: entry.id, action: entry.action, note: entry.note, created_at: entry.created_at });
@@ -683,7 +690,7 @@ admin.get('/admin/affiliates', async (c) => {
   }, new Map());
   const affiliates = (data || []).map((account) => {
     const customCommissions = customCommissionsMap.get(account.id) || {};
-    const firstOrderBonus = summarizeAffiliateFirstOrderStatus(ordersByAffiliate.get(account.id) || []);
+    const firstOrderBonus = summarizeAffiliateFirstOrderStatus(ordersByAffiliate.get(account.id) || [], bonusLookup);
     return {
       ...adminAffiliate(account),
       custom_commissions: customCommissions,
