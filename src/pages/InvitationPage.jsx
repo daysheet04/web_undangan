@@ -42,7 +42,8 @@ export default function InvitationPage({slug,templateCode,preview=false}){
   const query=useMemo(()=>new URLSearchParams(window.location.search),[]), token=query.get('token');
   const isCoverOnly = query.get('cover_only') === '1';
   useBodyClass(preview ? (isCoverOnly ? 'embed-preview is-cover-only' : 'embed-preview') : '');
-  const path=preview?(token?`/api/editor/${token}`:`/api/templates/${templateCode}`):`/api/invitations/${slug}${window.location.search}`;
+  const previewPkg = query.get('package');
+  const path=preview?(token?`/api/editor/${token}`:`/api/templates/${templateCode}${previewPkg?`?package=${encodeURIComponent(previewPkg)}`:''}`):`/api/invitations/${slug}${window.location.search}`;
   const state=useRemote(path,[path]);
   const [submittedGreetings,setSubmittedGreetings]=useState([]);
   const invitationKey=state.data?.invitation?.id||slug||templateCode||'';
@@ -134,7 +135,21 @@ export default function InvitationPage({slug,templateCode,preview=false}){
     const template=state.data.template,requestedPkg=query.get('package')||'signature',pkg=template.packages.find(p=>p.code===requestedPkg)||template.packages[0];
     const demoInv=state.data.invitation||template.demo_invitation||{};
     const pkgCover = state.data.covers?.[pkg.code] || demoInv.covers?.[pkg.code] || demoInv[`cover_image_${pkg.code}`] || demoInv.cover_image;
-    const pkgStage = state.data.stage_photos?.[pkg.code] || demoInv.stage_photos?.[pkg.code] || demoInv[`stage_photo_${pkg.code}`] || demoInv.stage_photo || demoInv.custom_couple_image;
+    const stagePhotoMap = state.data.stage_photos || demoInv.stage_photos || {};
+    const fallbackStage =
+      stagePhotoMap.prestige ||
+      stagePhotoMap.signature ||
+      stagePhotoMap.essential ||
+      demoInv.stage_photo_prestige ||
+      demoInv.stage_photo_signature ||
+      demoInv.stage_photo_essential ||
+      null;
+    const pkgStage =
+      stagePhotoMap[pkg.code] ||
+      demoInv[`stage_photo_${pkg.code}`] ||
+      demoInv.stage_photo ||
+      demoInv.custom_couple_image ||
+      fallbackStage;
     invitation=sample({
       ...demoInv,
       cover_image: pkgCover || demoInv.cover_image,

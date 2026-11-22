@@ -254,7 +254,8 @@ function addAisleFlorals(scene) {
   return anchors;
 }
 
-function addFallingLeaves(scene, compact) {
+function addFallingLeaves(scene, count) {
+  if (!count || count <= 0) return [];
   const rng = makeRng(212);
   const geometry = new THREE.CircleGeometry(.072, 6);
   geometry.scale(.62, 1.45, 1);
@@ -265,7 +266,7 @@ function addFallingLeaves(scene, compact) {
     side: THREE.DoubleSide,
     depthWrite: false,
   }));
-  return Array.from({ length: compact ? 9 : 17 }, (_, index) => {
+  return Array.from({ length: count }, (_, index) => {
     const side = rng() < .5 ? -1 : 1;
     const leaf = new THREE.Mesh(geometry, materials[index % materials.length]);
     const baseX = side * (2.4 + rng() * 6.8);
@@ -375,12 +376,21 @@ function addFloralPhoto(parent, texture, { x, y, z, width, height, rotationY = 0
   return plane;
 }
 
-async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
+async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl, performanceTier = 'balanced') {
   const loader = new THREE.TextureLoader();
+  loader.setCrossOrigin("anonymous");
+  const compact = renderer.domElement.clientWidth <= 800;
+  const isLow = performanceTier === 'low';
+  const isBalanced = performanceTier === 'balanced';
+  const maxAniso = isLow ? 1 : isBalanced ? 2 : Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  const defaultCoupleUrl = `${LAYER}/couple-cinematic-v2.webp`;
+  const panoramaUrl = (isLow || isBalanced || compact)
+    ? `${CINEMATIC}/distant-indonesian-highland-panorama-garden-mobile-v4.webp`
+    : `${CINEMATIC}/distant-indonesian-highland-panorama-garden-v4.webp`;
   const sources = [
-    `${CINEMATIC}/distant-indonesian-highland-panorama-garden-v4.webp`,
+    panoramaUrl,
     `${CINEMATIC}/short-grass-texture-v1.webp`,
-    customCoupleUrl || `${LAYER}/couple-cinematic-v2.webp`,
+    customCoupleUrl || defaultCoupleUrl,
     `${CINEMATIC}/guests-seated-left-inward-v2.webp`,
     `${CINEMATIC}/guests-standing-right-inward-v2.webp`,
     `${CINEMATIC}/seated-guest-sage-chair-v1.webp`,
@@ -397,13 +407,19 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
     `${CINEMATIC}/aisle-bouquet-indonesian-v1.webp`,
   ];
   let loaded = 0;
-  const textures = await Promise.all(sources.map((source) => loader.loadAsync(source).then((texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    loaded += 1;
-    onAssetProgress(loaded, sources.length);
-    return texture;
-  })));
+  const textures = await Promise.all(sources.map((source, idx) => {
+    const loadOne = (url) => loader.loadAsync(url);
+    const promise = idx === 2 && customCoupleUrl
+      ? loadOne(source).catch(() => loadOne(defaultCoupleUrl))
+      : loadOne(source);
+    return promise.then((texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = maxAniso;
+      loaded += 1;
+      onAssetProgress(loaded, sources.length);
+      return texture;
+    });
+  }));
   const [
     landscape,
     grassTexture,
@@ -424,24 +440,16 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
     aisleBouquet,
   ] = textures;
 
-  const compact = renderer.domElement.clientWidth <= 800;
-
   scene.background = new THREE.Color(0xe7d8b8);
   scene.fog = new THREE.FogExp2(0xb9c7b1, .012);
   scene.add(new THREE.HemisphereLight(0xfff3d6, 0x35503b, 1.28));
   const sunlight = new THREE.DirectionalLight(0xffddb0, 2.5);
   sunlight.position.set(-10, 16, 12);
-  sunlight.castShadow = true;
-  sunlight.shadow.mapSize.set(renderer.domElement.clientWidth < 700 ? 512 : 1024, renderer.domElement.clientWidth < 700 ? 512 : 1024);
-  sunlight.shadow.camera.left = sunlight.shadow.camera.bottom = -22;
-  sunlight.shadow.camera.right = sunlight.shadow.camera.top = 22;
-  sunlight.shadow.camera.near = 1;
-  sunlight.shadow.camera.far = 70;
-  sunlight.shadow.bias = -.0007;
+  sunlight.castShadow = false;
   scene.add(sunlight);
 
   const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(88, 49.5), new THREE.MeshBasicMaterial({ map: landscape, fog: true }));
-  landscape.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  landscape.anisotropy = maxAniso;
   landscape.minFilter = THREE.LinearMipmapLinearFilter;
   landscape.magFilter = THREE.LinearFilter;
   landscape.generateMipmaps = true;
@@ -449,19 +457,22 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
   backdrop.position.set(0, 9.2, -20);
   scene.add(backdrop);
 
-  grassTexture.anisotropy = Math.min(6, renderer.capabilities.getMaxAnisotropy());
+  grassTexture.anisotropy = maxAniso;
   grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
   grassTexture.repeat.set(compact ? 5 : 7, compact ? 12 : 16);
   grassTexture.minFilter = THREE.LinearMipmapLinearFilter;
   grassTexture.magFilter = THREE.LinearFilter;
   grassTexture.needsUpdate = true;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(58, 70), new THREE.MeshStandardMaterial({
+  const groundMaterialOpts = {
     map: grassTexture,
-    bumpMap: grassTexture,
-    bumpScale: .018,
     color: 0xdbe1d5,
     roughness: .98,
-  }));
+  };
+  if (!isLow) {
+    groundMaterialOpts.bumpMap = grassTexture;
+    groundMaterialOpts.bumpScale = .018;
+  }
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(58, 70), new THREE.MeshStandardMaterial(groundMaterialOpts));
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, -.08, 7);
   ground.receiveShadow = true;
@@ -499,7 +510,7 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
       { texture: guestTaupeLeftInward, aspect: 956 / 1646 },
     ],
   });
-  const floralGroups = addSwayingVines(scene);
+  const floralGroups = isLow ? [] : addSwayingVines(scene);
   const altarArch = addArch(scene, -10.75, .95, true);
   const archFloral = addImagePlane(scene, altarGarland, {
     x: 0,
@@ -559,12 +570,19 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
   addShadow(scene, -3.05, pedestalZ + .12, .72, .42, .2);
   addShadow(scene, 3.05, pedestalZ + .12, .72, .42, .2);
 
+  const coupleHeight = compact ? 6.8 : 7.5;
+  const coupleAspect = (couple?.image?.width && couple?.image?.height)
+    ? (couple.image.width / couple.image.height)
+    : (4.22 / 7.5);
+  const coupleWidth = customCoupleUrl
+    ? Math.min(compact ? 4.8 : 5.4, Math.max(compact ? 3.2 : 3.6, coupleHeight * coupleAspect))
+    : (compact ? 3.83 : 4.22);
   const couplePlane = addImagePlane(scene, couple, {
     x: 0,
     y: compact ? 3.35 : 3.72,
     z: -9.45,
-    width: compact ? 3.83 : 4.22,
-    height: compact ? 6.8 : 7.5,
+    width: coupleWidth,
+    height: coupleHeight,
     alphaTest: .035,
     renderOrder: 5,
   });
@@ -593,7 +611,8 @@ async function buildWorld(scene, renderer, onAssetProgress, customCoupleUrl) {
   addShadow(scene, -5, -3.52, 1.58, .48, .15);
   addShadow(scene, 5, -3.52, 1.62, .46, .15);
 
-  const fallingLeaves = addFallingLeaves(scene, compact);
+  const leafCount = isLow ? 0 : isBalanced ? 6 : (compact ? 9 : 14);
+  const fallingLeaves = addFallingLeaves(scene, leafCount);
   return { floralGroups, fallingLeaves, seated, standing, couplePlane, archFloral, leftPedestal, rightPedestal };
 }
 
@@ -610,13 +629,14 @@ function disposeWorld(scene, renderer) {
   renderer.forceContextLoss?.();
 }
 
-export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl, bride, groom, brideFull, groomFull, dateLabel, runId = 0, active = true, onReady, onComplete }) {
+export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl, bride, groom, brideFull, groomFull, dateLabel, runId = 0, active = true, performanceTier = 'balanced', onReady, onComplete }) {
   const mountRef = useRef(null);
   const overlayRef = useRef(null);
   const controllerRef = useRef(null);
   const callbackRef = useRef(onComplete);
   const readyCallbackRef = useRef(onReady);
   const activeRef = useRef(active);
+  const tierRef = useRef(performanceTier);
   const [ready, setReady] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState("Menyiapkan taman…");
   const [paused, setPaused] = useState(false);
@@ -624,6 +644,7 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
   callbackRef.current = onComplete;
   readyCallbackRef.current = onReady;
   activeRef.current = active;
+  tierRef.current = performanceTier;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -636,7 +657,9 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
     let resizeObserver;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const mobile = window.matchMedia("(max-width: 800px)").matches;
-    const lowPower = mobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+    const tier = tierRef.current || 'balanced';
+    const isLow = tier === 'low';
+    const isBalanced = tier === 'balanced';
     const state = { timeline: 0, ambient: 0, last: performance.now(), paused: false, hidden: document.hidden, completed: false };
     setReady(false);
     setFailed(false);
@@ -666,31 +689,36 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
+    const lastOverlayVars = {};
+    const setOverlayVar = (name, val) => {
+      if (lastOverlayVars[name] === val) return;
+      lastOverlayVars[name] = val;
+      overlay.style.setProperty(name, val);
+    };
     const updateOverlay = (progress) => {
-      overlay.style.setProperty("--vv3-progress", progress.toFixed(4));
-      overlay.style.setProperty("--vv3-names", phase(progress, .145, .175, .275, .31).toFixed(4));
-      overlay.style.setProperty("--vv3-bride", phase(progress, .34, .37, .49, .53).toFixed(4));
-      overlay.style.setProperty("--vv3-groom", phase(progress, .54, .57, .67, .71).toFixed(4));
-      overlay.style.setProperty("--vv3-event", phase(progress, .72, .75, .90, .94).toFixed(4));
-      overlay.style.setProperty("--vv3-finale", smooth((progress - .91) / .09).toFixed(4));
+      setOverlayVar("--vv3-progress", progress.toFixed(4));
+      setOverlayVar("--vv3-names", phase(progress, .145, .175, .275, .31).toFixed(4));
+      setOverlayVar("--vv3-bride", phase(progress, .34, .37, .49, .53).toFixed(4));
+      setOverlayVar("--vv3-groom", phase(progress, .54, .57, .67, .71).toFixed(4));
+      setOverlayVar("--vv3-event", phase(progress, .72, .75, .90, .94).toFixed(4));
+      setOverlayVar("--vv3-finale", smooth((progress - .91) / .09).toFixed(4));
     };
 
     const init = async () => {
       try {
         scene = new THREE.Scene();
-        renderer = new THREE.WebGLRenderer({ antialias: !lowPower, alpha: false, powerPreference: lowPower ? "low-power" : "high-performance" });
+        renderer = new THREE.WebGLRenderer({ antialias: tier === 'high' && !mobile, alpha: false, powerPreference: isLow ? "default" : "high-performance" });
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = .94;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = lowPower ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-        const pixelRatioCap = mobile ? (lowPower ? 1.35 : 1.6) : (lowPower ? 1.75 : 2);
+        renderer.shadowMap.enabled = false;
+        const pixelRatioCap = isLow ? 1.0 : isBalanced ? (mobile ? 1.15 : 1.25) : (mobile ? 1.35 : 1.5);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
         renderer.setSize(mount.clientWidth, mount.clientHeight, false);
         mount.replaceChildren(renderer.domElement);
 
         const camera = new THREE.PerspectiveCamera(mobile ? 56 : 44, mount.clientWidth / Math.max(1, mount.clientHeight), .1, 100);
-        const world = await buildWorld(scene, renderer, (loaded, total) => setLoadingLabel(`Menyiapkan taman ${loaded}/${total}`), customCoupleUrl);
+        const world = await buildWorld(scene, renderer, (loaded, total) => setLoadingLabel(`Menyiapkan taman ${loaded}/${total}`), customCoupleUrl, tier);
         if (disposed) return;
 
         const resize = () => {
@@ -710,6 +738,7 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
         camera.position.copy(openingFrame.position);
         camera.lookAt(openingFrame.target);
         if (mobile && openingFrame.roll) camera.rotateZ(openingFrame.roll);
+        updateOverlay(0);
         renderer.render(scene, camera);
         setReady(true);
         readyCallbackRef.current?.();
@@ -717,13 +746,18 @@ export default function VerdantCinematicJourney({ invitation: i, customCoupleUrl
 
         const render = (now) => {
           if (disposed) return;
-          // The timeline follows elapsed wall time, not frame count. This keeps
-          // the cinematic close to 50 seconds on both 120 Hz and slower phones.
           const delta = Math.min(1000, Math.max(0, now - state.last));
           state.last = now;
-          if (!state.hidden) {
-            if (activeRef.current) state.ambient += delta;
-            if (activeRef.current && !state.paused && !state.completed) state.timeline = Math.min(VERDANT_CINEMATIC_DURATION, state.timeline + delta);
+
+          // Do not burn GPU frames while waiting behind the closed/opening gate or paused
+          if (!activeRef.current || state.paused || state.hidden) {
+            if (!state.completed) animationFrame = window.requestAnimationFrame(render);
+            return;
+          }
+
+          state.ambient += delta;
+          if (!state.completed) {
+            state.timeline = Math.min(VERDANT_CINEMATIC_DURATION, state.timeline + delta);
           }
           const progress = state.timeline / VERDANT_CINEMATIC_DURATION;
           const seconds = state.ambient / 1000;

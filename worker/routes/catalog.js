@@ -124,7 +124,20 @@ catalog.get('/templates/:code', async (c) => {
   const activeCover = rawCovers[activePackageCode] || demoData.invitation?.[`cover_image_${activePackageCode}`] || demoData.invitation?.cover_image;
 
   const rawStagePhotos = demoData.invitation?.stage_photos || {};
-  const activeStagePhoto = rawStagePhotos[activePackageCode] || demoData.invitation?.[`stage_photo_${activePackageCode}`] || demoData.invitation?.stage_photo || demoData.invitation?.custom_couple_image;
+  const fallbackStagePhoto =
+    rawStagePhotos.prestige ||
+    rawStagePhotos.signature ||
+    rawStagePhotos.essential ||
+    demoData.invitation?.stage_photo_prestige ||
+    demoData.invitation?.stage_photo_signature ||
+    demoData.invitation?.stage_photo_essential ||
+    null;
+  const activeStagePhoto =
+    rawStagePhotos[activePackageCode] ||
+    demoData.invitation?.[`stage_photo_${activePackageCode}`] ||
+    demoData.invitation?.stage_photo ||
+    demoData.invitation?.custom_couple_image ||
+    fallbackStagePhoto;
 
   const activeInvitation = {
     ...demoData.invitation,

@@ -12,22 +12,80 @@ const GALLERY = BASE + '/gallery';
 const GIFT = BASE + '/gift';
 const RSVP = BASE + '/rsvp';
 const CLOSING = BASE + '/closing';
+
+const VerdantCountdownGrid = React.memo(function VerdantCountdownGrid({ eventDate, active }) {
+  const [clock, setClock] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!active) return undefined;
+    setClock(Date.now());
+    const timer = window.setInterval(() => {
+      if (typeof document === 'undefined' || !document.hidden) {
+        setClock(Date.now());
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  const countdown = useMemo(() => {
+    const target = new Date(String(eventDate || '').slice(0, 10) + 'T00:00:00');
+    const remaining = Math.max(0, (Number.isNaN(target.getTime()) ? clock : target.getTime()) - clock);
+    return [
+      Math.floor(remaining / 86400000),
+      Math.floor(remaining / 3600000) % 24,
+      Math.floor(remaining / 60000) % 60,
+      Math.floor(remaining / 1000) % 60,
+    ];
+  }, [eventDate, clock]);
+
+  return (
+    <div className='vv-countdown-grid'>
+      {countdown.map((value, index) => (
+        <span key={index}>
+          <b>{String(value).padStart(2, '0')}</b>
+          <small>{['Hari', 'Jam', 'Menit', 'Detik'][index]}</small>
+        </span>
+      ))}
+    </div>
+  );
+});
+const VALID_PERF_TIERS = new Set(['low', 'balanced', 'high']);
+const getForcedPerfTier = () => {
+  if (typeof window === 'undefined') return null;
+  const param = new URLSearchParams(window.location.search).get('perf');
+  return param && VALID_PERF_TIERS.has(param) ? param : null;
+};
 const detectPerformanceTier = () => {
+  const forced = getForcedPerfTier();
+  if (forced) return forced;
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'balanced';
-  if (!window.matchMedia('(max-width: 800px)').matches) return 'high';
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 'low';
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return 'low';
+  const isCompact = window.matchMedia('(max-width: 800px)').matches;
   const memory = Number(navigator.deviceMemory || 0);
   const cores = Number(navigator.hardwareConcurrency || 0);
-  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const renderedPixels = window.innerWidth * window.innerHeight * Math.pow(window.devicePixelRatio || 1,2);
+  const renderedPixels = window.innerWidth * window.innerHeight * Math.pow(window.devicePixelRatio || 1, 2);
   let pressure = 0;
-  if (memory && memory <= 3) pressure += 2;
-  else if (memory && memory <= 4) pressure += 1;
-  if (cores && cores <= 4) pressure += 2;
-  else if (cores && cores <= 6) pressure += 1;
-  if (renderedPixels > 4000000) pressure += 1;
-  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) pressure += 2;
-  return pressure >= 3 ? 'low' : pressure >= 1 ? 'balanced' : 'high';
+  if (memory) {
+    if (memory <= 3) pressure += 3;
+    else if (memory <= 4) pressure += 2;
+    else if (memory <= 6) pressure += 1;
+  }
+  if (cores) {
+    if (cores <= 2) pressure += 3;
+    else if (cores <= 4) pressure += 2;
+    else if (cores <= 6) pressure += 1;
+  }
+  if (connection?.effectiveType === '3g') pressure += 1;
+  if (isCompact) {
+    pressure += 1;
+    if (renderedPixels > 3600000) pressure += 1;
+    if (!memory && (!cores || cores < 8)) pressure = Math.max(pressure, cores && cores <= 4 ? 4 : 2);
+  }
+  if (pressure >= 4) return 'low';
+  if (pressure >= 2) return 'balanced';
+  return 'high';
 };
 const date = (value, options = { weekday:'long',day:'numeric',month:'long',year:'numeric' }) => {
   const parsed = new Date(String(value || '').slice(0,10) + 'T12:00:00');
@@ -64,7 +122,7 @@ function Person({ role, name, nickname, photo, father, mother, onPhotoClick }) {
           aria-label={`Lihat foto ${name} ukuran penuh`}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPhotoClick?.(); } }}
         >
-          <img src={mediaUrl(photo)} alt={name} loading='lazy' decoding='async'/>
+          <img src={mediaUrl(photo)} alt={name} decoding='async'/>
           <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
         </figure>
       )}
@@ -83,21 +141,33 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const groomFull = i.groom_full_name || groom, brideFull = i.bride_full_name || bride;
   const eventDate = i.reception_date || i.akad_date;
   const customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple'));
-  const customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : Date.now());
-  const rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null);
-  const customCoupleUrl = rawCustomCoupleUrl ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : null;
+  const customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : '');
+  const rawCustomCoupleUrl = customCoupleMedia
+    ? mediaUrl(customCoupleMedia.file_path)
+    : (i.stage_photo ? mediaUrl(i.stage_photo) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null));
+  const customCoupleUrl = useMemo(() => {
+    if (!rawCustomCoupleUrl) return null;
+    if (!customCoupleVersion) return rawCustomCoupleUrl;
+    return rawCustomCoupleUrl.includes('?')
+      ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}`
+      : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`;
+  }, [rawCustomCoupleUrl, customCoupleVersion]);
   const photos = media.filter(m => !m.file_path?.includes('custom-couple')).slice(0, Math.max(1,Number(i.gallery_limit || 5)));
   const [lightbox, setLightbox] = useState(null);
+  const [activeGallerySlide, setActiveGallerySlide] = useState(0);
   const touchStartX = useRef(0);
+  const galleryTrackRef = useRef(null);
+  const galleryScrollRafRef = useRef(0);
+  const galleryDragRef = useRef({ active: false, startX: 0, startScrollLeft: 0, moved: false });
 
-  const openPhoto = (photo) => {
+  const openPhoto = useCallback((photo) => {
     setLightbox({
       items: [photo],
       index: 0
     });
-  };
+  }, []);
 
-  const openGalleryPhoto = (index) => {
+  const openGalleryPhoto = useCallback((index) => {
     const galleryItems = (photos.length ? photos : []).map((p, idx) => ({
       src: mediaUrl(p.file_path),
       title: `Memory · ${String(idx + 1).padStart(2, '0')}`,
@@ -108,7 +178,96 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       items: galleryItems,
       index: Math.max(0, Math.min(index, galleryItems.length - 1))
     });
-  };
+  }, [photos, groom, bride]);
+
+  const handleGalleryScroll = useCallback(() => {
+    if (galleryScrollRafRef.current) return;
+    galleryScrollRafRef.current = window.requestAnimationFrame(() => {
+      galleryScrollRafRef.current = 0;
+      const track = galleryTrackRef.current;
+      if (!track) return;
+      const cards = track.querySelectorAll('figure');
+      if (!cards.length) return;
+      const trackCenter = track.scrollLeft + track.clientWidth / 2;
+      let bestIndex = 0;
+      let bestDist = Infinity;
+      cards.forEach((card, idx) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const dist = Math.abs(cardCenter - trackCenter);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIndex = idx;
+        }
+      });
+      setActiveGallerySlide((prev) => (prev === bestIndex ? prev : bestIndex));
+    });
+  }, []);
+
+  const scrollToGallerySlide = useCallback((index) => {
+    const track = galleryTrackRef.current;
+    if (!track) return;
+    const cards = track.querySelectorAll('figure');
+    if (!cards.length) return;
+    const clamped = Math.max(0, Math.min(cards.length - 1, index));
+    const target = cards[clamped];
+    if (!target) return;
+    const targetLeft = target.offsetLeft - (track.clientWidth - target.offsetWidth) / 2;
+    track.scrollTo({
+      left: Math.max(0, Math.min(track.scrollWidth - track.clientWidth, targetLeft)),
+      behavior: 'smooth',
+    });
+    setActiveGallerySlide(clamped);
+  }, []);
+
+  const scrollGalleryBy = useCallback((delta) => {
+    scrollToGallerySlide(activeGallerySlide + delta);
+  }, [activeGallerySlide, scrollToGallerySlide]);
+
+  const handleGalleryPointerDown = useCallback((e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const track = galleryTrackRef.current;
+    if (!track) return;
+    galleryDragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startScrollLeft: track.scrollLeft,
+      moved: false,
+    };
+    track.classList.add('is-dragging');
+  }, []);
+
+  const handleGalleryPointerMove = useCallback((e) => {
+    const drag = galleryDragRef.current;
+    if (!drag.active) return;
+    const track = galleryTrackRef.current;
+    if (!track) return;
+    const dx = e.clientX - drag.startX;
+    if (Math.abs(dx) > 6) {
+      drag.moved = true;
+    }
+    if (drag.moved) {
+      track.scrollLeft = drag.startScrollLeft - dx;
+    }
+  }, []);
+
+  const finishGalleryPointerDrag = useCallback(() => {
+    const drag = galleryDragRef.current;
+    if (!drag.active) return;
+    drag.active = false;
+    const track = galleryTrackRef.current;
+    if (track) {
+      track.classList.remove('is-dragging');
+      handleGalleryScroll();
+    }
+    window.setTimeout(() => {
+      galleryDragRef.current.moved = false;
+    }, 60);
+  }, [handleGalleryScroll]);
+
+  const handleGalleryPhotoClick = useCallback((index) => {
+    if (galleryDragRef.current.moved) return;
+    openGalleryPhoto(index);
+  }, [openGalleryPhoto]);
 
   const nextPhoto = () => {
     setLightbox((prev) => prev && prev.items.length > 1 ? { ...prev, index: (prev.index + 1) % prev.items.length } : prev);
@@ -184,12 +343,14 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     }
   };
   const [activeNormal,setActiveNormal] = useState('vv-full-opening');
-  const [clock,setClock] = useState(Date.now), [musicPlaying,setMusicPlaying] = useState(false);
+  const [musicPlaying,setMusicPlaying] = useState(false);
   const [greetingMessage, setGreetingMessage] = useState('');
   const [submittingGreeting, setSubmittingGreeting] = useState(false);
   const [greetingFeedback, setGreetingFeedback] = useState({ text: '', type: '' });
   const audioRef = useRef(null);
   const scrollRef = useRef(null);
+  const navRef = useRef(null);
+  const activeNormalRef = useRef('vv-full-opening');
   const journeyReadyRef = useRef(false);
   journeyReadyRef.current = journeyReady;
   const normalRef = useRef(null);
@@ -201,17 +362,22 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const rsvpRef = useRef(null);
   const closingRef = useRef(null);
   const sections = [['vv-full-opening','Pembuka'],['vv-full-couple','Mempelai'],['vv-full-events','Rangkaian Acara'],...(i.love_story ? [['vv-full-story','Kisah Kami']] : []),['vv-full-gallery','Galeri'],...(i.has_gift ? [['vv-full-gift','Hadiah']] : []),...(i.has_wishes ? [['vv-full-rsvp','RSVP & Ucapan']] : []),['vv-full-closing','Penutup']];
-  const countdown = useMemo(() => {
-    const target = new Date(String(eventDate || '').slice(0,10) + 'T00:00:00');
-    const remaining = Math.max(0,(Number.isNaN(target.getTime()) ? clock : target.getTime())-clock);
-    return [Math.floor(remaining/86400000),Math.floor(remaining/3600000)%24,Math.floor(remaining/60000)%60,Math.floor(remaining/1000)%60];
-  },[eventDate,clock]);
+
+  const syncActiveNavDom = useCallback((id) => {
+    if (!id || activeNormalRef.current === id) return;
+    activeNormalRef.current = id;
+    const navEl = navRef.current;
+    if (!navEl) return;
+    const buttons = navEl.querySelectorAll('button[data-section-id]');
+    buttons.forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.sectionId === id);
+    });
+  }, []);
 
   useEffect(() => {
     if (!opened) return undefined;
-    const timer = window.setInterval(() => setClock(Date.now()),1000);
     if (i.has_music && i.music_file && audioRef.current) audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
-    return () => window.clearInterval(timer);
+    return undefined;
   },[opened,i.has_music,i.music_file]);
   useEffect(() => {
     if (!opened || !cinematicDone) return undefined;
@@ -219,25 +385,127 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     if (!root) return undefined;
     const observer = new IntersectionObserver(entries => {
       const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => b.intersectionRatio-a.intersectionRatio)[0];
-      if (visible) setActiveNormal(visible.target.id);
-    },{root,rootMargin:'-14% 0px -55% 0px',threshold:[0,.1,.3,.6]});
+      if (visible) syncActiveNavDom(visible.target.id);
+    },{root,rootMargin:'-14% 0px -55% 0px',threshold:[0,.15,.4]});
     sections.forEach(([id]) => { const element = root.querySelector('#'+id); if (element) observer.observe(element); });
     return () => observer.disconnect();
-  },[opened,cinematicDone,i.love_story,i.has_gift,i.has_wishes]);
+  },[opened,cinematicDone,i.love_story,i.has_gift,i.has_wishes,syncActiveNavDom]);
 
-  // Retire the cinematic before the browser paints the invitation. Scrolling to
-  // the section first and collapsing the cinematic later made the opening appear
-  // twice on mobile because its viewport position changed mid-animation.
+  // Retire the cinematic before the browser paints the invitation.
   useLayoutEffect(() => {
     if (!opened || !cinematicDone) return undefined;
     const root = scrollRef.current;
     if (!root) return undefined;
     root.scrollTo({ top: 0, behavior: 'auto' });
     setJourneyMounted(false);
-    setOpeningPhase('visible');
+    normalRef.current?.classList.add('is-revealed', 'is-in-viewport');
+    activeNormalRef.current = 'vv-full-opening';
     setActiveNormal('vv-full-opening');
     return undefined;
   },[opened,cinematicDone,replayId]);
+
+  // Adaptive live frame-drop downgrader & staggered idle image pre-decoding
+  useEffect(() => {
+    if (!opened || !cinematicDone) return undefined;
+    const root = scrollRef.current;
+    if (!root) return undefined;
+    let cancelled = false;
+    let jankFrames = 0;
+    let severeFrames = 0;
+    let sampleCount = 0;
+    let sampling = false;
+    let lastTs = 0;
+    let rafId = 0;
+    let scrollIdleTimer = 0;
+    const forced = getForcedPerfTier();
+
+    const stepSample = (now) => {
+      if (cancelled || !sampling) return;
+      const dt = now - lastTs;
+      lastTs = now;
+      if (dt > 34 && dt < 250) jankFrames += 1;
+      if (dt > 46 && dt < 250) severeFrames += 1;
+      sampleCount += 1;
+      if (!forced) {
+        if (performanceTier === 'high' && jankFrames >= 4) {
+          setPerformanceTier('balanced');
+          sampling = false;
+          return;
+        }
+        if (performanceTier === 'balanced' && (severeFrames >= 5 || jankFrames >= 7)) {
+          setPerformanceTier('low');
+          sampling = false;
+          return;
+        }
+      }
+      if (sampleCount < 48) {
+        rafId = window.requestAnimationFrame(stepSample);
+      } else {
+        sampling = false;
+      }
+    };
+
+    const onScroll = () => {
+      if (forced || performanceTier === 'low' || sampleCount >= 48) return;
+      window.clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = window.setTimeout(() => { sampling = false; }, 180);
+      if (!sampling) {
+        sampling = true;
+        lastTs = performance.now();
+        rafId = window.requestAnimationFrame(stepSample);
+      }
+    };
+
+    if (!forced && performanceTier !== 'low') {
+      root.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    let idleHandle = 0;
+    let stepTimer = 0;
+    let startTimer = 0;
+    if (performanceTier !== 'low') {
+      const warmImages = () => {
+        if (cancelled) return;
+        const imgs = Array.from(root.querySelectorAll('img[loading="lazy"]'));
+        let idx = 0;
+        const warmNext = () => {
+          if (cancelled || idx >= imgs.length) return;
+          const img = imgs[idx++];
+          if (!img || img.complete) {
+            stepTimer = window.setTimeout(warmNext, 12);
+            return;
+          }
+          img.loading = 'eager';
+          if (typeof img.decode === 'function') {
+            img.decode().catch(() => {}).finally(() => {
+              if (!cancelled) stepTimer = window.setTimeout(warmNext, 45);
+            });
+          } else {
+            stepTimer = window.setTimeout(warmNext, 45);
+          }
+        };
+        warmNext();
+      };
+      startTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        if ('requestIdleCallback' in window) {
+          idleHandle = window.requestIdleCallback(warmImages, { timeout: 1500 });
+        } else {
+          warmImages();
+        }
+      }, 450);
+    }
+
+    return () => {
+      cancelled = true;
+      root.removeEventListener('scroll', onScroll);
+      window.clearTimeout(scrollIdleTimer);
+      window.clearTimeout(startTimer);
+      window.clearTimeout(stepTimer);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      if (idleHandle && 'cancelIdleCallback' in window) window.cancelIdleCallback(idleHandle);
+    };
+  }, [opened, cinematicDone, performanceTier]);
   // One observer drives every content block, so reveals follow the viewport instead
   // of firing an entire section at once.
   useEffect(() => {
@@ -304,168 +572,179 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
       const order = sectionOrder.get(section) || 0;
       sectionOrder.set(section, order + 1);
       el.classList.add('vv-scroll-reveal',getRevealVariant(el,index));
-      const delay = mobileReveal ? Math.min(order * 110, 440) : Math.min(order * 85, 340);
+      const delay = mobileReveal ? Math.min(order * 90, 320) : Math.min(order * 75, 280);
       el.style.setProperty('--vv-reveal-delay', `${delay}ms`);
     });
     experience?.classList.add('has-component-reveals');
 
-    const componentObserver = new IntersectionObserver((entries) => {
+    const galleryFigures = Array.from(root.querySelectorAll('.vv-gallery-grid figure'));
+    const settleTimers = [];
+    const rafIds = [];
+    const settleCleanups = [];
+
+    const gpuWarmObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         const el = entry.target;
         if (entry.isIntersecting) {
-          el.dataset.vvRevealSeen = 'true';
-          el.classList.remove('is-component-exiting-up');
-          el.classList.add('is-component-visible');
-        } else if (el.dataset.vvRevealSeen === 'true') {
-          el.classList.remove('is-component-visible');
-          el.classList.toggle('is-component-exiting-up', entry.boundingClientRect.top < (entry.rootBounds?.top || 0));
+          if (!el.classList.contains('is-motion-settled')) {
+            el.classList.add('is-gpu-ready');
+          }
+        } else if (el.dataset.vvRevealSeen !== 'true') {
+          el.classList.remove('is-gpu-ready');
         }
       });
     }, {
       root,
-      rootMargin: '0px 0px -9% 0px',
-      threshold: [0, 0.18, 0.45]
+      rootMargin: '220px 0px 220px 0px',
+      threshold: 0,
     });
-    targets.forEach(el => componentObserver.observe(el));
+
+    const revealTargetOnce = (el) => {
+      if (!el || el.dataset.vvRevealSeen === 'true') return;
+      el.dataset.vvRevealSeen = 'true';
+      el.classList.remove('is-component-exiting-up');
+      el.classList.add('is-gpu-ready');
+      gpuWarmObserver.unobserve(el);
+      componentObserver.unobserve(el);
+
+      let settled = false;
+      const onDone = (ev) => {
+        if (ev.target !== el) return;
+        if (ev.type === 'transitionend' && ev.propertyName !== 'transform' && ev.propertyName !== 'opacity') return;
+        settle();
+      };
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        el.classList.remove('is-gpu-ready');
+        el.classList.add('is-motion-settled');
+        el.removeEventListener('transitionend', onDone);
+        el.removeEventListener('animationend', onDone);
+      };
+      el.addEventListener('transitionend', onDone);
+      el.addEventListener('animationend', onDone);
+      settleCleanups.push(() => {
+        el.removeEventListener('transitionend', onDone);
+        el.removeEventListener('animationend', onDone);
+      });
+      const timer = window.setTimeout(settle, 1800);
+      settleTimers.push(timer);
+
+      const raf = window.requestAnimationFrame(() => {
+        el.classList.add('is-component-visible');
+      });
+      rafIds.push(raf);
+    };
+
+    const componentObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const rootTop = entry.rootBounds?.top ?? 0;
+        if (!entry.isIntersecting && entry.boundingClientRect.top >= rootTop) return;
+        const el = entry.target;
+        revealTargetOnce(el);
+        if (el.matches('.vv-gallery > .vv-after-heading, .vv-gallery-grid figure')) {
+          galleryFigures.forEach((fig) => revealTargetOnce(fig));
+        }
+      });
+    }, {
+      root,
+      rootMargin: '2400px 0px -2% 0px',
+      threshold: 0.01
+    });
+    targets.forEach((el) => {
+      gpuWarmObserver.observe(el);
+      componentObserver.observe(el);
+    });
 
     return () => {
+      gpuWarmObserver.disconnect();
       componentObserver.disconnect();
+      settleTimers.forEach((t) => window.clearTimeout(t));
+      rafIds.forEach((id) => window.cancelAnimationFrame(id));
+      settleCleanups.forEach((fn) => fn());
       experience?.classList.remove('has-component-reveals');
       targets.forEach(el => {
-        el.classList.remove('vv-scroll-reveal','is-component-visible','is-component-exiting-up',...revealVariants);
+        el.classList.remove('vv-scroll-reveal','is-gpu-ready','is-component-visible','is-component-exiting-up','is-motion-settled',...revealVariants);
         el.style.removeProperty('--vv-reveal-delay');
         delete el.dataset.vvRevealSeen;
       });
     };
   }, [opened, cinematicDone, replayId, photos.length, greetings.length]);
 
-  // Unified section phase coordinator with cached offsets (Zero reflow during active touch scroll)
+  // One-time section reveal coordinator: manipulates DOM classes directly so scrolling
+  // triggers ZERO React component re-renders and never reverses on scroll up.
   useEffect(() => {
     if (!opened || !cinematicDone) return undefined;
     const root = scrollRef.current;
     if (!root) return undefined;
 
-    let cachedMetrics = [];
-    let frame = 0;
+    const sectionEls = [
+      normalRef.current,
+      coupleRef.current,
+      eventsRef.current,
+      i.love_story ? storyRef.current : null,
+      galleryRef.current,
+      i.has_gift ? giftRef.current : null,
+      i.has_wishes ? rsvpRef.current : null,
+      closingRef.current,
+    ].filter(Boolean);
 
-    const measureMetrics = () => {
-      const vh = root.clientHeight || window.innerHeight;
-      const configs = [
-        { ref: normalRef, setter: setOpeningPhase, enter: 0.58, leave: 0.72 },
-        { ref: coupleRef, setter: setCouplePhase, enter: 0.64, leave: 0.88 },
-        { ref: eventsRef, setter: setEventsPhase, enter: 0.64, leave: 0.88 },
-        { ref: storyRef, setter: setStoryPhase, enter: 0.64, leave: 0.90, active: Boolean(i.love_story) },
-        { ref: galleryRef, setter: setGalleryPhase, enter: 0.64, leave: 0.94 },
-        { ref: giftRef, setter: setGiftPhase, enter: 0.64, leave: 0.92, active: Boolean(i.has_gift) },
-        { ref: rsvpRef, setter: setRsvpPhase, enter: 0.64, leave: 0.96, active: Boolean(i.has_wishes) },
-        { ref: closingRef, setter: setClosingPhase, enter: 0.64, leave: 0.98 },
-      ];
+    const revealSectionOnce = (el) => {
+      if (!el || el.classList.contains('is-revealed')) return;
+      el.classList.remove('is-leaving');
+      el.classList.add('is-revealed');
+      revealObserver.unobserve(el);
+    };
 
-      cachedMetrics = configs
-        .filter(c => c.active !== false && c.ref.current)
-        .map(c => {
-          const el = c.ref.current;
-          const top = el.offsetTop;
-          const height = Math.max(el.offsetHeight, 1);
-          return {
-            setter: c.setter,
-            enterAt: top - vh * c.enter,
-            leaveAt: top + height * c.leave,
-            phase: null,
-          };
+    const revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const rootTop = entry.rootBounds?.top ?? 0;
+          if (entry.isIntersecting || entry.boundingClientRect.top < rootTop) {
+            revealSectionOnce(entry.target);
+          }
         });
-    };
-
-    const updatePhases = () => {
-      frame = 0;
-      if (!cachedMetrics.length) measureMetrics();
-      const st = root.scrollTop;
-
-      for (let idx = 0; idx < cachedMetrics.length; idx += 1) {
-        const m = cachedMetrics[idx];
-        const next = st >= m.leaveAt ? 'leaving' : (st >= m.enterAt ? 'visible' : 'idle');
-        if (m.phase !== next) {
-          m.phase = next;
-          m.setter(next);
-        }
+      },
+      {
+        root,
+        rootMargin: '2400px 0px -8% 0px',
+        threshold: 0.02,
       }
-    };
+    );
 
-    const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(updatePhases);
-    };
+    const viewportObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle('is-in-viewport', entry.isIntersecting);
+        });
+      },
+      {
+        root,
+        rootMargin: '300px 0px 300px 0px',
+        threshold: 0,
+      }
+    );
 
-    const onResize = () => {
-      measureMetrics();
-      if (!frame) frame = window.requestAnimationFrame(updatePhases);
-    };
-
-    measureMetrics();
-    updatePhases();
-
-    root.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onResize, { passive: true });
-    window.addEventListener('orientationchange', onResize, { passive: true });
-
-    const resizeObserver = new ResizeObserver(onResize);
-    [normalRef, coupleRef, eventsRef, storyRef, galleryRef, giftRef, rsvpRef, closingRef]
-      .forEach(sectionRef => {
-        if (sectionRef.current) resizeObserver.observe(sectionRef.current);
-      });
+    const rootRect = root.getBoundingClientRect();
+    sectionEls.forEach((el) => {
+      viewportObserver.observe(el);
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= rootRect.bottom * 0.94) {
+        revealSectionOnce(el);
+      } else {
+        revealObserver.observe(el);
+      }
+    });
 
     return () => {
-      root.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', onResize);
-      resizeObserver.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
+      revealObserver.disconnect();
+      viewportObserver.disconnect();
+      if (galleryScrollRafRef.current) {
+        window.cancelAnimationFrame(galleryScrollRafRef.current);
+        galleryScrollRafRef.current = 0;
+      }
     };
   }, [opened, cinematicDone, journeyMounted, replayId, i.love_story, i.has_gift, i.has_wishes, photos.length]);
-
-  // Runtime safety net: device hints are incomplete on iOS, so sample actual
-  // scroll-frame pacing and progressively reduce visual load when needed.
-  useEffect(() => {
-    if (!opened || !cinematicDone || performanceTier === 'low' || !window.matchMedia('(max-width: 800px)').matches) return undefined;
-    const root = scrollRef.current;
-    if (!root) return undefined;
-    let frame = 0;
-    let lastFrame = 0;
-    let activeUntil = 0;
-    let samples = [];
-
-    const sampleFrames = now => {
-      if (lastFrame) samples.push(now-lastFrame);
-      lastFrame = now;
-      if (samples.length >= 16) {
-        const ordered = [...samples].sort((a,b) => a-b);
-        const average = samples.reduce((sum,value) => sum+value,0)/samples.length;
-        const p80 = ordered[Math.floor(ordered.length*.8)];
-        frame = 0;
-        lastFrame = 0;
-        samples = [];
-        if (average > 22 || p80 > 27) {
-          setPerformanceTier(current => current === 'high' ? 'balanced' : 'low');
-          return;
-        }
-      }
-      if (now < activeUntil && document.visibilityState === 'visible') frame = window.requestAnimationFrame(sampleFrames);
-      else {
-        frame = 0;
-        lastFrame = 0;
-        samples = [];
-      }
-    };
-
-    const onScroll = () => {
-      activeUntil = performance.now()+520;
-      if (!frame) frame = window.requestAnimationFrame(sampleFrames);
-    };
-    root.addEventListener('scroll',onScroll,{passive:true});
-    return () => {
-      root.removeEventListener('scroll',onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  },[opened,cinematicDone,performanceTier]);
 
   const finishCinematic = useCallback(() => {
     setCinematicDone(true);
@@ -481,6 +760,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     setOpeningPhase('idle');
     setEventsPhase('idle');
     setCouplePhase('idle');
+    setStoryPhase('idle');
+    setGalleryPhase('idle');
     setGiftPhase('idle');
     setRsvpPhase('idle');
     setClosingPhase('idle');
@@ -502,7 +783,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   const markJourneyReady = useCallback(() => setJourneyReady(true),[]);
   const navigateSection = id => {
     setMenuOpen(false);
-    setActiveNormal(id);
+    syncActiveNavDom(id);
     const root = scrollRef.current;
     const target = root?.querySelector('#'+id);
     if (root && target) root.scrollTo({ top: target.offsetTop, behavior:'smooth' });
@@ -558,31 +839,31 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   };
   return <main className={'verdant-vow vv-redesign vv-perf-'+performanceTier+' ' + (opened ? 'is-open ' : '') + (cinematicDone ? 'is-cinematic-done' : 'is-cinematic-playing')} data-performance-tier={performanceTier}>
     <VvSymbols />
-    {!opened && <VerdantOpeningScene bride={bride} groom={groom} guestName={guestName} date={date(eventDate)} sceneReady={journeyReady} autoEnter={autoReplayOpening} onPrepare={prepareJourney} onStart={startJourney} onEnter={finishOpening}/>}
-    <div className='vv-scroll' ref={scrollRef} inert={!opened ? '' : undefined} aria-hidden={!opened}>
+    {!opened && <VerdantOpeningScene bride={bride} groom={groom} guestName={guestName} date={date(eventDate)} sceneReady={journeyReady} autoEnter={autoReplayOpening} performanceTier={performanceTier} onPrepare={prepareJourney} onStart={startJourney} onEnter={finishOpening}/>}
+    <div className='vv-scroll' ref={scrollRef} inert={!opened ? true : undefined} aria-hidden={!opened}>
       <section className={'vv-journey '+(cinematicDone && !journeyMounted ? 'is-retired' : '')} id='vv-journey'>
-        {journeyMounted && <VerdantCinematicJourney invitation={i} customCoupleUrl={customCoupleUrl} bride={bride} groom={groom} brideFull={brideFull} groomFull={groomFull} dateLabel={date(eventDate,{day:'numeric',month:'long',year:'numeric'})} runId={replayId} active={journeyStarted} onReady={markJourneyReady} onComplete={finishCinematic}/>}
+        {journeyMounted && <VerdantCinematicJourney invitation={i} customCoupleUrl={customCoupleUrl} bride={bride} groom={groom} brideFull={brideFull} groomFull={groomFull} dateLabel={date(eventDate,{day:'numeric',month:'long',year:'numeric'})} runId={replayId} active={journeyStarted} performanceTier={performanceTier} onReady={markJourneyReady} onComplete={finishCinematic}/>}
       </section>
       {cinematicDone && <>
-      <section className={'vv-after vv-full-opening '+(openingPhase === 'visible' ? 'is-revealed' : openingPhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-opening' ref={normalRef}>
+      <section className={'vv-after vv-full-opening is-revealed'} id='vv-full-opening' ref={normalRef}>
         <div className='vv-wedding-ornaments' aria-hidden='true'>
-          <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-left' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-right' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' loading='lazy' decoding='async'/>
+          <img className='vv-wedding-ornament-left' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
+          <img className='vv-wedding-ornament-right' src={LAYER+'/section-wedding-edge-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
+          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-left' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
+          <img className='vv-wedding-bottom-ornament vv-wedding-bottom-ornament-right' src={LAYER+'/section-wedding-mobile-bottom-ornament-indonesian-v2.webp'} alt='' decoding='async'/>
         </div>
         <button type='button' className='vv-replay-cinematic' onClick={replayCinematic}>Ulangi Cinematic</button>
         <div className='vv-wedding-stage'>
           <div className='vv-after-heading'><small>Dengan penuh rasa syukur</small><h2>The Wedding</h2></div>
           <p>Kami mengundang Bapak/Ibu/Saudara/i untuk hadir dan menjadi bagian dari hari bahagia kami.</p>
           <h3>{groom} <i>&amp;</i> {bride}</h3><time>{date(eventDate)}</time>
-          <div className='vv-countdown-grid'>{countdown.map((value,index) => <span key={index}><b>{String(value).padStart(2,'0')}</b><small>{['Hari','Jam','Menit','Detik'][index]}</small></span>)}</div>
+          <VerdantCountdownGrid eventDate={eventDate} active={opened && cinematicDone} />
         </div>
       </section>
       <section className={'vv-after vv-full-couple '+(couplePhase === 'visible' ? 'is-revealed' : couplePhase === 'leaving' ? 'is-leaving' : '')} id='vv-full-couple' ref={coupleRef}>
         <div className='vv-couple-ornaments' aria-hidden='true'>
-          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' loading='lazy' decoding='async'/>
-          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' loading='lazy' decoding='async'/>
+          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' decoding='async'/>
+          <img src={LAYER+'/section-couple-janur-orbit-ornament-v2.webp'} alt='' decoding='async'/>
         </div>
         <div className='vv-couple-sparkles' aria-hidden='true'><i/><i/><i/><i/><i/><i/><i/><i/></div>
         <div className='vv-after-heading'><small>Dua hati yang dipertemukan</small><h2>Mempelai</h2></div>
@@ -668,7 +949,7 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
             }}
           >
             <img className='vv-story-photo-img' src={mediaUrl(i.cover_image || media[0]?.file_path)} alt={groom+' dan '+bride} loading='lazy' decoding='async'/>
-            <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-v1.webp'} alt='' aria-hidden='true' loading='lazy' decoding='async'/>
+            <img className='vv-story-frame-overlay' src={STORY+'/story-photo-frame-indonesian-portrait-v1.webp'} alt='' aria-hidden='true' loading='lazy' decoding='async'/>
             <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
           </div>
           <figcaption><small>Catatan perjalanan</small><span>Tumbuh, memilih, dan pulang bersama.</span></figcaption>
@@ -684,28 +965,78 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         </div>
         <div className='vv-after-heading'><small>Potongan waktu yang kami simpan</small><h2>Galeri</h2><span aria-hidden='true'>Album Kenangan</span></div>
         {photos.length ? (
-          <div className={'vv-gallery-grid vv-gallery-count-'+Math.min(photos.length,6)}>
-            {photos.map((photo,index) => (
-              <figure key={photo.id || index}>
-                <div
-                  className='vv-gallery-photo vv-clickable-photo'
-                  onClick={() => openGalleryPhoto(index)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openGalleryPhoto(index);
-                    }
-                  }}
+          <div className='vv-gallery-carousel'>
+            <div
+              className={'vv-gallery-grid vv-gallery-slider vv-gallery-count-'+Math.min(photos.length,6)}
+              ref={galleryTrackRef}
+              onScroll={handleGalleryScroll}
+              onPointerDown={handleGalleryPointerDown}
+              onPointerMove={handleGalleryPointerMove}
+              onPointerUp={finishGalleryPointerDrag}
+              onPointerCancel={finishGalleryPointerDrag}
+              onPointerLeave={finishGalleryPointerDrag}
+            >
+              {photos.map((photo,index) => (
+                <figure
+                  key={photo.id || index}
+                  data-active-slide={activeGallerySlide === index ? 'true' : undefined}
+                  data-gallery-index={index}
                 >
-                  <img src={mediaUrl(photo.file_path)} alt={'Momen '+(index+1)} loading='lazy' decoding='async'/>
-                  <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
+                  <div
+                    className='vv-gallery-photo vv-clickable-photo'
+                    onClick={() => handleGalleryPhotoClick(index)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Lihat foto galeri ${index + 1} ukuran penuh`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openGalleryPhoto(index);
+                      }
+                    }}
+                  >
+                    <img src={mediaUrl(photo.file_path)} alt={'Momen '+(index+1)} loading='lazy' decoding='async' draggable='false'/>
+                    <span className="vv-photo-zoom-hint" aria-hidden="true"><VvIcon name="vv-zoom" /></span>
+                  </div>
+                  <figcaption><span>Memory</span><b>{String(index+1).padStart(2,'0')}</b></figcaption>
+                </figure>
+              ))}
+            </div>
+            {photos.length > 1 && (
+              <div className='vv-gallery-controls' aria-label='Navigasi geser galeri'>
+                <button
+                  type='button'
+                  className='vv-gallery-nav-btn is-prev'
+                  onClick={() => scrollGalleryBy(-1)}
+                  disabled={activeGallerySlide <= 0}
+                  aria-label='Geser ke foto sebelumnya'
+                >
+                  <VvIcon name='vv-chevron-left' />
+                </button>
+                <div className='vv-gallery-dots' role='tablist' aria-label='Indikator foto galeri'>
+                  {photos.map((photo, index) => (
+                    <button
+                      key={photo.id || index}
+                      type='button'
+                      role='tab'
+                      aria-selected={activeGallerySlide === index}
+                      aria-label={`Geser ke foto ${index + 1}`}
+                      className={`vv-gallery-dot ${activeGallerySlide === index ? 'is-active' : ''}`}
+                      onClick={() => scrollToGallerySlide(index)}
+                    />
+                  ))}
                 </div>
-                <figcaption><span>Memory</span><b>{String(index+1).padStart(2,'0')}</b></figcaption>
-              </figure>
-            ))}
+                <button
+                  type='button'
+                  className='vv-gallery-nav-btn is-next'
+                  onClick={() => scrollGalleryBy(1)}
+                  disabled={activeGallerySlide >= photos.length - 1}
+                  aria-label='Geser ke foto berikutnya'
+                >
+                  <VvIcon name='vv-chevron-right' />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <p className='vv-empty'>Momen bahagia akan segera hadir.</p>
@@ -833,10 +1164,10 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
        <TemplateFooter className='vv-template-footer'/>
       </>}
     </div>
-    {opened && cinematicDone && <nav className={'vv-nav '+(menuOpen?'is-expanded':'')} aria-label='Navigasi undangan'>
+    {opened && cinematicDone && <nav className={'vv-nav '+(menuOpen?'is-expanded':'')} ref={navRef} aria-label='Navigasi undangan'>
       <button type='button' className='vv-nav-mobile-toggle' aria-expanded={menuOpen} onClick={() => setMenuOpen(value=>!value)}>{menuOpen?'Tutup':'Menu'}</button>
       <div className='vv-nav-scroller'><span className='vv-nav-group'>Undangan</span>
-        {sections.map(([id,label])=><button key={id} type='button' className={activeNormal===id?'is-active':''} aria-current={activeNormal===id?'location':undefined} onClick={()=>navigateSection(id)}>{label}</button>)}
+        {sections.map(([id,label])=><button key={id} type='button' data-section-id={id} className={activeNormal===id?'is-active':''} aria-current={activeNormal===id?'location':undefined} onClick={()=>navigateSection(id)}>{label}</button>)}
       </div>
     </nav>}
     {opened && i.has_music && i.music_file && <><audio ref={audioRef} data-wedding-audio loop src={mediaUrl(i.music_file)}/><button type='button' className={'vv-music-toggle '+(musicPlaying?'is-playing':'')} onClick={toggleMusic} aria-label={musicPlaying?'Matikan musik':'Putar musik'}>♫</button></>}

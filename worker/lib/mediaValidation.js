@@ -151,8 +151,55 @@ export async function servePublicR2Media(c, stripPrefixRegex, { notFoundMessage 
     return c.json({ ok: false, message: notFoundMessage }, 404);
   }
 
-  const object = await c.env.MEDIA.get(key);
-  if (!object) return c.json({ ok: false, message: notFoundMessage }, 404);
+  let object = await c.env.MEDIA.get(key);
+  if (!object) {
+    const reqHost = (() => {
+      try {
+        return new URL(c.req.url).hostname;
+      } catch {
+        return '';
+      }
+    })();
+    const isLocalRequest = reqHost === 'localhost' || reqHost === '127.0.0.1';
+    const rawOrigin = String(c.env?.PUBLIC_APP_URL || c.env?.APP_URL || '').replace(/\/+$/, '');
+    const remoteOrigin = (!rawOrigin || rawOrigin.includes('localhost') || rawOrigin.includes('127.0.0.1'))
+      ? 'https://daymoment.id'
+      : rawOrigin;
+    if (isLocalRequest && remoteOrigin) {
+      try {
+        const remoteRes = await fetch(`${remoteOrigin}/media/${key}`);
+        if (remoteRes.ok) {
+          const remoteType = String(remoteRes.headers.get('content-type') || '').toLowerCase();
+          if (
+            remoteType &&
+            !remoteType.includes('html') &&
+            !remoteType.includes('svg') &&
+            !remoteType.includes('javascript') &&
+            !remoteType.includes('xml')
+          ) {
+            const buf = await remoteRes.arrayBuffer();
+            try {
+              await c.env.MEDIA.put(key, buf, {
+                httpMetadata: {
+                  contentType: remoteType,
+                  cacheControl: 'public, max-age=31536000, immutable',
+                },
+              });
+            } catch {}
+            const headers = new Headers();
+            headers.set('content-type', remoteType);
+            headers.set('Content-Disposition', 'inline');
+            headers.set('X-Content-Type-Options', 'nosniff');
+            headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+            headers.set('Access-Control-Allow-Origin', '*');
+            headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+            return new Response(buf, { status: 200, headers });
+          }
+        }
+      } catch {}
+    }
+    return c.json({ ok: false, message: notFoundMessage }, 404);
+  }
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);

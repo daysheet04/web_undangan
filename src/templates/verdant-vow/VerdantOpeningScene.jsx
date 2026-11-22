@@ -5,7 +5,7 @@ const CINEMATIC = "/assets/images/templates/verdant-vow/cinematic";
 const GATE_DURATION = 6500;
 const JOURNEY_START_DELAY = 4050;
 
-export default function VerdantOpeningScene({ bride, groom, guestName, date, sceneReady = false, autoEnter = false, onPrepare, onStart, onEnter }) {
+export default function VerdantOpeningScene({ bride, groom, guestName, date, sceneReady = false, autoEnter = false, performanceTier = 'balanced', onPrepare, onStart, onEnter }) {
   const compact = typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches;
   const gatePortal = `${CINEMATIC}/garden-gate-portal-indonesian-${compact ? 'mobile-' : ''}v1.webp`;
   const gateLeaves = `${CINEMATIC}/garden-gate-leaves-indonesian-${compact ? 'mobile-' : ''}v1.webp`;
@@ -101,9 +101,11 @@ export default function VerdantOpeningScene({ bride, groom, guestName, date, sce
 
         <img className="vv-gate-foreground vv-gate-foreground-left" src={foreground} alt="" decoding="async" />
         <img className="vv-gate-foreground vv-gate-foreground-right" src={foreground} alt="" decoding="async" />
-        <div className="vv-opening-sparks">
-          {Array.from({ length: 16 }, (_, index) => <i key={index} style={{ "--spark": index, "--x": `${(index * 29) % 95}%`, "--y": `${(index * 41) % 88}%` }} />)}
-        </div>
+        {performanceTier !== 'low' && (
+          <div className="vv-opening-sparks">
+            {Array.from({ length: performanceTier === 'high' ? 16 : 6 }, (_, index) => <i key={index} style={{ "--spark": index, "--x": `${(index * 29) % 95}%`, "--y": `${(index * 41) % 88}%` }} />)}
+          </div>
+        )}
       </div>
 
       <div className="vv-gate-copy" aria-busy={!canEnter}>

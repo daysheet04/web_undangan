@@ -54,9 +54,9 @@ export default function AureliaGrandeTemplate({
     [panel, setPanel] = useState(null),
     [near, setNear] = useState(""),
     customCoupleMedia = media?.find(m => m.file_path && m.file_path.includes('custom-couple')),
-    customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : Date.now()),
+    customCoupleVersion = customCoupleMedia?.id || customCoupleMedia?.created_at || (i.updated_at ? new Date(i.updated_at).getTime() : ''),
     rawCustomCoupleUrl = customCoupleMedia ? mediaUrl(customCoupleMedia.file_path) : (i.stage_photo ? mediaUrl(i.stage_photo) : (i.custom_couple_image ? mediaUrl(i.custom_couple_image) : null)),
-    customCoupleUrl = rawCustomCoupleUrl ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : null,
+    customCoupleUrl = rawCustomCoupleUrl ? (customCoupleVersion ? (rawCustomCoupleUrl.includes('?') ? `${rawCustomCoupleUrl}&v=${customCoupleVersion}` : `${rawCustomCoupleUrl}?v=${customCoupleVersion}`) : rawCustomCoupleUrl) : null,
     photos = media.filter(m => !m.file_path?.includes('custom-couple')).slice(0, Math.max(1, +i.gallery_limit || 5)),
     [lightbox, setLightbox] = useState(null),
     [wishes, setWishes] = useState(() => (Array.isArray(greetings) ? greetings : [])),
@@ -1291,7 +1291,9 @@ function BallroomWorld({
     // AI-rendered couple presented as a living stage character. The transparent
     // cutout belongs to the 3D world through lighting, grounding and motion.
     const coupleTextureUrl = customCoupleUrl || `${A}wedding-couple-3d.webp`;
-    const coupleTexture = new THREE.TextureLoader().load(coupleTextureUrl, (tex) => {
+    const coupleTextureLoader = new THREE.TextureLoader();
+    coupleTextureLoader.setCrossOrigin("anonymous");
+    const coupleTexture = coupleTextureLoader.load(coupleTextureUrl, (tex) => {
       if (tex.image && tex.image.width && tex.image.height) {
         const aspect = tex.image.width / tex.image.height;
         const targetH = 6.5;

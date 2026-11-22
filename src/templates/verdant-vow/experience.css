@@ -5,7 +5,7 @@
 .vv-redesign .vv-journey.is-retired { height: 0; min-height: 0; }
 .vv-redesign.is-cinematic-done .vv-journey { content-visibility: auto; contain-intrinsic-size: 100vh; }
 .vv-redesign .vv-cinematic-backdrop { position: absolute; inset: 0; background: linear-gradient(125deg,rgba(12,55,42,.22),rgba(245,245,220,.08)),url('/assets/images/templates/verdant-vow/layers/garden-cinematic.webp') center / cover; }
-.vv-redesign .vv-after { opacity: 1; transform: none; content-visibility: auto; contain-intrinsic-size: 1px 900px; }
+.vv-redesign .vv-after { opacity: 1; transform: none; content-visibility: visible; contain: layout style; }
 .vv-redesign .vv-cinematic-scene { position: absolute; inset: 0; overflow: hidden; opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.86); }
 .vv-redesign .vv-cinematic-scene.is-active { opacity: 1; visibility: visible; pointer-events: auto; transform: scale(1); }
 .vv-redesign .vv-cinematic-scene.is-entering { z-index: 3; visibility: visible; animation: vv-scene-enter .92s cubic-bezier(.2,.75,.2,1) both; }
@@ -3548,6 +3548,563 @@ body.embed-preview .vv-replay-cinematic {
     font-size: 10px;
   }
 }
+
+/* ==========================================================================
+   Modern Javanese Smooth-Scroll Optimization & Portrait Swipe Gallery
+   - Preserves the exact entrance animation choreography (one-time reveal only)
+   - Eliminates scroll-time blur/backdrop-filter repaints & infinite loop jank
+   - Portrait (3:4) rounded-rectangle ("kotak radius") horizontal swipe gallery
+   ========================================================================== */
+
+/* 1. Eliminate per-frame backdrop-filter, blur, and dynamic drop-shadow repaints
+      across the gate opening and all scrolling invitation sections on BOTH desktop & mobile */
+.vv-redesign .vv-gate-portal,
+.vv-redesign .vv-gate-leaf,
+.vv-redesign .vv-gate-foreground,
+.vv-redesign .vv-gate-opening.is-entering .vv-gate-leaf-left,
+.vv-redesign .vv-gate-opening.is-entering .vv-gate-leaf-right,
+.vv-redesign .vv3-copy::before,
+.vv-redesign .vv-after,
+.vv-redesign .vv-after *,
+.vv-redesign .vv-after::before,
+.vv-redesign .vv-after::after,
+.vv-redesign .vv-after *::before,
+.vv-redesign .vv-after *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+
+/* Disable full-screen ::before background zoom/blur keyframes on desktop as well as mobile */
+.vv-redesign .vv-story::before,
+.vv-redesign .vv-gallery::before,
+.vv-redesign .vv-gift-redesign::before,
+.vv-redesign .vv-rsvp-redesign::before,
+.vv-redesign .vv-closing-redesign::before {
+  animation: none !important;
+  filter: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+/* Paint & layout isolation per section reduces full-page repaints while scrolling */
+.vv-redesign .vv-after {
+  contain: layout style paint;
+}
+
+/* Promote ONLY near-viewport revealing elements to GPU layers during entrance, then release immediately */
+.vv-redesign .vv-after *,
+.vv-redesign .vv-after *::before,
+.vv-redesign .vv-after *::after,
+.vv-redesign .vv-scroll-reveal {
+  will-change: auto !important;
+}
+
+.vv-redesign .vv-scroll-reveal.is-gpu-ready:not(.is-motion-settled) {
+  will-change: transform, opacity !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Eliminate clip-path animation repaints on reveal-type (keep crisp compositor reveal) */
+.vv-redesign .vv-scroll-reveal.vv-reveal-type {
+  --vv-reveal-enter: translate3d(0, 18px, 0);
+  --vv-reveal-rest: translate3d(0, 0, 0);
+  clip-path: none !important;
+  transform: var(--vv-reveal-enter) !important;
+  transition-property: opacity, transform !important;
+  transition-duration: 0.72s, 0.88s !important;
+  transition-timing-function: ease-out, cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.vv-redesign .vv-scroll-reveal.vv-reveal-type.is-component-visible {
+  transform: var(--vv-reveal-rest) !important;
+}
+
+.vv-redesign .vv-scroll-reveal.vv-reveal-type::after,
+.vv-redesign .vv-scroll-reveal.vv-reveal-type.is-component-visible::after {
+  display: none !important;
+  animation: none !important;
+}
+
+/* 2. Keep exact entrance animation choreography, run once, then settle cleanly */
+.vv-redesign .vv-after.is-revealed .vv-wedding-ornaments img,
+.vv-redesign .vv-after.is-revealed .vv-couple-ornaments img,
+.vv-redesign .vv-after.is-revealed .vv-person-amp,
+.vv-redesign .vv-after.is-revealed .vv-events-corner,
+.vv-redesign .vv-after.is-revealed .vv-story-side,
+.vv-redesign .vv-after.is-revealed .vv-story-frame-overlay,
+.vv-redesign .vv-after.is-revealed .vv-gallery-corner,
+.vv-redesign .vv-after.is-revealed .vv-gift-seserahan,
+.vv-redesign .vv-after.is-revealed .vv-rsvp-ledger,
+.vv-redesign .vv-after.is-revealed .vv-closing-canopy {
+  animation-iteration-count: 1 !important;
+}
+
+/* 2A. Adaptive Tier: LOW (low RAM/CPU phones & constrained desktops)
+   - Preserves clean one-time directional entrance motion using fast GPU transforms
+   - Hides heavy corner ornaments & sparkles to minimize VRAM & overdraw */
+.vv-redesign.vv-perf-low .vv-wedding-ornaments,
+.vv-redesign.vv-perf-low .vv-couple-ornaments,
+.vv-redesign.vv-perf-low .vv-events-ornaments,
+.vv-redesign.vv-perf-low .vv-story-ornaments,
+.vv-redesign.vv-perf-low .vv-gallery-ornaments,
+.vv-redesign.vv-perf-low .vv-gift-ornaments,
+.vv-redesign.vv-perf-low .vv-rsvp-ornaments,
+.vv-redesign.vv-perf-low .vv-closing-ornaments,
+.vv-redesign.vv-perf-low .vv-couple-sparkles,
+.vv-redesign.vv-perf-low .vv-events-sparkles,
+.vv-redesign.vv-perf-low .vv-story-glint,
+.vv-redesign.vv-perf-low .vv-gift-sparkles {
+  display: none !important;
+}
+
+.vv-redesign.vv-perf-low .vv-scroll-reveal {
+  --vv-reveal-enter: translate3d(0, 20px, 0);
+  animation: none !important;
+  transition-duration: 0.65s, 0.8s !important;
+  transition-timing-function: ease-out, cubic-bezier(0.22, 0.85, 0.36, 1) !important;
+}
+
+.vv-redesign.vv-perf-low .vv-scroll-reveal.vv-reveal-left {
+  --vv-reveal-enter: translate3d(-24px, 0, 0);
+}
+
+.vv-redesign.vv-perf-low .vv-scroll-reveal.vv-reveal-right {
+  --vv-reveal-enter: translate3d(24px, 0, 0);
+}
+
+.vv-redesign.vv-perf-low .vv-scroll-reveal.vv-reveal-bounce,
+.vv-redesign.vv-perf-low .vv-scroll-reveal.vv-reveal-zoom {
+  --vv-reveal-enter: translate3d(0, 18px, 0) scale(0.95);
+}
+
+.vv-redesign.vv-perf-low .vv-person-card,
+.vv-redesign.vv-perf-low .vv-event-card,
+.vv-redesign.vv-perf-low .vv-story-glass,
+.vv-redesign.vv-perf-low .vv-gallery-grid figure,
+.vv-redesign.vv-perf-low .vv-gift-card-single,
+.vv-redesign.vv-perf-low .vv-rsvp-form,
+.vv-redesign.vv-perf-low .vv-rsvp-wishes-shell {
+  box-shadow: 0 8px 18px rgba(31, 55, 40, 0.08) !important;
+}
+
+/* 2B. Adaptive Tier: BALANCED (mid-range phones & laptops)
+   - Keeps ornaments visible (single-pass entrance) without infinite sparkles
+   - Uses clean compositor transitions rather than multi-stop bounce keyframes */
+.vv-redesign.vv-perf-balanced .vv-couple-sparkles,
+.vv-redesign.vv-perf-balanced .vv-events-sparkles,
+.vv-redesign.vv-perf-balanced .vv-story-glint,
+.vv-redesign.vv-perf-balanced .vv-gallery-ornaments > i,
+.vv-redesign.vv-perf-balanced .vv-gift-sparkles,
+.vv-redesign.vv-perf-balanced .vv-rsvp-ornaments > i,
+.vv-redesign.vv-perf-balanced .vv-closing-ornaments > i {
+  display: none !important;
+}
+
+.vv-redesign.vv-perf-balanced.has-component-reveals .vv-after .vv-scroll-reveal.vv-reveal-left.is-component-visible,
+.vv-redesign.vv-perf-balanced.has-component-reveals .vv-after .vv-scroll-reveal.vv-reveal-bounce.is-component-visible {
+  animation: none !important;
+}
+
+.vv-redesign.vv-perf-balanced .vv-scroll-reveal {
+  transition-duration: 0.85s, 1.02s !important;
+}
+
+.vv-redesign.vv-perf-balanced .vv-person-card,
+.vv-redesign.vv-perf-balanced .vv-event-card,
+.vv-redesign.vv-perf-balanced .vv-story-glass,
+.vv-redesign.vv-perf-balanced .vv-gallery-grid figure,
+.vv-redesign.vv-perf-balanced .vv-gift-card-single,
+.vv-redesign.vv-perf-balanced .vv-rsvp-form,
+.vv-redesign.vv-perf-balanced .vv-rsvp-wishes-shell {
+  box-shadow: 0 14px 32px rgba(55, 42, 24, 0.13) !important;
+}
+
+/* 2C. Adaptive Tier: HIGH & Viewport Gating for Sparkles
+   - Pauses decorative sparkles/animations when a section is scrolled outside viewport */
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-couple-sparkles i,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-events-sparkles i,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-story-glint,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-gallery-ornaments i,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-gift-sparkles i,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-rsvp-ornaments i,
+.vv-redesign .vv-after:not(.is-in-viewport) .vv-closing-ornaments i {
+  animation-play-state: paused !important;
+}
+
+/* Release GPU compositor layer memory once component entrance transition settles */
+.vv-redesign .vv-scroll-reveal.is-motion-settled {
+  will-change: auto !important;
+}
+
+/* ==========================================================================
+   Mempelai Portrait (3:4) & Kisah Kami Vertical Portrait Carved Frame
+   ========================================================================== */
+.vv-redesign .vv-person-grid {
+  max-width: 960px;
+  align-items: start;
+}
+
+.vv-redesign .vv-person-card {
+  width: 100%;
+  max-width: 390px;
+  justify-self: center;
+}
+
+.vv-redesign .vv-person-card figure.vv-person-photo-wrap {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(178, 139, 70, 0.28);
+  background: #e8e1ce;
+}
+
+.vv-redesign .vv-person-card figure.vv-person-photo-wrap img,
+.vv-redesign .vv-person-card img {
+  display: block;
+  width: 100%;
+  height: 100% !important;
+  aspect-ratio: 3 / 4;
+  object-fit: cover !important;
+  object-position: center 18% !important;
+  border-bottom: 0 !important;
+}
+
+.vv-redesign .vv-person-amp {
+  align-self: center;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-person-card {
+    width: min(360px, 88vw);
+    max-width: 360px;
+  }
+}
+
+/* Kisah Kami vertical portrait carved wood + batik frame (900x1138) */
+.vv-redesign .vv-story .vv-story-photo {
+  width: min(100%, 460px);
+  max-width: 460px;
+}
+
+.vv-redesign .vv-story .vv-story-photo-window {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 900 / 1138;
+}
+
+.vv-redesign .vv-story .vv-story-photo-img {
+  position: absolute;
+  z-index: 1;
+  top: 14.1%;
+  left: 17.9%;
+  width: 64.2%;
+  height: 70.8%;
+  object-fit: cover !important;
+  object-position: center 20% !important;
+  clip-path: none !important;
+}
+
+.vv-redesign .vv-story .vv-story-frame-overlay {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+@media (max-width: 900px) {
+  .vv-redesign .vv-story .vv-story-photo {
+    width: min(92vw, 410px);
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .vv-redesign .vv-story .vv-story-photo {
+    width: min(94vw, 390px);
+    max-width: 100%;
+  }
+}
+
+/* 3. Portrait Rounded-Rectangle ("Kotak Radius") Horizontal Swipe Gallery */
+.vv-redesign .vv-gallery-carousel {
+  position: relative;
+  z-index: 2;
+  width: min(1080px, 100%);
+  margin: clamp(34px, 4.5vw, 54px) auto 0;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider {
+  --vv-gallery-card-w: clamp(256px, 24vw, 294px);
+  position: relative;
+  z-index: 2;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  grid-template-columns: none !important;
+  align-items: stretch;
+  justify-content: flex-start !important;
+  gap: clamp(18px, 2.2vw, 26px);
+  width: 100%;
+  max-width: 100%;
+  min-height: 0 !important;
+  margin: 0 auto !important;
+  padding: 12px clamp(24px, 5.5vw, 72px) 22px;
+  scroll-padding-inline: clamp(24px, 5.5vw, 72px);
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider.is-dragging {
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  cursor: grabbing;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure,
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure:first-child,
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure:nth-child(n) {
+  position: relative;
+  flex: 0 0 var(--vv-gallery-card-w) !important;
+  width: var(--vv-gallery-card-w) !important;
+  max-width: var(--vv-gallery-card-w) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 12px 12px 0 !important;
+  border: 1px solid rgba(139, 98, 48, 0.42) !important;
+  border-radius: 22px !important;
+  clip-path: none !important;
+  background: linear-gradient(155deg, rgba(255, 253, 244, 0.98), rgba(235, 223, 195, 0.94)) !important;
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 250, 232, 0.58),
+    0 20px 44px rgba(55, 42, 24, 0.16) !important;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure[data-vv-reveal-seen="true"] {
+  opacity: 1 !important;
+  transform: var(--vv-reveal-rest, translate3d(0, 0, 0) scale(1)) !important;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 6px !important;
+  border: 1px solid rgba(174, 135, 75, 0.36) !important;
+  border-radius: 17px !important;
+  pointer-events: none;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure::after {
+  top: 6px !important;
+  left: 22% !important;
+  right: 22% !important;
+  width: auto !important;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider .vv-gallery-photo {
+  position: relative;
+  width: 100% !important;
+  aspect-ratio: 3 / 4 !important;
+  flex: 0 0 auto;
+  border: 1px solid rgba(116, 84, 45, 0.26) !important;
+  border-radius: 15px !important;
+  overflow: hidden !important;
+  background: #e3dcc8;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center 32% !important;
+  border-radius: inherit !important;
+  filter: none !important;
+  transform: scale(1) !important;
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure:hover img {
+  transform: scale(1.04) !important;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figcaption {
+  position: static !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 6px;
+}
+
+/* Gallery swipe controls & indicator dots */
+.vv-redesign .vv-gallery-controls {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.vv-redesign .vv-gallery-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(146, 106, 54, 0.45);
+  border-radius: 50%;
+  color: #173f31;
+  background: linear-gradient(145deg, rgba(255, 253, 243, 0.96), rgba(235, 223, 195, 0.92));
+  box-shadow: 0 8px 20px rgba(48, 39, 23, 0.12);
+  cursor: pointer;
+  transition: transform 0.22s ease, background-color 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
+}
+
+.vv-redesign .vv-gallery-nav-btn svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+.vv-redesign .vv-gallery-nav-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.05);
+  color: #fff9e8;
+  background: #173f31;
+  border-color: rgba(201, 168, 106, 0.75);
+  box-shadow: 0 10px 24px rgba(23, 63, 49, 0.24);
+}
+
+.vv-redesign .vv-gallery-nav-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.vv-redesign .vv-gallery-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid rgba(146, 106, 54, 0.32);
+  border-radius: 999px;
+  background: rgba(255, 252, 240, 0.86);
+  box-shadow: 0 6px 18px rgba(54, 42, 24, 0.08);
+}
+
+.vv-redesign .vv-gallery-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid rgba(146, 106, 54, 0.55);
+  border-radius: 999px;
+  background: rgba(169, 132, 79, 0.28);
+  cursor: pointer;
+  transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.24s ease, border-color 0.24s ease;
+}
+
+.vv-redesign .vv-gallery-dot.is-active {
+  width: 24px;
+  background: #173f31;
+  border-color: #173f31;
+}
+
+/* Match lightbox frame to uniform rounded rectangle ("kotak radius") */
+.vv-lightbox-frame {
+  border-radius: 20px !important;
+}
+
+@media (max-width: 800px) {
+  .vv-redesign .vv-gallery {
+    padding-inline: 16px !important;
+  }
+
+  .vv-redesign .vv-gallery-carousel {
+    width: calc(100% + 32px);
+    margin-inline: -16px;
+    margin-top: 32px;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider {
+    --vv-gallery-card-w: min(72vw, 268px);
+    gap: 16px;
+    padding: 10px max(18px, calc(50% - (var(--vv-gallery-card-w) / 2))) 18px;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider figure,
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider figure:first-child,
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider figure:nth-child(n) {
+    padding: 10px 10px 0 !important;
+    border-radius: 20px !important;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider figure[data-vv-reveal-seen="true"] {
+  opacity: 1 !important;
+  transform: var(--vv-reveal-rest, translate3d(0, 0, 0) scale(1)) !important;
+}
+
+.vv-redesign .vv-gallery-grid.vv-gallery-slider figure::before {
+    inset: 5px !important;
+    border-radius: 15px !important;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider .vv-gallery-photo {
+    aspect-ratio: 3 / 4 !important;
+    border-radius: 14px !important;
+  }
+
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider figcaption {
+    min-height: 40px;
+  }
+
+  .vv-lightbox-frame {
+    border-radius: 16px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .vv-redesign .vv-gallery-grid.vv-gallery-slider {
+    --vv-gallery-card-w: min(75vw, 254px);
+    gap: 14px;
+  }
+}
+
 
 
 

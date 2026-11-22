@@ -1440,11 +1440,11 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                               onClick={() => {
                                 setAdjusterConfig({
                                   target: 'groom_photo',
-                                  aspectRatio: '1:1',
+                                  aspectRatio: '3:4',
                                   initialImageUrl: mediaUrl(invitation.groom_photo),
                                   title: 'Atur Posisi Foto Mempelai Pria',
-                                  subtitle: 'Geser foto (kiri, kanan, atas, bawah) dan atur zoom agar wajah mempelai pria pas di tengah lingkaran.',
-                                  hint: '📐 Frame Foto Mempelai Pria (Rasio 1:1 Bulat/Kotak)',
+                                  subtitle: 'Geser foto (kiri, kanan, atas, bawah) dan atur zoom agar wajah mempelai pria pas di bingkai portrait 3:4.',
+                                  hint: '📐 Frame Foto Mempelai Pria (Rasio 3:4 Portrait)',
                                 });
                               }}
                               title="Geser posisi foto pria (kiri, kanan, atas, bawah, zoom)"
@@ -1531,11 +1531,11 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                               onClick={() => {
                                 setAdjusterConfig({
                                   target: 'bride_photo',
-                                  aspectRatio: '1:1',
+                                  aspectRatio: '3:4',
                                   initialImageUrl: mediaUrl(invitation.bride_photo),
                                   title: 'Atur Posisi Foto Mempelai Wanita',
-                                  subtitle: 'Geser foto (kiri, kanan, atas, bawah) dan atur zoom agar wajah mempelai wanita pas di tengah lingkaran.',
-                                  hint: '📐 Frame Foto Mempelai Wanita (Rasio 1:1 Bulat/Kotak)',
+                                  subtitle: 'Geser foto (kiri, kanan, atas, bawah) dan atur zoom agar wajah mempelai wanita pas di bingkai portrait 3:4.',
+                                  hint: '📐 Frame Foto Mempelai Wanita (Rasio 3:4 Portrait)',
                                 });
                               }}
                               title="Geser posisi foto wanita (kiri, kanan, atas, bawah, zoom)"
