@@ -862,12 +862,79 @@ function storedDashboardFilters(affiliateId) {
   }
 }
 
+function deriveFirstOrderBonus(payload, fallbackOrders = []) {
+  if (payload?.first_order_bonus) return payload.first_order_bonus;
+  const list = Array.isArray(fallbackOrders) ? fallbackOrders : [];
+  const paidOrders = list.filter((order) => order?.payment_status === 'paid');
+  const pendingOrders = list.filter((order) => order?.payment_status === 'pending');
+  const bonusOrder = paidOrders.find((order) => Number(order?.first_order_bonus_amount || 0) > 0) || paidOrders[0] || null;
+  if (bonusOrder) {
+    return {
+      total_orders: list.length,
+      paid_orders_count: paidOrders.length,
+      pending_orders_count: pendingOrders.length,
+      has_first_paid_order: true,
+      bonus_amount: 50000,
+      bonus_status: 'earned',
+      first_paid_order_code: bonusOrder.order_code || null,
+    };
+  }
+  return {
+    total_orders: list.length,
+    paid_orders_count: 0,
+    pending_orders_count: pendingOrders.length,
+    has_first_paid_order: false,
+    bonus_amount: 0,
+    bonus_status: list.length > 0 ? 'pending' : 'none',
+    first_paid_order_code: null,
+  };
+}
+
+function FirstOrderBonusBanner({ bonus, compact = false }) {
+  const status = bonus?.bonus_status || 'none';
+  const earned = bonus?.has_first_paid_order === true || status === 'earned';
+  const isPending = !earned && status === 'pending';
+  const icon = earned ? '✓' : isPending ? '⏳' : '★';
+  const title = earned
+    ? 'Bonus order pertama Rp 50.000 sudah didapat'
+    : isPending
+      ? 'Bonus order pertama Rp 50.000 menunggu pembayaran'
+      : 'Bonus order pertama Rp 50.000 + komisi';
+  const description = earned
+    ? `Order pertama sukses (${bonus?.first_paid_order_code || 'Lunas'}) mendapatkan Rp 50.000 + komisi. Order berikutnya mendapatkan komisi reguler sesuai persentase.`
+    : isPending
+      ? `Kamu memiliki ${Number(bonus?.pending_orders_count || bonus?.total_orders || 1)} order yang menunggu pembayaran. Setelah order pertama berstatus Lunas, bonus Rp 50.000 + komisi otomatis masuk saldo.`
+      : 'Dapatkan bonus Rp 50.000 + komisi untuk pembelian pertama yang berhasil (Lunas) lewat link referralmu. Pembelian ke-2 dan seterusnya hanya mendapatkan komisi reguler.';
+  const pill = earned
+    ? '✓ Done · +Rp 50.000'
+    : isPending
+      ? 'Menunggu Lunas'
+      : 'Tersedia di Order #1';
+
+  return (
+    <div
+      className={`affiliate-first-order-bonus-banner ${earned ? 'is-earned' : isPending ? 'is-pending' : ''} ${compact ? 'is-compact' : ''}`.trim()}
+      role="status"
+    >
+      <div className="affiliate-first-order-bonus-main">
+        <span className="affiliate-first-order-bonus-icon" aria-hidden="true">{icon}</span>
+        <div className="affiliate-first-order-bonus-copy">
+          <strong>{title}</strong>
+          <p>{description}</p>
+        </div>
+      </div>
+      <span className="affiliate-first-order-bonus-pill">{pill}</span>
+    </div>
+  );
+}
+
 function DashboardOverview({ affiliate, catalog, orderData, initialTrafficData, refreshTick = 0, onReloadOverview }) {
   const templates = catalog?.templates || [];
   const products = templates.flatMap((template) => template.products || []);
   const visibleProducts = templates.flatMap((template) => (template.products || []).filter((product) => product.is_visible).map((product) => ({ ...product, template_name: template.name })));
   const visibleTemplates = templates.filter((item) => item.visible_products > 0);
   const orders = orderData?.orders || [];
+  const firstOrderBonus = useMemo(() => deriveFirstOrderBonus(orderData, orders), [orderData, orders]);
   const [filters, setFilters] = useState(() => storedDashboardFilters(affiliate.id));
   const [detail, setDetail] = useState('');
   const [chartSelection, setChartSelection] = useState(null);
@@ -1226,6 +1293,7 @@ function DashboardOverview({ affiliate, catalog, orderData, initialTrafficData, 
       </div>
       <small>{periodLabel} · filter berjalan dari data yang sudah dimuat</small>
     </section>
+    <FirstOrderBonusBanner bonus={firstOrderBonus}/>
     <section className="affiliate-stat-grid">
       <button type="button" className={detail === 'products' ? 'is-active' : ''} onClick={() => toggleDetail('products')}><span>Produk ditampilkan</span><strong>{visibleProducts.length}</strong><small>dari {products.length} produk aktif</small><i>Lihat isi →</i></button>
       <button type="button" className={detail === 'templates' ? 'is-active' : ''} onClick={() => toggleDetail('templates')}><span>Template referral</span><strong>{visibleTemplates.length}</strong><small>link siap dibagikan</small><i>Lihat isi →</i></button>
@@ -1238,7 +1306,7 @@ function DashboardOverview({ affiliate, catalog, orderData, initialTrafficData, 
         {detail === 'products' && (visibleProducts.length ? visibleProducts.map((product) => <article key={product.id}><div><b>{product.template_name}</b><span>{product.name}</span></div><strong>{rupiah(product.price)}</strong><small>{Number(product.commission_percent || 0).toLocaleString('id-ID')}% · estimasi {rupiah(product.commission_amount || 0)}</small></article>) : <p>Belum ada produk yang ditampilkan.</p>)}
         {detail === 'templates' && (visibleTemplates.length ? visibleTemplates.map((template) => <article key={template.id}><div><b>{template.name}</b><span>{template.category}</span></div><strong>{template.visible_products} produk</strong><small>Link referral siap dibagikan</small></article>) : <p>Belum ada template referral aktif.</p>)}
         {detail === 'orders' && (filteredOrders.length ? filteredOrders.map((order) => <article key={order.id}><div><b>{order.order_code}</b><span>{order.customer_name}</span></div><strong>{orderStatus(order.payment_status)}</strong><small>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small></article>) : <p>Tidak ada pesanan pada periode ini.</p>)}
-        {detail === 'commission' && (paidOrders.length ? paidOrders.map((order) => <article key={order.id}><div><b>{order.order_code}</b><span>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'}</span></div><strong>{rupiah(order.affiliate_commission_amount)}</strong><small>{Number(order.affiliate_commission_percent || 0).toLocaleString('id-ID')}% · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small></article>) : <p>Belum ada komisi lunas pada periode ini.</p>)}
+        {detail === 'commission' && (paidOrders.length ? paidOrders.map((order) => <article key={order.id}><div><b>{order.order_code}</b><span>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'}</span></div><strong>{rupiah(order.affiliate_commission_amount)}</strong><small>{Number(order.affiliate_commission_percent || 0).toLocaleString('id-ID')}%{Number(order.first_order_bonus_amount || 0) > 0 ? ' + Bonus order #1 Rp 50.000' : ''} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small></article>) : <p>Belum ada komisi lunas pada periode ini.</p>)}
       </div>
     </section>}
     <section className="affiliate-dashboard-chart-card">
@@ -1277,7 +1345,7 @@ function DashboardOverview({ affiliate, catalog, orderData, initialTrafficData, 
           {selectedChartRows.map((order) => <article key={order.id}>
             <div><b>{order.order_code}</b><span>{order.customer_name}</span></div>
             <strong>{chartSelection.type === 'commission' ? rupiah(order.affiliate_commission_amount) : orderStatus(order.payment_status)}</strong>
-            <small>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small>
+            <small>{order.template?.name || 'Template'} · {order.product?.name || 'Paket'}{chartSelection.type === 'commission' && Number(order.first_order_bonus_amount || 0) > 0 ? ' · +Bonus 50rb' : ''} · {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</small>
           </article>)}
         </div>
       </div>}
@@ -1741,6 +1809,7 @@ function OrdersPage({ data, affiliateId, onReloadOrders }) {
   };
   const resetFilters = () => setView({ filters: { ...emptyOrderFilters }, page: 1 });
   const summary = data?.summary || {};
+  const firstOrderBonus = useMemo(() => deriveFirstOrderBonus(data, data?.orders || []), [data]);
   const filteredOrders = useMemo(() => {
     const needle = filters.search.trim().toLocaleLowerCase('id');
     return (data?.orders || []).filter((order) => {
@@ -1780,6 +1849,7 @@ function OrdersPage({ data, affiliateId, onReloadOrders }) {
       </div>
       <div className="affiliate-ref-code"><small>TOTAL KOMISI DIBAYAR</small><strong>{rupiah(summary.commission_earned || 0)}</strong></div>
     </div>
+    <FirstOrderBonusBanner bonus={firstOrderBonus} compact/>
     <div className="affiliate-order-stats"><article><span>Total pesanan</span><b>{summary.total_orders || 0}</b></article><article><span>Sudah dibayar</span><b>{summary.paid_orders || 0}</b></article><article><span>Menunggu</span><b>{summary.pending_orders || 0}</b></article><article><span>Komisi tertunda</span><b>{rupiah(summary.commission_pending || 0)}</b></article></div>
     <div className="affiliate-order-filters">
       <div className="affiliate-order-filter-grid">
@@ -1793,7 +1863,10 @@ function OrdersPage({ data, affiliateId, onReloadOrders }) {
     </div>
     <div className="affiliate-order-table-wrap">
       <table className="affiliate-order-table affiliate-orders-table"><thead><tr><th>Invoice</th><th>Pelanggan</th><th>Produk</th><th>Pembayaran</th><th>Komisi</th><th>Tanggal</th><th>Panel editor</th></tr></thead><tbody>
-        {visibleOrders.length ? visibleOrders.map((order) => <tr key={order.id}><td><strong>{order.order_code}</strong></td><td>{order.customer_name}</td><td><b>{order.template?.name || 'Template'}</b><small>{order.product?.name || 'Paket'}</small></td><td><span className={`affiliate-payment-status status-${order.payment_status}`}>{orderStatus(order.payment_status)}</span></td><td><b>{rupiah(order.affiliate_commission_amount)}</b><small>{order.affiliate_commission_percent}%</small></td><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</td><td>{order.editor_url ? <a className="affiliate-editor-link" href={order.editor_url} target="_blank" rel="noopener noreferrer">Buka editor ↗</a> : <span className="affiliate-editor-unavailable">Tersedia setelah lunas</span>}</td></tr>) : <tr><td colSpan="7" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada pesanan yang sesuai dengan filter.' : 'Belum ada pesanan melalui link referralmu.'}</td></tr>}
+        {visibleOrders.length ? visibleOrders.map((order) => {
+          const hasFirstOrderBonus = Number(order.first_order_bonus_amount || 0) > 0;
+          return <tr key={order.id}><td><strong>{order.order_code}</strong></td><td>{order.customer_name}</td><td><b>{order.template?.name || 'Template'}</b><small>{order.product?.name || 'Paket'}</small></td><td><span className={`affiliate-payment-status status-${order.payment_status}`}>{orderStatus(order.payment_status)}</span></td><td><b>{rupiah(order.affiliate_commission_amount)}</b><small>{hasFirstOrderBonus ? `${order.affiliate_commission_percent}% (${rupiah(order.base_commission_amount)}) + Bonus 50rb` : `${order.affiliate_commission_percent}%`}</small>{hasFirstOrderBonus && <span className="affiliate-bonus-tag">Order #1 · +Rp 50rb</span>}</td><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(order.created_at))}</td><td>{order.editor_url ? <a className="affiliate-editor-link" href={order.editor_url} target="_blank" rel="noopener noreferrer">Buka editor ↗</a> : <span className="affiliate-editor-unavailable">Tersedia setelah lunas</span>}</td></tr>;
+        }) : <tr><td colSpan="7" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada pesanan yang sesuai dengan filter.' : 'Belum ada pesanan melalui link referralmu.'}</td></tr>}
       </tbody></table>
     </div>
     {totalPages > 1 && <nav className="affiliate-pagination" aria-label="Halaman pesanan"><button type="button" disabled={currentPage <= 1} onClick={() => changePage(currentPage - 1)}>← Sebelumnya</button><div>{pageNumbers.map((page) => <button type="button" className={currentPage === page ? 'active' : ''} aria-current={currentPage === page ? 'page' : undefined} onClick={() => changePage(page)} key={page}>{page}</button>)}</div><button type="button" disabled={currentPage >= totalPages} onClick={() => changePage(currentPage + 1)}>Berikutnya →</button></nav>}
@@ -1856,6 +1929,7 @@ function EarningsPage({ data, error, reload, affiliateId, affiliate }) {
   const filteredPendingCommission = filteredEarnings.filter((earning) => earning.payment_status !== 'paid')
     .reduce((total, earning) => total + Number(earning.affiliate_commission_amount || 0), 0);
   const activeWithdrawals = (data?.withdrawals || []).filter((withdrawal) => ['pending', 'processing'].includes(withdrawal.status)).length;
+  const firstOrderBonus = useMemo(() => deriveFirstOrderBonus(data, earnings), [data, earnings]);
   if (!data) return error
     ? <div className="affiliate-dashboard-error"><strong>Penghasilan belum dapat dimuat</strong><p>{error}</p><button type="button" onClick={reload}>Coba lagi</button></div>
     : <FinanceLoading/>;
@@ -1871,7 +1945,8 @@ function EarningsPage({ data, error, reload, affiliateId, affiliate }) {
       </div>
       <div className="affiliate-heading-balances"><div className="affiliate-ref-code"><small>SALDO TERSEDIA</small><strong>{rupiah(data.summary.available)}</strong><span>Siap diajukan untuk penarikan</span></div><div className={`affiliate-ref-code affiliate-reserved-balance ${activeWithdrawals ? 'is-active' : ''}`}><small><i/>DALAM PENARIKAN</small><strong>{rupiah(data.summary.reserved)}</strong><span>{activeWithdrawals ? `${activeWithdrawals} penarikan sedang diproses` : 'Tidak ada penarikan aktif'}</span></div></div>
     </div>
-    <div className="affiliate-finance-summary"><article className="primary"><small>Total komisi dibayar</small><strong>{rupiah(filteredPaidCommission)}</strong><span>{hasActiveFilters ? 'Total komisi dibayar dari hasil filter' : 'Dari seluruh order berstatus dibayar'}</span></article><article><small>Menunggu pembayaran</small><strong>{rupiah(filteredPendingCommission)}</strong><span>{hasActiveFilters ? 'Komisi tertunda dari hasil filter' : 'Belum masuk saldo tersedia'}</span></article></div>
+    <div className="affiliate-finance-summary"><article className="primary"><small>Total komisi dibayar</small><strong>{rupiah(filteredPaidCommission)}</strong><span>{hasActiveFilters ? 'Total komisi dibayar dari hasil filter' : firstOrderBonus.has_first_paid_order ? 'Termasuk bonus order pertama Rp 50.000' : 'Dari seluruh order berstatus dibayar'}</span></article><article><small>Menunggu pembayaran</small><strong>{rupiah(filteredPendingCommission)}</strong><span>{hasActiveFilters ? 'Komisi tertunda dari hasil filter' : 'Belum masuk saldo tersedia'}</span></article></div>
+    <FirstOrderBonusBanner bonus={firstOrderBonus} compact/>
     <div className="affiliate-finance-section-heading"><div><span>RIWAYAT</span><h2>Pergerakan komisi</h2></div><small>{filteredEarnings.length} dari {earnings.length} transaksi referral</small></div>
     <div className="affiliate-order-filters affiliate-earning-filters">
       <div className="affiliate-order-filter-grid">
@@ -1923,7 +1998,10 @@ function EarningsPage({ data, error, reload, affiliateId, affiliate }) {
         </div>
       </div>
     </div>
-    <div className="affiliate-order-table-wrap"><table className="affiliate-order-table affiliate-earning-table"><thead><tr><th>Invoice</th><th>Produk</th><th>Status</th><th>Persentase</th><th>Komisi</th><th>Tanggal</th></tr></thead><tbody>{rows.length ? rows.map((earning) => <tr key={earning.id}><td><strong>{earning.order_code}</strong></td><td><b>{earning.template_name}</b><small>{earning.product_name}</small></td><td><span className={`affiliate-payment-status status-${earning.payment_status}`}>{orderStatus(earning.payment_status)}</span></td><td>{earning.affiliate_commission_percent}%</td><td><b>{rupiah(earning.affiliate_commission_amount)}</b><small>{earning.payment_status === 'paid' ? 'Masuk saldo' : 'Tertunda'}</small></td><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(earning.created_at))}</td></tr>) : <tr><td colSpan="6" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada transaksi yang sesuai dengan filter.' : 'Belum ada penghasilan dari referral.'}</td></tr>}</tbody></table></div>
+    <div className="affiliate-order-table-wrap"><table className="affiliate-order-table affiliate-earning-table"><thead><tr><th>Invoice</th><th>Produk</th><th>Status</th><th>Persentase</th><th>Komisi</th><th>Tanggal</th></tr></thead><tbody>{rows.length ? rows.map((earning) => {
+      const hasFirstOrderBonus = Number(earning.first_order_bonus_amount || 0) > 0;
+      return <tr key={earning.id}><td><strong>{earning.order_code}</strong></td><td><b>{earning.template_name}</b><small>{earning.product_name}</small></td><td><span className={`affiliate-payment-status status-${earning.payment_status}`}>{orderStatus(earning.payment_status)}</span></td><td>{earning.affiliate_commission_percent}%</td><td><b>{rupiah(earning.affiliate_commission_amount)}</b><small>{earning.payment_status === 'paid' ? (hasFirstOrderBonus ? `Masuk saldo · ${rupiah(earning.base_commission_amount)} + Bonus 50rb` : 'Masuk saldo') : 'Tertunda'}</small>{hasFirstOrderBonus && <span className="affiliate-bonus-tag">Order #1 · +Rp 50rb</span>}</td><td>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(earning.created_at))}</td></tr>;
+    }) : <tr><td colSpan="6" className="affiliate-order-empty">{hasActiveFilters ? 'Tidak ada transaksi yang sesuai dengan filter.' : 'Belum ada penghasilan dari referral.'}</td></tr>}</tbody></table></div>
     {pageCount > 1 && <nav className="affiliate-pagination" aria-label="Halaman penghasilan"><button type="button" disabled={page === 1} onClick={() => changePage(page - 1)}>← Sebelumnya</button><div>{pageNumbers.map((number) => <button type="button" className={page === number ? 'active' : ''} aria-current={page === number ? 'page' : undefined} onClick={() => changePage(number)} key={number}>{number}</button>)}</div><button type="button" disabled={page === pageCount} onClick={() => changePage(page + 1)}>Berikutnya →</button></nav>}
     <p className="affiliate-page-count">Maksimal 10 transaksi per halaman · halaman {page} dari {pageCount}</p>
   </section>;

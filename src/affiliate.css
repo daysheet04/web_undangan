@@ -1749,3 +1749,131 @@ a { color: inherit; }
 
 
 
+
+.affiliate-first-order-bonus-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 15px 18px;
+  border: 1px solid #d7e2dc;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fbfdfc 0%, #f3f7f4 100%);
+}
+
+.affiliate-first-order-bonus-banner.is-earned {
+  border-color: #9ed0ba;
+  background: linear-gradient(135deg, #effaf4 0%, #e5f6ec 100%);
+}
+
+.affiliate-first-order-bonus-banner.is-pending {
+  border-color: #ebd09b;
+  background: linear-gradient(135deg, #fffcf3 0%, #fdf5df 100%);
+}
+
+.affiliate-first-order-bonus-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.affiliate-first-order-bonus-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: #e5eee9;
+  color: #17493d;
+  font-size: .95rem;
+  font-weight: 800;
+}
+
+.affiliate-first-order-bonus-banner.is-earned .affiliate-first-order-bonus-icon {
+  background: #17493d;
+  color: #fff;
+}
+
+.affiliate-first-order-bonus-banner.is-pending .affiliate-first-order-bonus-icon {
+  background: #a16207;
+  color: #fff;
+}
+
+.affiliate-first-order-bonus-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.affiliate-first-order-bonus-copy strong {
+  color: #102e26;
+  font-size: .88rem;
+  font-weight: 800;
+}
+
+.affiliate-first-order-bonus-copy p {
+  margin: 0;
+  color: #4f645c;
+  font-size: .74rem;
+  line-height: 1.5;
+}
+
+.affiliate-first-order-bonus-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd9d2;
+  background: #fff;
+  color: #17493d;
+  font-size: .7rem;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.affiliate-first-order-bonus-banner.is-earned .affiliate-first-order-bonus-pill {
+  background: #17493d;
+  border-color: #17493d;
+  color: #fff;
+}
+
+.affiliate-first-order-bonus-banner.is-pending .affiliate-first-order-bonus-pill {
+  background: #fef3c7;
+  border-color: #e6bf68;
+  color: #854d0e;
+}
+
+.affiliate-first-order-bonus-banner.is-compact {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  padding: 12px 15px;
+}
+
+.affiliate-bonus-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #17493d;
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  width: fit-content;
+}
+
+@media (max-width: 640px) {
+  .affiliate-first-order-bonus-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .affiliate-first-order-bonus-pill {
+    align-self: flex-start;
+  }
+}

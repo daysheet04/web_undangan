@@ -1,8 +1,29 @@
 const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+const LOCAL_IPS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 function isLocalHostname(hostname) {
-  const host = String(hostname || '').toLowerCase();
+  const host = String(hostname || '').toLowerCase().replace(/^\[([^\]]+)\](:\d+)?$/, '[$1]').replace(/:(\d+)$/, '');
   return LOCAL_HOSTNAMES.has(host) || host.endsWith('.local');
+}
+
+function isLocalDevRequest(request, url) {
+  if (isLocalHostname(url.hostname)) return true;
+
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const firstForwardedHost = forwardedHost.split(',')[0].trim();
+  if (firstForwardedHost && isLocalHostname(firstForwardedHost)) return true;
+
+  // Wrangler local dev populates request.url with custom route hostnames (e.g. affiliate.daymoment.id)
+  // when custom_domain routes are configured, but omits Edge `cf-ray` / `cf-visitor` headers.
+  const hasCfRay = Boolean(request.headers.get('cf-ray'));
+  if (!hasCfRay) {
+    const cfIp = String(request.headers.get('cf-connecting-ip') || '').trim().toLowerCase();
+    if (LOCAL_IPS.has(cfIp) || !request.headers.get('cf-visitor')) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -10,7 +31,7 @@ function isLocalHostname(hostname) {
  */
 export function enforceHttpsRedirect(request) {
   const url = new URL(request.url);
-  if (isLocalHostname(url.hostname)) return null;
+  if (isLocalDevRequest(request, url)) return null;
 
   const cfVisitor = String(request.headers.get('cf-visitor') || '');
   const forwardedProto = String(request.headers.get('x-forwarded-proto') || '').toLowerCase();

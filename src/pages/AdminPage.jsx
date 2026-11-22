@@ -2361,9 +2361,41 @@ function AffiliateCommissionModal({ affiliate, onClose, onSaved }) {
   </div>;
 }
 
+function affiliateFirstOrderMeta(affiliate) {
+  const bonus = affiliate?.first_order_bonus || {};
+  const totalOrders = Number(bonus.total_orders || 0);
+  const paidOrders = Number(bonus.paid_orders_count || 0);
+  const pendingOrders = Number(bonus.pending_orders_count || 0);
+  if (bonus.has_first_paid_order) {
+    return {
+      badgeClass: 'is-done',
+      badgeText: '✓ Order Pertama Sukses · Komisi Done',
+      dlClass: 'is-done',
+      dlText: `✓ Done (+Rp 50.000) · ${bonus.first_paid_order_code || 'Lunas'}${paidOrders > 1 ? ` · ${paidOrders} order sukses` : ''}`,
+    };
+  }
+  if (totalOrders > 0) {
+    return {
+      badgeClass: 'is-pending',
+      badgeText: 'Order Belum Sukses · Komisi Belum Dapat',
+      dlClass: 'is-pending',
+      dlText: pendingOrders > 0
+        ? `Belum sukses (${pendingOrders} order menunggu) · Komisi belum didapat`
+        : `Belum ada order sukses (${totalOrders} order) · Komisi belum didapat`,
+    };
+  }
+  return {
+    badgeClass: 'is-empty',
+    badgeText: 'Belum Ada Orderan · Komisi Belum Dapat',
+    dlClass: 'is-empty',
+    dlText: 'Belum ada orderan · Komisi belum didapat',
+  };
+}
+
 function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave, onDelete, onCommissionSaved }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
+  const [firstOrderFilter, setFirstOrderFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(null);
   const [editError, setEditError] = useState('');
@@ -2372,14 +2404,18 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
   const affiliates = (data?.affiliates || []).filter((affiliate) => ['active', 'suspended'].includes(affiliate.status));
   const filtered = useMemo(() => affiliates.filter((affiliate) => {
     const matchesStatus = status === 'all' || affiliate.status === status;
+    const hasFirstPaid = affiliate.first_order_bonus?.has_first_paid_order === true;
+    const matchesFirstOrder = firstOrderFilter === 'all'
+      || (firstOrderFilter === 'earned' && hasFirstPaid)
+      || (firstOrderFilter === 'not_earned' && !hasFirstPaid);
     const needle = query.trim().toLowerCase();
     const matchesQuery = !needle || `${affiliate.full_name || ''} ${affiliate.email || ''} ${affiliate.phone || ''} ${affiliate.nik || ''} ${affiliate.referral_code || ''}`.toLowerCase().includes(needle);
-    return matchesStatus && matchesQuery;
-  }), [affiliates, query, status]);
+    return matchesStatus && matchesFirstOrder && matchesQuery;
+  }), [affiliates, query, status, firstOrderFilter]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / 10));
   const pageItems = filtered.slice((page - 1) * 10, page * 10);
   const paginationItems = affiliatePaginationItems(page, pageCount);
-  useEffect(() => { setPage(1); }, [query, status]);
+  useEffect(() => { setPage(1); }, [query, status, firstOrderFilter]);
   useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
   useEffect(() => {
     if (!editing) return undefined;
@@ -2469,22 +2505,25 @@ Akun affiliate, sesi login, pengaturan produk, data traffic, dan riwayat penarik
 
   if (loading) return <div className="admin-affiliate-review-state">Memuat data affiliate...</div>;
   if (error) return <div className="admin-affiliate-review-state is-error"><span>{error}</span><button type="button" onClick={onReload}>Coba lagi</button></div>;
+  const firstPaidSuccessCount = affiliates.filter((item) => item.first_order_bonus?.has_first_paid_order === true).length;
   return <>
-    <div className="admin-affiliate-data-summary"><article><span>Total affiliate</span><strong>{affiliates.length}</strong></article><article><span>Akun aktif</span><strong>{affiliates.filter((item) => item.status === 'active').length}</strong></article><article><span>Dinonaktifkan</span><strong>{affiliates.filter((item) => item.status === 'suspended').length}</strong></article></div>
-    <section className="admin-affiliate-data-filter">
+    <div className="admin-affiliate-data-summary has-four"><article><span>Total affiliate</span><strong>{affiliates.length}</strong></article><article><span>Akun aktif</span><strong>{affiliates.filter((item) => item.status === 'active').length}</strong></article><article><span>Dinonaktifkan</span><strong>{affiliates.filter((item) => item.status === 'suspended').length}</strong></article><article><span>Order pertama sukses</span><strong>{firstPaidSuccessCount}</strong></article></div>
+    <section className="admin-affiliate-data-filter has-order-filter">
       <label><span>Cari affiliate</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nama, email, NIK, WhatsApp, atau kode referral"/></label>
       <AdminFilterDropdown label="Status akun" value={status} onChange={setStatus} options={[{ value: 'all', label: 'Semua status' }, { value: 'active', label: 'Aktif', description: 'Dapat login dan menggunakan dashboard' }, { value: 'suspended', label: 'Dinonaktifkan', description: 'Tidak dapat login ke akun' }]}/>
-      <button type="button" onClick={() => { setQuery(''); setStatus('all'); }}>Reset filter</button>
+      <AdminFilterDropdown label="Status order pertama" value={firstOrderFilter} onChange={setFirstOrderFilter} options={[{ value: 'all', label: 'Semua status order' }, { value: 'earned', label: 'Sudah order sukses (Done)', description: 'Sudah mendapat bonus Rp 50rb + komisi' }, { value: 'not_earned', label: 'Belum ada order sukses', description: 'Belum ada order lunas / komisi' }]}/>
+      <button type="button" onClick={() => { setQuery(''); setStatus('all'); setFirstOrderFilter('all'); }}>Reset filter</button>
       <small>{filtered.length} dari {affiliates.length} affiliate ditampilkan</small>
     </section>
     <section className="admin-affiliate-data-list">
       <div className="admin-section-heading"><div><span className="eyebrow">AKUN PARTNER</span><h2>Affiliate yang disetujui</h2></div><button className="button button-secondary" type="button" onClick={onReload}>Muat ulang</button></div>
       {pageItems.length ? pageItems.map((affiliate) => {
         const customCommissionCount = Number(affiliate.custom_commission_count ?? Object.keys(affiliate.custom_commissions || {}).length);
+        const orderBonusMeta = affiliateFirstOrderMeta(affiliate);
         return <article className="admin-affiliate-data-card" key={affiliate.id}>
           <div className="admin-affiliate-data-avatar">{String(affiliate.full_name || 'A').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
-          <div className="admin-affiliate-data-identity"><div><h3>{affiliate.full_name}</h3><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span><span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span>{customCommissionCount > 0 && <span className="admin-affiliate-custom-comm-badge">Komisi khusus · {customCommissionCount} template</span>}</div><p>{affiliate.email}</p><small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small></div>
-          <dl><div><dt>WhatsApp</dt><dd>{affiliate.phone || '-'}</dd></div><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Upgrade akun</dt><dd>{affiliate.account_tier === 'pro' ? `Pro · ${affiliate.pro_source === 'payment' ? 'Pembayaran' : affiliate.pro_source === 'social' ? 'Media sosial' : 'Admin'}` : 'Basic'}</dd></div><div><dt>Komisi khusus</dt><dd>{customCommissionCount > 0 ? `${customCommissionCount} template` : 'Default global'}</dd></div><div><dt>Disetujui</dt><dd>{affiliate.reviewed_at ? dateFormat.format(new Date(affiliate.reviewed_at)) : '-'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{affiliate.updated_at ? dateFormat.format(new Date(affiliate.updated_at)) : '-'}</dd></div></dl>
+          <div className="admin-affiliate-data-identity"><div><h3>{affiliate.full_name}</h3><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span><span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span><span className={`admin-affiliate-bonus-badge ${orderBonusMeta.badgeClass}`}>{orderBonusMeta.badgeText}</span>{customCommissionCount > 0 && <span className="admin-affiliate-custom-comm-badge">Komisi khusus · {customCommissionCount} template</span>}</div><p>{affiliate.email}</p><small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small></div>
+          <dl><div><dt>WhatsApp</dt><dd>{affiliate.phone || '-'}</dd></div><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Upgrade akun</dt><dd>{affiliate.account_tier === 'pro' ? `Pro · ${affiliate.pro_source === 'payment' ? 'Pembayaran' : affiliate.pro_source === 'social' ? 'Media sosial' : 'Admin'}` : 'Basic'}</dd></div><div><dt>Status Order Pertama</dt><dd className={`admin-affiliate-bonus-dl ${orderBonusMeta.dlClass}`}>{orderBonusMeta.dlText}</dd></div><div><dt>Komisi khusus</dt><dd>{customCommissionCount > 0 ? `${customCommissionCount} template` : 'Default global'}</dd></div><div><dt>Disetujui</dt><dd>{affiliate.reviewed_at ? dateFormat.format(new Date(affiliate.reviewed_at)) : '-'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{affiliate.updated_at ? dateFormat.format(new Date(affiliate.updated_at)) : '-'}</dd></div></dl>
           <div className="admin-affiliate-data-actions"><button className="edit" type="button" disabled={Boolean(working)} onClick={() => startEdit(affiliate)}>Edit data</button><button className="commission" type="button" disabled={Boolean(working)} onClick={() => setCommissionTarget(affiliate)}>Edit komisi</button><button className={affiliate.status === 'active' ? 'disable' : 'enable'} type="button" disabled={Boolean(working)} onClick={() => toggleStatus(affiliate)}>{working === `status:${affiliate.id}` ? 'Memproses...' : affiliate.status === 'active' ? 'Nonaktifkan akun' : 'Aktifkan akun'}</button><button className="delete" type="button" data-delete-affiliate={affiliate.id} disabled={Boolean(working)} onClick={() => handleDelete(affiliate)}>{working === `delete:${affiliate.id}` ? 'Menghapus...' : 'Hapus data'}</button></div>
         </article>;
       }) : <div className="admin-affiliate-review-state">Tidak ada affiliate yang cocok dengan filter.</div>}

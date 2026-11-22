@@ -24,6 +24,7 @@ import {
   resolveAffiliateCommissionPercent,
   saveAffiliateCustomCommissions,
 } from '../lib/affiliateCommissions.js';
+import { summarizeAffiliateFirstOrderStatus } from '../lib/affiliateFirstOrderBonus.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -652,27 +653,42 @@ admin.get('/admin/affiliates', async (c) => {
   if (platformResult.error) throw platformResult.error;
   const data = accountResult.data;
   const affiliateIds = (data || []).map((account) => account.id);
-  const [historyResult, customCommissionsMap] = affiliateIds.length
+  const [historyResult, customCommissionsMap, orderResult] = affiliateIds.length
     ? await Promise.all([
       db.from('affiliate_review_history')
         .select('id,affiliate_id,action,note,created_at')
         .in('affiliate_id', affiliateIds)
         .order('created_at', { ascending: true }),
       getAffiliateCustomCommissionsMap(db, affiliateIds),
+      db.from('orders')
+        .select('id,order_code,affiliate_id,payment_status,affiliate_commission_amount,created_at')
+        .in('affiliate_id', affiliateIds)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(10000),
     ])
-    : [{ data: [], error: null }, new Map()];
+    : [{ data: [], error: null }, new Map(), { data: [], error: null }];
   if (historyResult.error) throw historyResult.error;
+  if (orderResult.error) throw orderResult.error;
   const historyByAffiliate = (historyResult.data || []).reduce((items, entry) => {
     if (!items.has(entry.affiliate_id)) items.set(entry.affiliate_id, []);
     items.get(entry.affiliate_id).push({ id: entry.id, action: entry.action, note: entry.note, created_at: entry.created_at });
     return items;
   }, new Map());
+  const ordersByAffiliate = (orderResult.data || []).reduce((items, order) => {
+    if (!order?.affiliate_id) return items;
+    if (!items.has(order.affiliate_id)) items.set(order.affiliate_id, []);
+    items.get(order.affiliate_id).push(order);
+    return items;
+  }, new Map());
   const affiliates = (data || []).map((account) => {
     const customCommissions = customCommissionsMap.get(account.id) || {};
+    const firstOrderBonus = summarizeAffiliateFirstOrderStatus(ordersByAffiliate.get(account.id) || []);
     return {
       ...adminAffiliate(account),
       custom_commissions: customCommissions,
       custom_commission_count: Object.keys(customCommissions).length,
+      first_order_bonus: firstOrderBonus,
       review_history: historyByAffiliate.get(account.id) || [],
     };
   });

@@ -254,7 +254,8 @@ export async function downloadAffiliateIncomeReport({
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(60, 75, 68);
       const pct = Number(item.affiliate_commission_percent || 0);
-      pdf.text(`${pct}%`, colX.percent, currentY);
+      const hasFirstBonus = Number(item.first_order_bonus_amount || 0) > 0;
+      pdf.text(hasFirstBonus ? `${pct}% + 50rb` : `${pct}%`, colX.percent, currentY);
 
       // Amount
       pdf.setFont('helvetica', 'bold');
@@ -316,7 +317,7 @@ export function downloadAffiliateIncomeCsv({
     [`Periode: ${periodLabel}`],
     [`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`],
     [],
-    ['No', 'Tanggal', 'Invoice', 'Customer', 'Template', 'Paket', 'Status', 'Komisi (%)', 'Nominal Komisi (IDR)'],
+    ['No', 'Tanggal', 'Invoice', 'Customer', 'Template', 'Paket', 'Status', 'Komisi (%)', 'Bonus Order Pertama (IDR)', 'Nominal Komisi (IDR)'],
   ];
 
   items.forEach((item, index) => {
@@ -329,6 +330,7 @@ export function downloadAffiliateIncomeCsv({
       item.product_name || item.product?.name || '-',
       item.payment_status === 'paid' ? 'Lunas' : 'Menunggu',
       Number(item.affiliate_commission_percent || 0),
+      Number(item.first_order_bonus_amount || 0),
       Number(item.affiliate_commission_amount || 0),
     ]);
   });
