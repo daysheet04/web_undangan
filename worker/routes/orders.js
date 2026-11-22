@@ -5,6 +5,7 @@ import { sendOrderCreatedEmail, sendPaymentConfirmedEmail } from '../lib/email.j
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
 import { consumeIpRateLimit } from '../lib/rateLimit.js';
 import { hasRealSupabaseConfig, orderByCode, templateByCode } from '../lib/repositories.js';
+import { getAffiliateCustomCommissions, resolveAffiliateCommissionPercent } from '../lib/affiliateCommissions.js';
 
 const orders = new Hono();
 const DEMO_ORDERS = new Map();
@@ -21,7 +22,7 @@ function publicOrder(order) {
   };
 }
 
-async function affiliateAttribution(db, referralCode, selectedPackage) {
+async function affiliateAttribution(db, referralCode, template, selectedPackage) {
   const code = String(referralCode || '').trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
   if (!code) return null;
   const { data: account, error: accountError } = await db.from('affiliate_accounts')
@@ -39,12 +40,13 @@ async function affiliateAttribution(db, referralCode, selectedPackage) {
     .maybeSingle();
   if (settingError) throw settingError;
   if (setting?.is_visible !== true) return null;
-  const configuredPercent = Number(selectedPackage.affiliate_commission_default_percent ?? 0);
-  const percent = Math.max(0, Math.min(100, Number.isFinite(configuredPercent) ? configuredPercent : 0));
+  const templateMap = template?.id && template?.code ? new Map([[String(template.id), template.code]]) : null;
+  const customCommissions = await getAffiliateCustomCommissions(db, account.id, templateMap);
+  const { percent } = resolveAffiliateCommissionPercent(customCommissions, template, selectedPackage);
   return {
     affiliate_id: account.id,
     referral_name: account.full_name,
-    commission_percent: Math.round(percent * 100) / 100,
+    commission_percent: percent,
     commission_amount: Math.round(Number(selectedPackage.price || 0) * percent / 100),
   };
 }
@@ -189,7 +191,7 @@ orders.post('/orders', async (c) => {
   const db = database(c.env);
   const code = orderCode();
   const editorToken = randomHex(32);
-  const attribution = await affiliateAttribution(db, referralCode, selectedPackage);
+  const attribution = await affiliateAttribution(db, referralCode, template, selectedPackage);
   if (attribution?.blocked) {
     return c.json({
       ok: false,

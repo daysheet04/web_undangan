@@ -16,6 +16,14 @@ import {
   uploadTemplatePackagePhoto,
 } from '../lib/templateDemoStore.js';
 import { servePublicR2Media, validImageFile } from '../lib/mediaValidation.js';
+import {
+  clampCommissionPercent,
+  deleteAffiliateCustomCommissionsFallback,
+  getAffiliateCustomCommissions,
+  getAffiliateCustomCommissionsMap,
+  resolveAffiliateCommissionPercent,
+  saveAffiliateCustomCommissions,
+} from '../lib/affiliateCommissions.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -644,22 +652,30 @@ admin.get('/admin/affiliates', async (c) => {
   if (platformResult.error) throw platformResult.error;
   const data = accountResult.data;
   const affiliateIds = (data || []).map((account) => account.id);
-  const historyResult = affiliateIds.length
-    ? await db.from('affiliate_review_history')
-      .select('id,affiliate_id,action,note,created_at')
-      .in('affiliate_id', affiliateIds)
-      .order('created_at', { ascending: true })
-    : { data: [], error: null };
+  const [historyResult, customCommissionsMap] = affiliateIds.length
+    ? await Promise.all([
+      db.from('affiliate_review_history')
+        .select('id,affiliate_id,action,note,created_at')
+        .in('affiliate_id', affiliateIds)
+        .order('created_at', { ascending: true }),
+      getAffiliateCustomCommissionsMap(db, affiliateIds),
+    ])
+    : [{ data: [], error: null }, new Map()];
   if (historyResult.error) throw historyResult.error;
   const historyByAffiliate = (historyResult.data || []).reduce((items, entry) => {
     if (!items.has(entry.affiliate_id)) items.set(entry.affiliate_id, []);
     items.get(entry.affiliate_id).push({ id: entry.id, action: entry.action, note: entry.note, created_at: entry.created_at });
     return items;
   }, new Map());
-  const affiliates = (data || []).map((account) => ({
-    ...adminAffiliate(account),
-    review_history: historyByAffiliate.get(account.id) || [],
-  }));
+  const affiliates = (data || []).map((account) => {
+    const customCommissions = customCommissionsMap.get(account.id) || {};
+    return {
+      ...adminAffiliate(account),
+      custom_commissions: customCommissions,
+      custom_commission_count: Object.keys(customCommissions).length,
+      review_history: historyByAffiliate.get(account.id) || [],
+    };
+  });
   return c.json({
     ok: true,
     affiliates,
@@ -1557,6 +1573,125 @@ admin.patch('/admin/pro-upgrades/:requestId/review', async (c) => {
   });
 });
 
+admin.get('/admin/affiliates/:affiliateId/commissions', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    return c.json({ ok: false, message: 'Pengaturan komisi affiliate hanya tersedia pada database utama.' }, 422);
+  }
+  const db = database(c.env);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const { data: current, error: readError } = await db.from('affiliate_accounts')
+    .select('id,full_name,email,referral_code,status')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) return c.json({ ok: false, message: 'Affiliate tidak ditemukan.' }, 404);
+  if (!['active', 'suspended'].includes(current.status)) {
+    return c.json({ ok: false, message: 'Data ini belum menjadi akun affiliate yang disetujui.' }, 409);
+  }
+
+  const { data: templateRows, error: templateError } = await db.from('templates')
+    .select('id,code,name,category,is_active,template_packages(id,code,name,price,affiliate_commission_default_percent,sort_order,is_active)')
+    .order('id');
+  if (templateError) throw templateError;
+
+  const templateMap = new Map((templateRows || []).map((item) => [String(item.id), item.code]));
+  const customCommissions = await getAffiliateCustomCommissions(db, current.id, templateMap);
+
+  const templates = (templateRows || []).map((template) => {
+    const hasCustom = Object.prototype.hasOwnProperty.call(customCommissions, template.code);
+    const customPercent = hasCustom ? clampCommissionPercent(customCommissions[template.code]) : null;
+    const packages = (template.template_packages || [])
+      .slice()
+      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
+      .map((pkg) => {
+        const { percent, isCustom, defaultPercent } = resolveAffiliateCommissionPercent(customCommissions, template, pkg);
+        const price = Number(pkg.price || 0);
+        return {
+          id: pkg.id,
+          code: pkg.code,
+          name: pkg.name,
+          price,
+          is_active: pkg.is_active !== false,
+          default_commission_percent: defaultPercent,
+          effective_commission_percent: percent,
+          effective_commission_amount: Math.round(price * percent / 100),
+          is_custom_commission: isCustom,
+        };
+      });
+    return {
+      id: template.id,
+      code: template.code,
+      name: template.name,
+      category: template.category,
+      is_active: template.is_active !== false,
+      custom_commission_percent: customPercent,
+      packages,
+    };
+  });
+
+  return c.json({
+    ok: true,
+    affiliate: current,
+    custom_commissions: customCommissions,
+    custom_commission_count: Object.keys(customCommissions).length,
+    templates,
+  });
+});
+
+admin.put('/admin/affiliates/:affiliateId/commissions', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) {
+    return c.json({ ok: false, message: 'Pengaturan komisi affiliate hanya tersedia pada database utama.' }, 422);
+  }
+  const db = database(c.env);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const { data: current, error: readError } = await db.from('affiliate_accounts')
+    .select('id,full_name,status')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) return c.json({ ok: false, message: 'Affiliate tidak ditemukan.' }, 404);
+  if (!['active', 'suspended'].includes(current.status)) {
+    return c.json({ ok: false, message: 'Data ini belum menjadi akun affiliate yang disetujui.' }, 409);
+  }
+
+  const input = await c.req.json().catch(() => ({}));
+  const rawCommissions = input?.commissions;
+  if (!rawCommissions || typeof rawCommissions !== 'object' || Array.isArray(rawCommissions)) {
+    return c.json({ ok: false, message: 'Format data komisi khusus tidak valid.' }, 422);
+  }
+
+  const validated = {};
+  for (const [templateCode, rawValue] of Object.entries(rawCommissions)) {
+    if (rawValue === null || rawValue === undefined || (typeof rawValue === 'string' && rawValue.trim() === '')) {
+      continue;
+    }
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      return c.json({ ok: false, message: `Persentase komisi untuk template ${templateCode} harus antara 0% sampai 100%.` }, 422);
+    }
+    validated[templateCode] = Math.round(parsed * 100) / 100;
+  }
+
+  const { data: templateRows, error: templateError } = await db.from('templates').select('id,code');
+  if (templateError) throw templateError;
+
+  const saved = await saveAffiliateCustomCommissions(db, current.id, validated, templateRows || []);
+  const customCount = Object.keys(saved).length;
+  return c.json({
+    ok: true,
+    affiliate_id: current.id,
+    custom_commissions: saved,
+    custom_commission_count: customCount,
+    message: customCount > 0
+      ? `Komisi khusus untuk ${current.full_name} berhasil disimpan (${customCount} template).`
+      : `Komisi ${current.full_name} dikembalikan ke pengaturan default global.`,
+  });
+});
+
 admin.patch('/admin/affiliates/:affiliateId/account', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Pengelolaan affiliate hanya tersedia pada database utama.' }, 422);
   const input = await c.req.json().catch(() => ({}));
@@ -1570,6 +1705,19 @@ admin.patch('/admin/affiliates/:affiliateId/account', async (c) => {
   if (!/^\+?\d{9,15}$/.test(phone)) return c.json({ ok: false, message: 'Nomor WhatsApp tidak valid.' }, 422);
   if (!/^\d{16}$/.test(nik)) return c.json({ ok: false, message: 'NIK wajib terdiri dari 16 digit angka.' }, 422);
   if (!/^[a-zA-Z0-9]{3,32}$/.test(referralCode)) return c.json({ ok: false, message: 'Kode referral wajib 3–32 karakter berupa huruf atau angka.' }, 422);
+
+  const rawPassword = input.new_password !== undefined ? input.new_password : input.password;
+  const hasPasswordInput = rawPassword !== undefined && rawPassword !== null && String(rawPassword) !== '';
+  const newPassword = hasPasswordInput ? String(rawPassword) : '';
+  if (hasPasswordInput) {
+    if (newPassword.length < 8) return c.json({ ok: false, message: 'Password baru minimal 8 karakter.' }, 422);
+    if (new TextEncoder().encode(newPassword).byteLength > 72) {
+      return c.json({ ok: false, message: 'Password baru terlalu panjang. Gunakan maksimal 72 byte.' }, 422);
+    }
+    if (input.confirm_password !== undefined && String(input.confirm_password) !== newPassword) {
+      return c.json({ ok: false, message: 'Konfirmasi password baru belum sama.' }, 422);
+    }
+  }
 
   const db = database(c.env);
   const { data: current, error: readError } = await db.from('affiliate_accounts')
@@ -1591,7 +1739,53 @@ admin.patch('/admin/affiliates/:affiliateId/account', async (c) => {
     }
     throw error;
   }
-  return c.json({ ok: true, affiliate: adminAffiliate(updated), message: 'Data affiliate berhasil diperbarui.' });
+
+  if (hasPasswordInput) {
+    const { data: setOk, error: setErr } = await db.rpc('admin_set_affiliate_password', {
+      p_affiliate_id: current.id,
+      p_new_password: newPassword,
+    });
+    if (setErr) {
+      if (setErr.code === 'PGRST202' || /admin_set_affiliate_password|schema cache/i.test(setErr.message || '')) {
+        if (current.status !== 'active') {
+          return c.json({
+            ok: false,
+            message: 'Password akun nonaktif membutuhkan migrasi 2026_11_22_affiliate_custom_commissions.sql (atau aktifkan akun terlebih dahulu).',
+          }, 409);
+        }
+        const { data: changed, error: fallbackErr } = await db.rpc('change_affiliate_password', {
+          p_affiliate_id: current.id,
+          p_new_password: newPassword,
+        });
+        if (fallbackErr) {
+          if (fallbackErr.code === 'PGRST202' || /change_affiliate_password|schema cache/i.test(fallbackErr.message || '')) {
+            return c.json({ ok: false, message: 'Fungsi perubahan password affiliate belum tersedia.' }, 503);
+          }
+          throw fallbackErr;
+        }
+        if (!changed) return c.json({ ok: false, message: 'Password affiliate gagal diperbarui.' }, 409);
+      } else {
+        throw setErr;
+      }
+    } else if (!setOk) {
+      return c.json({ ok: false, message: 'Password affiliate gagal diperbarui.' }, 409);
+    }
+
+    const revokedAt = new Date().toISOString();
+    await Promise.allSettled([
+      db.from('affiliate_sessions').update({ revoked_at: revokedAt }).eq('affiliate_id', current.id).is('revoked_at', null),
+      db.from('affiliate_password_resets').update({ used_at: revokedAt }).eq('affiliate_id', current.id).is('used_at', null),
+    ]);
+  }
+
+  return c.json({
+    ok: true,
+    affiliate: adminAffiliate(updated),
+    password_changed: hasPasswordInput,
+    message: hasPasswordInput
+      ? 'Data dan password akun affiliate berhasil diperbarui.'
+      : 'Data affiliate berhasil diperbarui.',
+  });
 });
 
 admin.patch('/admin/affiliates/:affiliateId/status', async (c) => {
@@ -1691,6 +1885,8 @@ admin.delete('/admin/affiliates/:affiliateId', async (c) => {
     .update({ affiliate_id: null })
     .eq('affiliate_id', current.id);
   if (detachOrdersError) throw detachOrdersError;
+
+  await deleteAffiliateCustomCommissionsFallback(db, current.id);
 
   const { error: deleteError } = await db.from('affiliate_accounts')
     .delete()

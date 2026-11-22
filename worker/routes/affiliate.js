@@ -3,6 +3,7 @@ import { database } from '../lib/database.js';
 import { sendAdminWithdrawalRequestedEmail, sendAffiliatePasswordChangedEmail, sendAffiliatePasswordResetEmail, sendAffiliateVerificationEmail, sendAffiliateWithdrawalRequestedEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, validEmail, validPhone } from '../lib/helpers.js';
 import { createSnapTransaction, normalizedPaymentStatus, transactionStatus, verifyNotificationSignature } from '../lib/midtrans.js';
+import { getAffiliateCustomCommissions, resolveAffiliateCommissionPercent } from '../lib/affiliateCommissions.js';
 
 const affiliate = new Hono();
 const SESSION_COOKIE = 'daymoment_affiliate';
@@ -725,7 +726,7 @@ affiliate.get('/affiliate/session', async (c) => {
 affiliate.get('/affiliate/products', async (c) => {
   const current = await activeSession(c);
   if (!current) return c.json({ ok: false, message: 'Sesi login affiliate telah berakhir.' }, 401);
-  const [templateResult, settingResult] = await Promise.all([
+  const [templateResult, settingResult, customCommissions] = await Promise.all([
     current.db.from('templates')
       .select('id,code,name,category,description,thumbnail,template_packages(id,code,name,tagline,price,affiliate_commission_default_percent,sort_order,is_active)')
       .eq('is_active', true)
@@ -734,6 +735,7 @@ affiliate.get('/affiliate/products', async (c) => {
     current.db.from('affiliate_product_settings')
       .select('package_id,is_visible')
       .eq('affiliate_id', current.account.id),
+    getAffiliateCustomCommissions(current.db, current.account.id),
   ]);
   if (templateResult.error) throw templateResult.error;
   if (settingResult.error) throw settingResult.error;
@@ -743,11 +745,14 @@ affiliate.get('/affiliate/products', async (c) => {
       .sort((a, b) => Number(a.sort_order) - Number(b.sort_order))
       .map((product) => {
         const setting = settings.get(String(product.id));
+        const { percent, isCustom, defaultPercent } = resolveAffiliateCommissionPercent(customCommissions, template, product);
         return {
           ...product,
           price: Number(product.price || 0),
-          commission_percent: Number(product.affiliate_commission_default_percent || 0),
-          commission_amount: Math.round(Number(product.price || 0) * Number(product.affiliate_commission_default_percent || 0) / 100),
+          commission_percent: percent,
+          commission_amount: Math.round(Number(product.price || 0) * percent / 100),
+          default_commission_percent: defaultPercent,
+          is_custom_commission: isCustom,
           is_visible: setting?.is_visible === true,
         };
       });

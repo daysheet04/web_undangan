@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { Loading, ErrorState } from '../components/Layout.jsx';
-import { get, money, patch, post, del } from '../lib/api.js';
+import { get, money, patch, post, put, del } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
 import AdminLogin from '../components/AdminLogin.jsx';
 import AdminTemplate from '../templates/AdminTemplate.jsx';
@@ -2065,11 +2065,310 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   </>;
 }
 
-function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave, onDelete }) {
+function AffiliateCommissionModal({ affiliate, onClose, onSaved }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [drafts, setDrafts] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bulkValue, setBulkValue] = useState('');
+
+  const loadCommissions = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setFormError('');
+    try {
+      const result = await get(`/api/admin/affiliates/${encodeURIComponent(affiliate.id)}/commissions`);
+      const nextTemplates = result.templates || [];
+      setTemplates(nextTemplates);
+      const nextDrafts = {};
+      nextTemplates.forEach((tpl) => {
+        nextDrafts[tpl.code] = tpl.custom_commission_percent !== null && tpl.custom_commission_percent !== undefined
+          ? String(tpl.custom_commission_percent)
+          : '';
+      });
+      setDrafts(nextDrafts);
+    } catch (failure) {
+      setError(failure.message || 'Gagal memuat daftar komisi template.');
+    } finally {
+      setLoading(false);
+    }
+  }, [affiliate.id]);
+
+  useEffect(() => {
+    loadCommissions();
+  }, [loadCommissions]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !saving) onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [saving, onClose]);
+
+  const filteredTemplates = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    if (!needle) return templates;
+    return templates.filter((tpl) => `${tpl.name || ''} ${tpl.code || ''} ${tpl.category || ''}`.toLowerCase().includes(needle));
+  }, [templates, searchQuery]);
+
+  const customCount = useMemo(() => (
+    templates.filter((tpl) => {
+      const raw = String(drafts[tpl.code] ?? '').trim();
+      if (!raw) return false;
+      const num = Number(raw);
+      return Number.isFinite(num) && num >= 0 && num <= 100;
+    }).length
+  ), [templates, drafts]);
+
+  const applyBulk = () => {
+    setFormError('');
+    const raw = bulkValue.trim();
+    if (!raw) {
+      setFormError('Isi angka persentase komisi terlebih dahulu.');
+      return;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+      setFormError('Persentase komisi harus antara 0% sampai 100%.');
+      return;
+    }
+    const formatted = String(Math.round(parsed * 100) / 100);
+    setDrafts((current) => {
+      const next = { ...current };
+      templates.forEach((tpl) => {
+        next[tpl.code] = formatted;
+      });
+      return next;
+    });
+  };
+
+  const resetAll = () => {
+    setFormError('');
+    setDrafts((current) => {
+      const next = { ...current };
+      templates.forEach((tpl) => {
+        next[tpl.code] = '';
+      });
+      return next;
+    });
+  };
+
+  const submitCommissions = async (event) => {
+    event.preventDefault();
+    setFormError('');
+    const commissions = {};
+    for (const tpl of templates) {
+      const raw = String(drafts[tpl.code] ?? '').trim();
+      if (!raw) {
+        commissions[tpl.code] = null;
+        continue;
+      }
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        const message = `Persentase komisi untuk ${tpl.name} harus antara 0% sampai 100%.`;
+        setFormError(message);
+        window.showToast?.(message, 'error');
+        return;
+      }
+      commissions[tpl.code] = Math.round(parsed * 100) / 100;
+    }
+
+    setSaving(true);
+    try {
+      const result = await put(`/api/admin/affiliates/${encodeURIComponent(affiliate.id)}/commissions`, { commissions });
+      onSaved?.(affiliate.id, result.custom_commissions, result.custom_commission_count);
+      window.showToast?.(result.message || 'Komisi khusus affiliate berhasil disimpan.');
+      onClose();
+    } catch (failure) {
+      const message = failure.message || 'Gagal menyimpan komisi khusus.';
+      setFormError(message);
+      window.showToast?.(message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <div
+    className="admin-affiliate-commission-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-label={`Edit komisi khusus ${affiliate.full_name}`}
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget && !saving) onClose();
+    }}
+  >
+    <form className="admin-affiliate-commission-dialog" noValidate onSubmit={submitCommissions}>
+      <header>
+        <div>
+          <span className="eyebrow">KOMISI KHUSUS PER TEMPLATE</span>
+          <h2>{affiliate.full_name}</h2>
+          <p>{affiliate.email} · Kode referral <b>{affiliate.referral_code || '-'}</b> · Kosongkan kolom untuk memakai komisi default global.</p>
+        </div>
+        <button
+          type="button"
+          className="admin-affiliate-commission-close"
+          disabled={saving}
+          onClick={onClose}
+          aria-label="Tutup"
+        >
+          ×
+        </button>
+      </header>
+
+      <div className="admin-affiliate-commission-toolbar">
+        <div className="admin-affiliate-commission-search">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Cari nama template atau kategori..."
+            disabled={loading || Boolean(error)}
+          />
+        </div>
+        <div className="admin-affiliate-commission-bulk">
+          <div className="admin-affiliate-commission-bulk-input">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max="100"
+              step="0.01"
+              value={bulkValue}
+              onChange={(event) => setBulkValue(event.target.value)}
+              placeholder="20"
+              aria-label="Persentase komisi massal"
+              disabled={loading || Boolean(error)}
+            />
+            <span>%</span>
+          </div>
+          <button type="button" className="apply" onClick={applyBulk} disabled={loading || Boolean(error) || saving}>
+            Terapkan ke semua
+          </button>
+          <button type="button" className="reset-all" onClick={resetAll} disabled={loading || Boolean(error) || saving}>
+            Reset semua ke default
+          </button>
+        </div>
+      </div>
+
+      {formError && <div className="admin-affiliate-modal-error" role="alert">{formError}</div>}
+
+      <div className="admin-affiliate-commission-body">
+        {loading && <div className="admin-affiliate-review-state">Memuat daftar template &amp; komisi...</div>}
+        {!loading && error && (
+          <div className="admin-affiliate-review-state is-error">
+            <span>{error}</span>
+            <button type="button" onClick={loadCommissions}>Coba lagi</button>
+          </div>
+        )}
+        {!loading && !error && filteredTemplates.length === 0 && (
+          <div className="admin-affiliate-review-state">Tidak ada template yang cocok dengan pencarian.</div>
+        )}
+        {!loading && !error && filteredTemplates.map((tpl) => {
+          const rawDraft = String(drafts[tpl.code] ?? '');
+          const trimmed = rawDraft.trim();
+          const parsedDraft = trimmed === '' ? null : Number(trimmed);
+          const hasValidCustom = parsedDraft !== null && Number.isFinite(parsedDraft) && parsedDraft >= 0 && parsedDraft <= 100;
+          const defaults = (tpl.packages || []).map((pkg) => Number(pkg.default_commission_percent || 0));
+          const minDef = defaults.length ? Math.min(...defaults) : 0;
+          const maxDef = defaults.length ? Math.max(...defaults) : 0;
+          const defaultPlaceholder = minDef === maxDef ? `Default ${minDef}` : `Default ${minDef}–${maxDef}`;
+
+          return (
+            <article className={`admin-affiliate-commission-card ${hasValidCustom ? 'is-custom' : ''}`} key={tpl.code}>
+              <div className="admin-affiliate-commission-card-top">
+                <div className="admin-affiliate-commission-tpl-info">
+                  <div className="admin-affiliate-commission-tpl-title">
+                    <strong>{tpl.name}</strong>
+                    <span className={`admin-affiliate-commission-pill ${hasValidCustom ? 'is-custom' : ''}`}>
+                      {hasValidCustom ? `Komisi khusus · ${Math.round(parsedDraft * 100) / 100}%` : 'Default global'}
+                    </span>
+                    {tpl.is_active === false && (
+                      <span className="admin-affiliate-commission-pill is-inactive">Nonaktif</span>
+                    )}
+                  </div>
+                  <small>{tpl.category || 'Undangan Digital'} · {tpl.code}</small>
+                </div>
+
+                <div className="admin-affiliate-commission-input-group">
+                  <div className="admin-affiliate-commission-percent-field">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder={defaultPlaceholder}
+                      value={rawDraft}
+                      aria-label={`Komisi khusus ${tpl.name}`}
+                      onChange={(event) => setDrafts((current) => ({ ...current, [tpl.code]: event.target.value }))}
+                    />
+                    <span>%</span>
+                  </div>
+                  {trimmed !== '' && (
+                    <button
+                      type="button"
+                      className="admin-affiliate-commission-reset-btn"
+                      onClick={() => setDrafts((current) => ({ ...current, [tpl.code]: '' }))}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {(tpl.packages || []).length > 0 && (
+                <div className="admin-affiliate-commission-packages">
+                  {tpl.packages.map((pkg) => {
+                    const effectivePercent = hasValidCustom
+                      ? Math.round(parsedDraft * 100) / 100
+                      : Number(pkg.default_commission_percent || 0);
+                    const commissionAmount = Math.round(Number(pkg.price || 0) * effectivePercent / 100);
+                    return (
+                      <div className="admin-affiliate-commission-pkg" key={pkg.code}>
+                        <div>
+                          <span>{pkg.name}</span>
+                          <small>{money(pkg.price)} · {effectivePercent.toLocaleString('id-ID')}%</small>
+                        </div>
+                        <b>{money(commissionAmount)}</b>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <footer>
+        <span className="admin-affiliate-commission-summary-note">
+          {customCount > 0
+            ? `${customCount} dari ${templates.length} template memakai komisi khusus`
+            : 'Semua template memakai komisi default global'}
+        </span>
+        <div className="admin-affiliate-commission-footer-actions">
+          <button type="button" disabled={saving} onClick={onClose}>Batal</button>
+          <button type="submit" className="save" disabled={loading || Boolean(error) || saving}>
+            {saving ? 'Menyimpan...' : 'Simpan komisi'}
+          </button>
+        </div>
+      </footer>
+    </form>
+  </div>;
+}
+
+function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave, onDelete, onCommissionSaved }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState(null);
+  const [editError, setEditError] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [commissionTarget, setCommissionTarget] = useState(null);
   const affiliates = (data?.affiliates || []).filter((affiliate) => ['active', 'suspended'].includes(affiliate.status));
   const filtered = useMemo(() => affiliates.filter((affiliate) => {
     const matchesStatus = status === 'all' || affiliate.status === status;
@@ -2084,22 +2383,77 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
   useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
   useEffect(() => {
     if (!editing) return undefined;
-    const close = (event) => { if (event.key === 'Escape') setEditing(null); };
+    const close = (event) => {
+      if (event.key === 'Escape') {
+        setEditing(null);
+        setEditError('');
+        setShowEditPassword(false);
+      }
+    };
     document.addEventListener('keydown', close);
     return () => document.removeEventListener('keydown', close);
   }, [editing]);
 
-  const startEdit = (affiliate) => setEditing({
-    id: affiliate.id,
-    full_name: affiliate.full_name || '',
-    email: affiliate.email || '',
-    phone: affiliate.phone || '',
-    nik: affiliate.nik || '',
-    referral_code: affiliate.referral_code || '',
-  });
+  const startEdit = (affiliate) => {
+    setEditError('');
+    setShowEditPassword(false);
+    setEditing({
+      id: affiliate.id,
+      full_name: affiliate.full_name || '',
+      email: affiliate.email || '',
+      phone: affiliate.phone || '',
+      nik: affiliate.nik || '',
+      referral_code: affiliate.referral_code || '',
+      new_password: '',
+      confirm_password: '',
+    });
+  };
+  const closeEdit = () => {
+    setEditing(null);
+    setEditError('');
+    setShowEditPassword(false);
+  };
   const submitEdit = async (event) => {
     event.preventDefault();
-    if (await onSave(editing.id, editing)) setEditing(null);
+    setEditError('');
+    const nextPassword = String(editing.new_password || '');
+    const confirmPassword = String(editing.confirm_password || '');
+    if (nextPassword) {
+      if (nextPassword.length < 8) {
+        const message = 'Password baru minimal 8 karakter.';
+        setEditError(message);
+        window.showToast?.(message, 'error');
+        return;
+      }
+      if (new TextEncoder().encode(nextPassword).byteLength > 72) {
+        const message = 'Password baru terlalu panjang. Gunakan maksimal 72 byte.';
+        setEditError(message);
+        window.showToast?.(message, 'error');
+        return;
+      }
+      if (nextPassword !== confirmPassword) {
+        const message = 'Konfirmasi password baru belum sama.';
+        setEditError(message);
+        window.showToast?.(message, 'error');
+        return;
+      }
+    }
+    const payload = {
+      full_name: editing.full_name,
+      email: editing.email,
+      phone: editing.phone,
+      nik: editing.nik,
+      referral_code: editing.referral_code,
+    };
+    if (nextPassword) {
+      payload.new_password = nextPassword;
+      payload.confirm_password = confirmPassword;
+    }
+    try {
+      if (await onSave(editing.id, payload, { throwOnError: true })) closeEdit();
+    } catch (failure) {
+      setEditError(failure?.message || 'Gagal memperbarui data affiliate.');
+    }
   };
   const toggleStatus = (affiliate) => {
     const nextStatus = affiliate.status === 'active' ? 'suspended' : 'active';
@@ -2125,15 +2479,19 @@ Akun affiliate, sesi login, pengaturan produk, data traffic, dan riwayat penarik
     </section>
     <section className="admin-affiliate-data-list">
       <div className="admin-section-heading"><div><span className="eyebrow">AKUN PARTNER</span><h2>Affiliate yang disetujui</h2></div><button className="button button-secondary" type="button" onClick={onReload}>Muat ulang</button></div>
-      {pageItems.length ? pageItems.map((affiliate) => <article className="admin-affiliate-data-card" key={affiliate.id}>
-        <div className="admin-affiliate-data-avatar">{String(affiliate.full_name || 'A').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
-        <div className="admin-affiliate-data-identity"><div><h3>{affiliate.full_name}</h3><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span><span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span></div><p>{affiliate.email}</p><small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small></div>
-        <dl><div><dt>WhatsApp</dt><dd>{affiliate.phone || '-'}</dd></div><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Upgrade akun</dt><dd>{affiliate.account_tier === 'pro' ? `Pro · ${affiliate.pro_source === 'payment' ? 'Pembayaran' : affiliate.pro_source === 'social' ? 'Media sosial' : 'Admin'}` : 'Basic'}</dd></div><div><dt>Disetujui</dt><dd>{affiliate.reviewed_at ? dateFormat.format(new Date(affiliate.reviewed_at)) : '-'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{affiliate.updated_at ? dateFormat.format(new Date(affiliate.updated_at)) : '-'}</dd></div></dl>
-        <div className="admin-affiliate-data-actions"><button className="edit" type="button" disabled={Boolean(working)} onClick={() => startEdit(affiliate)}>Edit data</button><button className={affiliate.status === 'active' ? 'disable' : 'enable'} type="button" disabled={Boolean(working)} onClick={() => toggleStatus(affiliate)}>{working === `status:${affiliate.id}` ? 'Memproses...' : affiliate.status === 'active' ? 'Nonaktifkan akun' : 'Aktifkan akun'}</button><button className="delete" type="button" data-delete-affiliate={affiliate.id} disabled={Boolean(working)} onClick={() => handleDelete(affiliate)}>{working === `delete:${affiliate.id}` ? 'Menghapus...' : 'Hapus data'}</button></div>
-      </article>) : <div className="admin-affiliate-review-state">Tidak ada affiliate yang cocok dengan filter.</div>}
+      {pageItems.length ? pageItems.map((affiliate) => {
+        const customCommissionCount = Number(affiliate.custom_commission_count ?? Object.keys(affiliate.custom_commissions || {}).length);
+        return <article className="admin-affiliate-data-card" key={affiliate.id}>
+          <div className="admin-affiliate-data-avatar">{String(affiliate.full_name || 'A').split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
+          <div className="admin-affiliate-data-identity"><div><h3>{affiliate.full_name}</h3><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'active' ? 'Aktif' : 'Dinonaktifkan'}</span><span className={`admin-affiliate-tier ${affiliate.account_tier === 'pro' ? 'is-pro' : ''}`}>{affiliate.account_tier === 'pro' ? 'PRO' : 'BASIC'}</span>{customCommissionCount > 0 && <span className="admin-affiliate-custom-comm-badge">Komisi khusus · {customCommissionCount} template</span>}</div><p>{affiliate.email}</p><small>Kode referral: <b>{affiliate.referral_code || '-'}</b></small></div>
+          <dl><div><dt>WhatsApp</dt><dd>{affiliate.phone || '-'}</dd></div><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Upgrade akun</dt><dd>{affiliate.account_tier === 'pro' ? `Pro · ${affiliate.pro_source === 'payment' ? 'Pembayaran' : affiliate.pro_source === 'social' ? 'Media sosial' : 'Admin'}` : 'Basic'}</dd></div><div><dt>Komisi khusus</dt><dd>{customCommissionCount > 0 ? `${customCommissionCount} template` : 'Default global'}</dd></div><div><dt>Disetujui</dt><dd>{affiliate.reviewed_at ? dateFormat.format(new Date(affiliate.reviewed_at)) : '-'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{affiliate.updated_at ? dateFormat.format(new Date(affiliate.updated_at)) : '-'}</dd></div></dl>
+          <div className="admin-affiliate-data-actions"><button className="edit" type="button" disabled={Boolean(working)} onClick={() => startEdit(affiliate)}>Edit data</button><button className="commission" type="button" disabled={Boolean(working)} onClick={() => setCommissionTarget(affiliate)}>Edit komisi</button><button className={affiliate.status === 'active' ? 'disable' : 'enable'} type="button" disabled={Boolean(working)} onClick={() => toggleStatus(affiliate)}>{working === `status:${affiliate.id}` ? 'Memproses...' : affiliate.status === 'active' ? 'Nonaktifkan akun' : 'Aktifkan akun'}</button><button className="delete" type="button" data-delete-affiliate={affiliate.id} disabled={Boolean(working)} onClick={() => handleDelete(affiliate)}>{working === `delete:${affiliate.id}` ? 'Menghapus...' : 'Hapus data'}</button></div>
+        </article>;
+      }) : <div className="admin-affiliate-review-state">Tidak ada affiliate yang cocok dengan filter.</div>}
       {filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(page - 1) * 10 + 1}–{Math.min(page * 10, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman data affiliate"><button type="button" className="direction" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === page ? 'is-active' : ''} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>›</button></nav></div>}
     </section>
-    {editing && <div className="admin-affiliate-edit-modal" role="dialog" aria-modal="true" aria-label="Edit data affiliate" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}><form onSubmit={submitEdit}><header><div><span className="eyebrow">DATA AFFILIATE</span><h2>Edit affiliate</h2></div><button type="button" onClick={() => setEditing(null)} aria-label="Tutup">×</button></header><div className="admin-affiliate-edit-fields"><label><span>Nama lengkap</span><input required minLength="2" maxLength="120" value={editing.full_name} onChange={(event) => setEditing({ ...editing, full_name: event.target.value })}/></label><label><span>Email</span><input required type="email" maxLength="254" value={editing.email} onChange={(event) => setEditing({ ...editing, email: event.target.value })}/></label><label><span>Nomor WhatsApp</span><input required type="tel" maxLength="24" value={editing.phone} onChange={(event) => setEditing({ ...editing, phone: event.target.value })}/></label><label><span>NIK</span><input required inputMode="numeric" minLength="16" maxLength="16" pattern="[0-9]{16}" value={editing.nik} onChange={(event) => setEditing({ ...editing, nik: event.target.value.replace(/\D/g, '').slice(0, 16) })}/></label><label className="wide"><span>Kode referral</span><input required minLength="3" maxLength="32" pattern="[A-Za-z0-9]{3,32}" value={editing.referral_code} onChange={(event) => setEditing({ ...editing, referral_code: event.target.value.replace(/[^a-zA-Z0-9]/g, '') })}/><small>Hanya huruf dan angka. Perubahan kode membuat link referral lama tidak berlaku.</small></label></div><footer><button type="button" onClick={() => setEditing(null)}>Batal</button><button className="save" type="submit" disabled={working === `edit:${editing.id}`}>{working === `edit:${editing.id}` ? 'Menyimpan...' : 'Simpan perubahan'}</button></footer></form></div>}
+    {editing && <div className="admin-affiliate-edit-modal" role="dialog" aria-modal="true" aria-label="Edit data affiliate" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEdit(); }}><form onSubmit={submitEdit}><header><div><span className="eyebrow">DATA AFFILIATE</span><h2>Edit affiliate</h2></div><button type="button" onClick={closeEdit} aria-label="Tutup">×</button></header><div className="admin-affiliate-edit-fields"><label><span>Nama lengkap</span><input required minLength="2" maxLength="120" value={editing.full_name} onChange={(event) => setEditing({ ...editing, full_name: event.target.value })}/></label><label><span>Email</span><input required type="email" maxLength="254" value={editing.email} onChange={(event) => setEditing({ ...editing, email: event.target.value })}/></label><label><span>Nomor WhatsApp</span><input required type="tel" maxLength="24" value={editing.phone} onChange={(event) => setEditing({ ...editing, phone: event.target.value })}/></label><label><span>NIK</span><input required inputMode="numeric" minLength="16" maxLength="16" pattern="[0-9]{16}" value={editing.nik} onChange={(event) => setEditing({ ...editing, nik: event.target.value.replace(/\D/g, '').slice(0, 16) })}/></label><label className="wide"><span>Kode referral</span><input required minLength="3" maxLength="32" pattern="[A-Za-z0-9]{3,32}" value={editing.referral_code} onChange={(event) => setEditing({ ...editing, referral_code: event.target.value.replace(/[^a-zA-Z0-9]/g, '') })}/><small>Hanya huruf dan angka. Perubahan kode membuat link referral lama tidak berlaku.</small></label><div className="admin-affiliate-password-box"><div className="admin-affiliate-password-box-head"><strong>Ubah password akun affiliate (opsional)</strong><button type="button" className="admin-affiliate-password-toggle" onClick={() => setShowEditPassword((value) => !value)}>{showEditPassword ? 'Sembunyikan' : 'Tampilkan'}</button></div><label><span>Password baru</span><input type={showEditPassword ? 'text' : 'password'} autoComplete="new-password" maxLength="72" placeholder="Kosongkan jika tidak diubah" value={editing.new_password} onChange={(event) => { setEditError(''); setEditing({ ...editing, new_password: event.target.value }); }}/></label><label><span>Konfirmasi password baru</span><input type={showEditPassword ? 'text' : 'password'} autoComplete="new-password" maxLength="72" placeholder="Ulangi password baru" value={editing.confirm_password} onChange={(event) => { setEditError(''); setEditing({ ...editing, confirm_password: event.target.value }); }}/></label><small className="admin-affiliate-password-note">Minimal 8 karakter. Kosongkan jika tidak ingin mengubah password. Jika diisi, seluruh sesi login affiliate saat ini akan otomatis dikeluarkan.</small></div></div>{editError && <div className="admin-affiliate-modal-error" role="alert">{editError}</div>}<footer><button type="button" onClick={closeEdit}>Batal</button><button className="save" type="submit" disabled={working === `edit:${editing.id}`}>{working === `edit:${editing.id}` ? 'Menyimpan...' : 'Simpan perubahan'}</button></footer></form></div>}
+    {commissionTarget && <AffiliateCommissionModal affiliate={commissionTarget} onClose={() => setCommissionTarget(null)} onSaved={onCommissionSaved}/>}
   </>;
 }
 
@@ -3985,7 +4343,7 @@ export default function AdminPage() {
     }
   };
 
-  const saveAffiliateData = async (affiliateId, values) => {
+  const saveAffiliateData = async (affiliateId, values, options = {}) => {
     setAffiliateReviewWorking(`edit:${affiliateId}`);
     try {
       const result = await patch(`/api/admin/affiliates/${encodeURIComponent(affiliateId)}/account`, values);
@@ -3998,10 +4356,27 @@ export default function AdminPage() {
       return true;
     } catch (failure) {
       window.showToast?.(failure.message, 'error');
+      if (options.throwOnError) throw failure;
       return false;
     } finally {
       setAffiliateReviewWorking('');
     }
+  };
+
+  const updateAffiliateCustomCommissionsState = (affiliateId, customCommissions, customCommissionCount) => {
+    setAffiliateReviews((current) => {
+      if (!current.data) return current;
+      const affiliates = current.data.affiliates.map((item) => (
+        item.id === affiliateId
+          ? {
+            ...item,
+            custom_commissions: customCommissions || {},
+            custom_commission_count: Number(customCommissionCount ?? Object.keys(customCommissions || {}).length),
+          }
+          : item
+      ));
+      return { ...current, data: { ...current.data, affiliates } };
+    });
   };
 
   const deleteAffiliateData = async (affiliate) => {
@@ -5240,7 +5615,7 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <AffiliateDataPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} onReload={loadAffiliateReviews} onStatus={updateAffiliateStatus} onSave={saveAffiliateData} onDelete={deleteAffiliateData}/>
+        <AffiliateDataPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} onReload={loadAffiliateReviews} onStatus={updateAffiliateStatus} onSave={saveAffiliateData} onDelete={deleteAffiliateData} onCommissionSaved={updateAffiliateCustomCommissionsState}/>
       </section>
     </AdminTemplate>;
   }
