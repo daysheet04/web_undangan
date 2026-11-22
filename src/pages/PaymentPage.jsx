@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
+import { buildReferralNavigation, normalizeReferralCode } from '../lib/referralNavigation.js';
 
 const SNAP_RETURN_STORAGE_PREFIX = 'daymoment:snap-return:';
 const NOTICE_PAYMENT_PENDING = 'Instruksi pembayaran sudah dibuat. Setelah membayar, klik Cek Status Pembayaran.';
@@ -83,6 +84,11 @@ export default function PaymentPage({ code }) {
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState('');
   const editorUrl = data?.order?.editor_url;
+  const referralCode = normalizeReferralCode(
+    new URLSearchParams(window.location.search).get('ref') || data?.order?.affiliate_referral_code || '',
+  );
+  const referralNav = buildReferralNavigation(referralCode);
+  const referralHomeHref = referralNav?.homeHref || '/';
 
   useEffect(() => {
     if (editorUrl) window.location.replace(editorUrl);
@@ -154,8 +160,8 @@ export default function PaymentPage({ code }) {
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, [code, checkStatus]);
 
-  if (loading) return <Layout className="payment-page"><Loading fullscreen /></Layout>;
-  if (error) return <Layout className="payment-page"><ErrorState error={error} /></Layout>;
+  if (loading) return <Layout className="payment-page" navigation={referralNav}><Loading fullscreen /></Layout>;
+  if (error) return <Layout className="payment-page" navigation={referralNav}><ErrorState error={error} homeHref={referralHomeHref} /></Layout>;
   const order = data.order;
 
   const pay = async () => {
@@ -192,9 +198,9 @@ export default function PaymentPage({ code }) {
     }
   };
 
-  return <Layout className="payment-page" title={`Pembayaran ${order.order_code} — Daymoment`}>
+  return <Layout className="payment-page" title={`Pembayaran ${order.order_code} — Daymoment`} navigation={referralNav}>
     <section className="flow-page payment-flow">
-      <a className="back-link" href="/">← Kembali ke beranda</a>
+      <a className="back-link" href={referralHomeHref}>← Kembali ke beranda</a>
       <div className="payment-card">
         <div className="payment-icon"><svg viewBox="0 0 64 64"><rect x="8" y="15" width="48" height="36" rx="8"/><path d="M8 26h48M18 40h12"/></svg></div>
         <span className={`status-badge ${order.payment_status}`}><i/> {order.payment_status === 'paid' ? 'Pembayaran Berhasil' : 'Menunggu Pembayaran'}</span>

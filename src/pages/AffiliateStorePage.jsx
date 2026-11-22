@@ -3,6 +3,8 @@ import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
+import { buildReferralNavigation, normalizeReferralCode } from '../lib/referralNavigation.js';
+import { templateSlug } from '../lib/templateSlug.js';
 import TemplateCover from '../components/TemplateCover.jsx';
 
 function partnerWhatsapp(phone, name) {
@@ -19,22 +21,12 @@ function displayPhone(phone) {
 }
 
 export default function AffiliateStorePage({ referralCode }) {
-  const code = String(referralCode || '').trim().replace(/[^a-zA-Z0-9]/g, '');
+  const code = normalizeReferralCode(referralCode);
   const { data, loading, error } = useRemote(`/api/affiliate-catalog/${encodeURIComponent(code)}`, [code]);
   const suspended = error?.data?.code === 'AFFILIATE_SUSPENDED';
   const referralPath = `/ref/${encodeURIComponent(code)}`;
-  const storeNavigation = {
-    scoped: true,
-    homeHref: referralPath,
-    templateHref: `${referralPath}#affiliate-products`,
-    templateTargetId: 'affiliate-products',
-    templateLabel: 'Produk',
-    stepsHref: `${referralPath}#affiliate-order-steps`,
-    stepsTargetId: 'affiliate-order-steps',
-    stepsLabel: 'Cara Pemesanan',
-    showAffiliate: false,
-  };
-  const limitedNavigation = { ...storeNavigation, showSecondary: false };
+  const storeNavigation = buildReferralNavigation(code, { scoped: true });
+  const limitedNavigation = buildReferralNavigation(code, { scoped: true, showSecondary: false });
   const resolvedCode = data?.partner?.referral_code || '';
 
   useEffect(() => {
@@ -59,7 +51,7 @@ export default function AffiliateStorePage({ referralCode }) {
   </Layout>;
 
   if (error) return <Layout className="homepage affiliate-store-page" title="Link Referral — Daymoment" navigation={limitedNavigation}>
-    <ErrorState error={error}/>
+    <ErrorState error={error} homeHref={referralPath}/>
   </Layout>;
 
   const partnerName = data.partner.display_name;
@@ -115,7 +107,7 @@ export default function AffiliateStorePage({ referralCode }) {
           <p>Hanya paket yang dipilih oleh partner ini yang ditampilkan.</p>
         </div>
         {!data.templates.length ? <div className="affiliate-store-empty"><span>01</span><h3>Etalase sedang disiapkan</h3><p>Partner ini belum memilih produk untuk ditampilkan.</p></div> : <div className="affiliate-store-grid">
-          {data.templates.map((template, index) => <article className="affiliate-store-card" key={template.id}>
+          {data.templates.map((template, index) => <article className="affiliate-store-card" id={`affiliate-template-${templateSlug(template)}`} key={template.id}>
             <TemplateCover template={template} eager={index < 2} />
             <div className="affiliate-store-card-body">
               <div className="template-meta"><span>{template.category}</span><span>{template.package_count} paket pilihan</span></div>

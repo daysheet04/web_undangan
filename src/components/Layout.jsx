@@ -68,10 +68,11 @@ export function Layout({ children, title, className = '', navigation = null }) {
       const scrollPos = scrollY + 160;
       const caraKerjaEl = document.getElementById(stepsTargetId);
       const templatesEl = document.getElementById(templateTargetId);
+      const atBottom = window.innerHeight + scrollY >= document.documentElement.scrollHeight - 24;
 
-      if (caraKerjaEl && scrollPos >= caraKerjaEl.offsetTop) {
+      if (caraKerjaEl && (caraKerjaEl.getBoundingClientRect().top <= 180 || (atBottom && scrollY > 40))) {
         setActiveNav(stepsTargetId);
-      } else if (templatesEl && scrollPos >= templatesEl.offsetTop) {
+      } else if (templatesEl && templatesEl.getBoundingClientRect().top <= 180) {
         setActiveNav(templateTargetId);
       } else {
         setActiveNav('beranda');
@@ -82,42 +83,126 @@ export function Layout({ children, title, className = '', navigation = null }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [stepsTargetId, templateTargetId, stylesReady]);
 
-  // Scroll to URL hash once layout styles are ready and sections are mounted in the DOM
+  // Scroll to URL hash once layout styles are ready and target section mounts (supports async page loading)
   useEffect(() => {
     if (!stylesReady) return undefined;
-    const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) return undefined;
 
     let cancelled = false;
+    let observer = null;
+    let safetyTimer = 0;
+    let frameOne = 0;
+    let frameTwo = 0;
+
+    const cleanupPending = () => {
+      if (observer) {
+        observer.disconnect();
+        observer = null;
+      }
+      if (safetyTimer) {
+        window.clearTimeout(safetyTimer);
+        safetyTimer = 0;
+      }
+      if (frameOne) {
+        window.cancelAnimationFrame(frameOne);
+        frameOne = 0;
+      }
+      if (frameTwo) {
+        window.cancelAnimationFrame(frameTwo);
+        frameTwo = 0;
+      }
+    };
+
+    const resolveTargetElement = (hash) => {
+      const direct = document.getElementById(hash);
+      if (direct) return direct;
+      if ((hash.startsWith('affiliate-template-') || hash.startsWith('template-card-')) && templateTargetId) {
+        return document.getElementById(templateTargetId);
+      }
+      return null;
+    };
+
+    const scrollToCurrentHash = () => {
+      cleanupPending();
+      const rawHash = window.location.hash.replace(/^#/, '');
+      if (!rawHash) return;
+      let hash = rawHash;
+      try {
+        hash = decodeURIComponent(rawHash);
+      } catch {
+        hash = rawHash;
+      }
+
+      const tryScroll = () => {
+        if (cancelled) return false;
+        const target = resolveTargetElement(hash);
+        if (!target) return false;
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+        if (safetyTimer) {
+          window.clearTimeout(safetyTimer);
+          safetyTimer = 0;
+        }
+        frameOne = window.requestAnimationFrame(() => {
+          frameTwo = window.requestAnimationFrame(() => {
+            if (cancelled) return;
+            target.scrollIntoView({ behavior: 'auto', block: 'start' });
+            if (hash === stepsTargetId) {
+              setActiveNav(stepsTargetId);
+            } else if (hash === templateTargetId || hash.startsWith('affiliate-template-') || hash.startsWith('template-card-')) {
+              setActiveNav(templateTargetId);
+            }
+          });
+        });
+        return true;
+      };
+
+      if (tryScroll()) return;
+
+      observer = new MutationObserver(() => {
+        tryScroll();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      safetyTimer = window.setTimeout(() => {
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+      }, 8000);
+    };
+
     const markCancelled = () => {
       cancelled = true;
+      cleanupPending();
     };
+    const handleHashChange = () => {
+      cancelled = false;
+      scrollToCurrentHash();
+    };
+
     window.addEventListener('wheel', markCancelled, { passive: true, once: true });
     window.addEventListener('touchstart', markCancelled, { passive: true, once: true });
+    window.addEventListener('hashchange', handleHashChange);
 
-    let frameTwo = 0;
-    const frameOne = window.requestAnimationFrame(() => {
-      frameTwo = window.requestAnimationFrame(() => {
-        if (cancelled) return;
-        const target = document.getElementById(hash);
-        if (target) {
-          target.scrollIntoView({ behavior: 'auto', block: 'start' });
-        }
-      });
-    });
+    scrollToCurrentHash();
 
     return () => {
-      window.cancelAnimationFrame(frameOne);
-      if (frameTwo) window.cancelAnimationFrame(frameTwo);
+      cancelled = true;
+      cleanupPending();
       window.removeEventListener('wheel', markCancelled);
       window.removeEventListener('touchstart', markCancelled);
+      window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [stylesReady]);
+  }, [stylesReady, stepsTargetId, templateTargetId]);
 
   const handleNavClick = (e, targetId) => {
     setMenuOpen(false);
     setActiveNav(targetId);
+    const normalizePath = (p) => String(p || '/').replace(/\/+$/, '') || '/';
+    const onHomePage = normalizePath(window.location.pathname) === normalizePath(homeHref);
     if (scopedNavigation) {
+      if (!onHomePage) return;
       e.preventDefault();
       if (targetId === 'beranda') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -133,14 +218,14 @@ export function Layout({ children, title, className = '', navigation = null }) {
       return;
     }
     if (targetId === 'beranda') {
-      if (window.location.pathname === '/' || window.location.pathname === '') {
+      if (onHomePage) {
         e.preventDefault();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        window.history.replaceState(null, '', '/');
+        window.history.replaceState(null, '', homeHref);
       }
       return;
     }
-    if (window.location.pathname === '/' || window.location.pathname === '') {
+    if (onHomePage) {
       const el = document.getElementById(targetId);
       if (el) {
         e.preventDefault();
@@ -268,13 +353,13 @@ export function Loading({ showLabel = false, fullscreen = false }) {
   );
 }
 
-export function ErrorState({ error }) {
+export function ErrorState({ error, homeHref = '/' }) {
   return (
     <div className="app-error">
       <div>
         <h1>Maaf, terjadi kesalahan.</h1>
         <p>{error?.message || 'Data tidak dapat dimuat.'}</p>
-        <a href="/">Kembali ke beranda</a>
+        <a href={homeHref}>Kembali ke beranda</a>
       </div>
     </div>
   );

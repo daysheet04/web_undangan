@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money, post } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
+import { buildReferralNavigation, normalizeReferralCode, referralBackHref } from '../lib/referralNavigation.js';
 import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 import { defaultTemplateCover, templatePhoneCoverUrl } from '../components/TemplateCover.jsx';
 
@@ -36,7 +37,9 @@ function OrderPhonePreview({ template, previewUrl }) {
 export default function OrderPage() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
   const code = query.get('template') || 'java_vibes';
-  const referralCode = query.get('ref') || '';
+  const referralCode = normalizeReferralCode(query.get('ref'));
+  const referralNav = buildReferralNavigation(referralCode);
+  const referralHomeHref = referralNav?.homeHref || '/';
   const referralQuery = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : '';
   const { data, loading, error } = useRemote(`/api/templates/${code}${referralQuery}`, [code, referralCode]);
   const [form, setForm] = useState({
@@ -53,14 +56,14 @@ export default function OrderPage() {
     }
   }, [data, form.package_code]);
 
-  if (loading) return <Layout className="order-page"><Loading fullscreen /></Layout>;
-  if (error) return <Layout className="order-page"><ErrorState error={error} /></Layout>;
+  if (loading) return <Layout className="order-page" navigation={referralNav}><Loading fullscreen /></Layout>;
+  if (error) return <Layout className="order-page" navigation={referralNav}><ErrorState error={error} homeHref={referralHomeHref} /></Layout>;
   const template = data.template;
   const requestedPackage = query.get('package');
   if (requestedPackage && !template.packages.some((item) => item.code === requestedPackage)) {
-    return <Layout className="order-page"><ErrorState error={new Error('Paket template ini sedang maintenance dan belum dapat dipesan. Silakan pilih paket lain dari halaman template.')} /></Layout>;
+    return <Layout className="order-page" navigation={referralNav}><ErrorState error={new Error('Paket template ini sedang maintenance dan belum dapat dipesan. Silakan pilih paket lain dari halaman template.')} homeHref={referralHomeHref} /></Layout>;
   }
-  if (!template.packages.length) return <Layout className="order-page"><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum dapat dipesan.')} /></Layout>;
+  if (!template.packages.length) return <Layout className="order-page" navigation={referralNav}><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum dapat dipesan.')} homeHref={referralHomeHref} /></Layout>;
 
   const submit = async (event) => {
     event.preventDefault();
@@ -72,7 +75,11 @@ export default function OrderPage() {
         template_code: template.code,
         referral_code: referralCode,
       });
-      window.location.href = result.redirect;
+      let nextRedirect = String(result.redirect || '');
+      if (referralCode && nextRedirect && !/[?&]ref=/.test(nextRedirect)) {
+        nextRedirect += `${nextRedirect.includes('?') ? '&' : '?'}ref=${encodeURIComponent(referralCode)}`;
+      }
+      window.location.href = nextRedirect;
     } catch (failure) {
       setErrors(failure.data?.errors || {});
       window.showToast?.(failure.message, 'error');
@@ -82,7 +89,7 @@ export default function OrderPage() {
   };
 
   const previewUrl = `${templatePreviewPath(template)}${referralCode ? `?ref=${encodeURIComponent(referralCode)}` : ''}`;
-  return <Layout className="order-page" title="Data Pemesan — Daymoment">
+  return <Layout className="order-page" title="Data Pemesan — Daymoment" navigation={referralNav}>
     <section className="flow-page">
       <div className="flow-grid">
         <aside className="choice-summary">
@@ -91,7 +98,7 @@ export default function OrderPage() {
           <div className="preview-meta-row">
             <a
               className="back-link preview-back-circle"
-              href={`/#template-card-${encodeURIComponent(templateSlug(template))}`}
+              href={referralBackHref(referralCode, templateSlug(template))}
               aria-label="Kembali memilih template"
               title="Kembali memilih template"
             >

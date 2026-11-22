@@ -3,6 +3,7 @@ import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
 import { money } from '../lib/api.js';
 import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
+import { buildReferralNavigation, normalizeReferralCode, referralBackHref } from '../lib/referralNavigation.js';
 import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 
 function PreviewPhone({ template, active }) {
@@ -21,7 +22,9 @@ function PreviewPhone({ template, active }) {
 
 export default function TemplatePreviewPage({ code }) {
   const pageQuery = new URLSearchParams(window.location.search);
-  const referralCode = pageQuery.get('ref') || '';
+  const referralCode = normalizeReferralCode(pageQuery.get('ref'));
+  const referralNav = buildReferralNavigation(referralCode);
+  const referralHomeHref = referralNav?.homeHref || '/';
   const requestedPackage = pageQuery.get('package') || '';
   const referralQuery = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : '';
   const { data, loading, error } = useRemote(`/api/templates/${code}${referralQuery}`, [code, referralCode]);
@@ -79,14 +82,14 @@ export default function TemplatePreviewPage({ code }) {
     }
   }, [verifiedReferralCode, loadedTemplateCode, loadedTemplateName, hasLoadedPackages]);
 
-  if (loading) return <Layout className="preview-page"><Loading fullscreen /></Layout>;
-  if (error) return <Layout className="preview-page"><ErrorState error={error} /></Layout>;
+  if (loading) return <Layout className="preview-page" navigation={referralNav}><Loading fullscreen /></Layout>;
+  if (error) return <Layout className="preview-page" navigation={referralNav}><ErrorState error={error} homeHref={referralHomeHref} /></Layout>;
 
   const template = data.template;
   if (requestedPackage && !template.packages.some((item) => item.code === requestedPackage)) {
-    return <Layout className="preview-page"><ErrorState error={new Error('Paket template ini sedang maintenance dan belum tersedia untuk dipilih.')} /></Layout>;
+    return <Layout className="preview-page" navigation={referralNav}><ErrorState error={new Error('Paket template ini sedang maintenance dan belum tersedia untuk dipilih.')} homeHref={referralHomeHref} /></Layout>;
   }
-  if (!template.packages.length) return <Layout className="preview-page"><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum tersedia.')} /></Layout>;
+  if (!template.packages.length) return <Layout className="preview-page" navigation={referralNav}><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum tersedia.')} homeHref={referralHomeHref} /></Layout>;
   const active = template.packages.find((item) => item.code === selected) || template.packages[0];
 
   const viewPackage = (item) => {
@@ -107,11 +110,11 @@ export default function TemplatePreviewPage({ code }) {
   };
 
   return (
-    <Layout className="preview-page" title={`Preview ${template.name} — Daymoment`}>
+    <Layout className="preview-page" title={`Preview ${template.name} — Daymoment`} navigation={referralNav}>
       <section className="preview-showcase">
         <div className="preview-info">
           <div className="preview-meta-row">
-            <a className="back-link preview-back-circle" href={`/#template-card-${encodeURIComponent(templateSlug(template))}`} aria-label="Kembali ke pilihan" title="Kembali ke pilihan">
+            <a className="back-link preview-back-circle" href={referralBackHref(referralCode, templateSlug(template))} aria-label="Kembali ke pilihan" title="Kembali ke pilihan">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
