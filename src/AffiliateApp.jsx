@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { affiliateApi, friendlyAffiliateError } from './lib/affiliateApi.js';
 import { downloadAffiliateIncomeReport } from './lib/affiliateReportPdf.js';
 import { MAIN_APP_URL } from './lib/urls.js';
@@ -532,17 +533,55 @@ function VerifyEmailPage() {
 
 function AffiliateHeadingTools({
   category,
+  panelKey = category,
   title,
   reloadFn,
 }) {
   const tools = useContext(AffiliateToolsContext);
+  const notifBtnRef = useRef(null);
+  const [popoverPos, setPopoverPos] = useState({ top: 72, left: 12, isMobile: false });
+
+  const openHeadingNotif = tools?.openHeadingNotif;
+  const onToggleNotif = tools?.onToggleNotif;
+  const isOpen = Boolean(tools && openHeadingNotif === panelKey);
+
+  const updatePopoverPosition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      setPopoverPos({ top: 72, left: 12, isMobile: true });
+      return;
+    }
+    const btnEl = notifBtnRef.current;
+    if (!btnEl) return;
+    const rect = btnEl.getBoundingClientRect();
+    const popoverWidth = Math.min(360, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - popoverWidth - 12));
+    const top = Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - 160));
+    setPopoverPos({ top, left, isMobile: false });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || !onToggleNotif) return undefined;
+    updatePopoverPosition();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onToggleNotif(null);
+    };
+    window.addEventListener('resize', updatePopoverPosition);
+    window.addEventListener('scroll', updatePopoverPosition, { passive: true });
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('resize', updatePopoverPosition);
+      window.removeEventListener('scroll', updatePopoverPosition);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onToggleNotif, updatePopoverPosition]);
+
   if (!tools) return null;
 
   const {
     notificationsData,
     readMarkers,
-    openHeadingNotif,
-    onToggleNotif,
     headingRefreshing,
     onRefresh,
   } = tools;
@@ -554,7 +593,6 @@ function AffiliateHeadingTools({
   const marker = readMarkers[category];
   const markerTime = marker ? new Date(marker).getTime() : 0;
   const unreadCount = items.filter((item) => new Date(item.created_at || 0).getTime() > markerTime).length;
-  const isOpen = openHeadingNotif === category;
   const isSpinning = headingRefreshing === category;
 
   const formatRelativeTime = (dateString) => {
@@ -571,18 +609,119 @@ function AffiliateHeadingTools({
     return new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(date);
   };
 
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
+  const dropdownNode = isOpen ? (
+    <>
+      {popoverPos.isMobile && (
+        <div
+          className="affiliate-notif-backdrop"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleNotif(null);
+          }}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className={`affiliate-notif-dropdown ${popoverPos.isMobile ? 'is-mobile-sheet' : ''}`.trim()}
+        style={!popoverPos.isMobile ? { top: `${popoverPos.top}px`, left: `${popoverPos.left}px` } : undefined}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal={popoverPos.isMobile ? 'true' : undefined}
+        aria-label={`Notifikasi ${title}`}
+      >
+        <div className="dropdown-head">
+          <h4 className="dropdown-title">{title}</h4>
+          <span className="dropdown-status-pill">{items.length} Notifikasi</span>
+        </div>
+
+        <div className="dropdown-body">
+          {items.length === 0 ? (
+            <div className="notif-empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="28" height="28" style={{ margin: '0 auto 8px', display: 'block', opacity: 0.6 }}>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p style={{ margin: 0 }}>Belum ada notifikasi pada kategori ini.</p>
+            </div>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                className="notif-item"
+                onClick={() => {
+                  onToggleNotif(null);
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div className={`notif-item-avatar ${item.type}`}>
+                  {item.type === 'order' ? '🛒' : item.type === 'withdrawal' ? '💸' : '⭐'}
+                </div>
+                <div className="notif-item-content">
+                  <div className="notif-item-top">
+                    <span className="notif-item-name">{item.title}</span>
+                    {item.status_label && (
+                      <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
+                        {item.status_label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="notif-item-desc">{item.snippet}</p>
+                  <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="dropdown-foot">
+          <span style={{ fontSize: '11px', color: '#687771', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Sudah ditandai dibaca
+          </span>
+          <button
+            type="button"
+            className="dropdown-close-btn"
+            onClick={() => onToggleNotif(null)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '5px 12px',
+              backgroundColor: '#173f36',
+              border: '1px solid #173f36',
+              borderRadius: '6px',
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </>
+  ) : null;
+
   return (
     <div className="affiliate-heading-tools">
       <div className="affiliate-notif-box">
         <button
+          ref={notifBtnRef}
           type="button"
           className={`affiliate-tool-btn affiliate-notif-btn ${unreadCount > 0 ? 'has-unread' : ''} ${isOpen ? 'is-open' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleNotif(category);
+            if (!isOpen) updatePopoverPosition();
+            onToggleNotif(panelKey, category);
           }}
           title={unreadCount > 0 ? `${unreadCount} notifikasi baru (klik untuk tandai dibaca)` : `Notifikasi ${title}`}
           aria-label={`Notifikasi ${title}`}
+          aria-expanded={isOpen}
         >
           <svg viewBox="0 0 24 24" fill={unreadCount > 0 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -591,88 +730,7 @@ function AffiliateHeadingTools({
           {unreadCount > 0 && <span className="affiliate-notif-badge">{unreadCount}</span>}
         </button>
 
-        {isOpen && (
-          <div
-            className="affiliate-notif-dropdown"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-label={`Notifikasi ${title}`}
-          >
-            <div className="dropdown-head">
-              <h4 className="dropdown-title">{title}</h4>
-              <span className="dropdown-status-pill">{items.length} Notifikasi</span>
-            </div>
-
-            <div className="dropdown-body">
-              {items.length === 0 ? (
-                <div className="notif-empty-state">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="28" height="28" style={{ margin: '0 auto 8px', display: 'block', opacity: 0.6 }}>
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                  </svg>
-                  <p style={{ margin: 0 }}>Belum ada notifikasi pada kategori ini.</p>
-                </div>
-              ) : (
-                items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="notif-item"
-                    onClick={() => {
-                      onToggleNotif(null);
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className={`notif-item-avatar ${item.type}`}>
-                      {item.type === 'order' ? '🛒' : item.type === 'withdrawal' ? '💸' : '⭐'}
-                    </div>
-                    <div className="notif-item-content">
-                      <div className="notif-item-top">
-                        <span className="notif-item-name">{item.title}</span>
-                        {item.status_label && (
-                          <span className={`notif-item-status ${String(item.status || '').toLowerCase()}`}>
-                            {item.status_label}
-                          </span>
-                        )}
-                      </div>
-                      <p className="notif-item-desc">{item.snippet}</p>
-                      <span className="notif-item-time">{formatRelativeTime(item.created_at)}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="dropdown-foot">
-              <span style={{ fontSize: '11px', color: '#687771', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                Sudah ditandai dibaca
-              </span>
-              <button
-                type="button"
-                className="dropdown-close-btn"
-                onClick={() => onToggleNotif(null)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  padding: '4px 10px',
-                  backgroundColor: '#173f36',
-                  border: '1px solid #173f36',
-                  borderRadius: '6px',
-                  color: '#ffffff',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                }}
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        )}
+        {dropdownNode && (portalTarget ? createPortal(dropdownNode, portalTarget) : dropdownNode)}
       </div>
 
       <button
@@ -1974,7 +2032,7 @@ function EarningsPage({ data, error, reload, affiliateId, affiliate }) {
         <span>RINGKASAN KOMISI</span>
         <div className="affiliate-heading-title-line">
           <h1>Penghasilan</h1>
-          <AffiliateHeadingTools category="orders" title="Komisi Referral Terbaru" reloadFn={reload}/>
+          <AffiliateHeadingTools category="orders" panelKey="earnings" title="Komisi Referral Terbaru" reloadFn={reload}/>
         </div>
         <p>Komisi dicatat ketika order dibuat dan menjadi saldo tersedia setelah pembayaran pelanggan berhasil.</p>
       </div>
@@ -2911,7 +2969,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
-      if (!e.target.closest('.affiliate-notif-box')) {
+      if (!e.target.closest('.affiliate-notif-box') && !e.target.closest('.affiliate-notif-dropdown')) {
         setOpenHeadingNotif(null);
       }
     };
@@ -2919,14 +2977,14 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
     return () => document.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  const toggleHeadingNotif = (category) => {
-    if (openHeadingNotif === category) {
+  const toggleHeadingNotif = (panelKey, markerCategory = panelKey) => {
+    if (!panelKey || openHeadingNotif === panelKey) {
       setOpenHeadingNotif(null);
     } else {
-      setOpenHeadingNotif(category);
+      setOpenHeadingNotif(panelKey);
       const nowIso = new Date().toISOString();
       setReadMarkers((prev) => {
-        const next = { ...prev, [category]: nowIso, all: nowIso };
+        const next = { ...prev, [markerCategory]: nowIso, all: nowIso };
         try {
           localStorage.setItem(`daymoment_affiliate_read_markers_${affiliate.id}`, JSON.stringify(next));
         } catch {}
@@ -2998,6 +3056,7 @@ function AffiliateDashboard({ affiliate, onLogout, onAffiliateUpdate }) {
 
   const navigate = useCallback((targetPath) => {
     const nextPath = dashboardMenus.some((menu) => menu.path === targetPath) ? targetPath : '/dashboard';
+    setOpenHeadingNotif(null);
     if (nextPath === pathRef.current) return;
     scrollPositions.current.set(pathRef.current, window.scrollY);
     window.history.pushState({}, '', nextPath);
