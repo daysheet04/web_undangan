@@ -5,44 +5,130 @@ export const VINTAGE_COLOR_DEFAULTS = Object.freeze({
   accent: '#7C6850',
   ornament: '#302720',
   photo_border: '#FAF7F1',
+  btn_bg: '#2A231E',
+  btn_text: '#FBF9F5',
+  cover_title: '#2A231E',
+  cover_subtitle: '#7C6850',
+  cover_body: '#63584D',
+  body_title: '#2A231E',
+  body_subtitle: '#7C6850',
+  body_text: '#63584D',
 });
+
+export const VINTAGE_COLOR_GROUPS = Object.freeze([
+  {
+    id: 'surface',
+    title: 'Latar, Ornamen & Garis',
+    hint: 'Warna dasar halaman, kartu, ukiran ornamen & bingkai foto',
+  },
+  {
+    id: 'button',
+    title: 'Warna Tombol Aksi',
+    hint: 'Terpisah dari teks — dipakai di tombol Buka Undangan, Peta, RSVP, Salin & Musik',
+  },
+  {
+    id: 'cover_text',
+    title: 'Teks Section Buka Undangan (Sampul)',
+    hint: 'Hanya mengatur warna teks di halaman sampul sebelum undangan dibuka',
+  },
+  {
+    id: 'body_text',
+    title: 'Teks Isi Undangan (The Wedding Of – Terima Kasih)',
+    hint: 'Mengatur warna teks seluruh bagian setelah undangan dibuka hingga penutup Terima Kasih',
+  },
+]);
 
 export const VINTAGE_COLOR_FIELDS = Object.freeze([
   {
     key: 'bg',
+    group: 'surface',
     formName: 'theme_color_bg',
     label: 'Latar Utama',
-    description: 'Warna kanvas utama undangan',
+    description: 'Dipakai untuk kanvas / background utama seluruh halaman undangan',
   },
   {
     key: 'surface',
+    group: 'surface',
     formName: 'theme_color_surface',
     label: 'Latar Kartu & Surat',
-    description: 'Warna dasar kartu kutipan, jadwal & amplop',
+    description: 'Dipakai untuk latar kartu sampul, kutipan, jadwal acara, RSVP & amplop',
   },
   {
     key: 'ornament',
+    group: 'surface',
     formName: 'theme_color_ornament',
     label: 'Ornamen Hiasan',
-    description: 'Warna ukiran floral, merpati, karangan bunga & siluet',
+    description: 'Dipakai untuk ukiran floral, merpati, karangan bunga & siluet',
   },
   {
     key: 'photo_border',
+    group: 'surface',
     formName: 'theme_color_photo_border',
     label: 'Border & Bingkai Foto',
-    description: 'Warna matte polaroid, kapsul & bingkai galeri',
-  },
-  {
-    key: 'ink',
-    formName: 'theme_color_ink',
-    label: 'Teks Utama & Tombol',
-    description: 'Warna tipografi nama mempelai & tombol aksi',
+    description: 'Dipakai untuk bingkai/matte foto sampul, profil mempelai & galeri',
   },
   {
     key: 'accent',
+    group: 'surface',
     formName: 'theme_color_accent',
-    label: 'Aksen & Garis Bingkai',
-    description: 'Warna sub-judul, divider & garis halus kartu',
+    label: 'Garis & Aksen Bingkai',
+    description: 'Dipakai untuk garis pemisah, bingkai halus kartu & ikon dekoratif',
+  },
+  {
+    key: 'btn_bg',
+    group: 'button',
+    formName: 'theme_color_btn_bg',
+    label: 'Warna Latar Tombol',
+    description: 'Dipakai untuk tombol Buka Undangan, Buka Peta, Kirim Ucapan, Salin & Musik',
+  },
+  {
+    key: 'btn_text',
+    group: 'button',
+    formName: 'theme_color_btn_text',
+    label: 'Warna Teks Tombol',
+    description: 'Dipakai untuk tulisan & ikon di dalam semua tombol aksi undangan',
+  },
+  {
+    key: 'cover_title',
+    group: 'cover_text',
+    formName: 'theme_color_cover_title',
+    label: 'Judul Sampul (Cover)',
+    description: 'Dipakai untuk nama kedua mempelai di halaman Buka Undangan',
+  },
+  {
+    key: 'cover_subtitle',
+    group: 'cover_text',
+    formName: 'theme_color_cover_subtitle',
+    label: 'Subjudul Sampul (Cover)',
+    description: 'Dipakai untuk label "The Wedding Invitation", simbol "&" & "Kepada Yth."',
+  },
+  {
+    key: 'cover_body',
+    group: 'cover_text',
+    formName: 'theme_color_cover_body',
+    label: 'Isi Sampul (Cover)',
+    description: 'Dipakai untuk tanggal acara & nama tamu di kotak sampul Buka Undangan',
+  },
+  {
+    key: 'body_title',
+    group: 'body_text',
+    formName: 'theme_color_body_title',
+    label: 'Judul Isi Undangan',
+    description: 'Dipakai untuk nama mempelai, judul section, judul cerita, angka hitung mundur & nama penutup',
+  },
+  {
+    key: 'body_subtitle',
+    group: 'body_text',
+    formName: 'theme_color_body_subtitle',
+    label: 'Subjudul Isi Undangan',
+    description: 'Dipakai untuk label "The Wedding Of", peran mempelai, tahun cerita, Akad/Resepsi & subjudul bagian',
+  },
+  {
+    key: 'body_text',
+    group: 'body_text',
+    formName: 'theme_color_body_text',
+    label: 'Isi & Deskripsi Undangan',
+    description: 'Dipakai untuk kutipan, nama orang tua, deskripsi cerita, alamat, ucapan tamu & teks Terima Kasih',
   },
 ]);
 
@@ -163,29 +249,60 @@ function parseColorObject(raw) {
   return null;
 }
 
+function resolveDerivedDefaults(partial) {
+  const bg = partial.bg || VINTAGE_COLOR_DEFAULTS.bg;
+  const surface = partial.surface || VINTAGE_COLOR_DEFAULTS.surface;
+  const accent = partial.accent || VINTAGE_COLOR_DEFAULTS.accent;
+  const ornament = partial.ornament || VINTAGE_COLOR_DEFAULTS.ornament;
+  const photo_border = partial.photo_border || VINTAGE_COLOR_DEFAULTS.photo_border;
+  const baseInk = partial.body_title || partial.ink || VINTAGE_COLOR_DEFAULTS.ink;
+  const softInk = mixHex(baseInk, bg, 0.28);
+  const btn_bg = partial.btn_bg || baseInk;
+  const btnBgLum = relativeLuminance(btn_bg);
+  const btn_text = partial.btn_text || (btnBgLum > 0.45 ? '#1B1714' : '#FBF9F5');
+
+  return {
+    bg,
+    surface,
+    ink: partial.body_title || partial.ink || VINTAGE_COLOR_DEFAULTS.ink,
+    accent,
+    ornament,
+    photo_border,
+    btn_bg,
+    btn_text,
+    cover_title: partial.cover_title || baseInk,
+    cover_subtitle: partial.cover_subtitle || accent,
+    cover_body: partial.cover_body || softInk,
+    body_title: partial.body_title || baseInk,
+    body_subtitle: partial.body_subtitle || accent,
+    body_text: partial.body_text || softInk,
+  };
+}
+
 export function normalizeVintageColors(raw, { fallbackToDefaults = true } = {}) {
   const source = parseColorObject(raw);
-  const out = {};
+  const explicit = {};
   let foundAny = false;
+
+  const legacyInk = source ? sanitizeHex(source.ink, null) : null;
+  if (legacyInk) {
+    explicit.ink = legacyInk;
+    foundAny = true;
+  }
 
   for (const field of VINTAGE_COLOR_FIELDS) {
     const key = field.key;
     const valid = source ? sanitizeHex(source[key], null) : null;
     if (valid) {
-      out[key] = valid;
+      explicit[key] = valid;
       foundAny = true;
-    } else if (fallbackToDefaults) {
-      out[key] = VINTAGE_COLOR_DEFAULTS[key];
     }
   }
 
   if (!fallbackToDefaults && !foundAny) {
     return null;
   }
-  if (fallbackToDefaults) {
-    return { ...VINTAGE_COLOR_DEFAULTS, ...out };
-  }
-  return { ...VINTAGE_COLOR_DEFAULTS, ...out };
+  return resolveDerivedDefaults(explicit);
 }
 
 export function extractVintageColorsFromPayload(payload) {
@@ -194,6 +311,12 @@ export function extractVintageColorsFromPayload(payload) {
   const baseObj = parseColorObject(payload.theme_colors) || {};
   const merged = {};
   let hasExplicitField = false;
+
+  const legacyInk = sanitizeHex(payload.theme_color_ink, null) || sanitizeHex(baseObj.ink, null);
+  if (legacyInk) {
+    merged.ink = legacyInk;
+    hasExplicitField = true;
+  }
 
   for (const field of VINTAGE_COLOR_FIELDS) {
     const key = field.key;
@@ -208,7 +331,7 @@ export function extractVintageColorsFromPayload(payload) {
   if (!hasExplicitField) {
     return null;
   }
-  return { ...VINTAGE_COLOR_DEFAULTS, ...merged };
+  return resolveDerivedDefaults(merged);
 }
 
 export function areVintageColorsEqual(a, b) {
@@ -325,23 +448,34 @@ export function hsvToHex(h, s, v) {
 export function buildVintageCssVars(rawColors) {
   const colors = normalizeVintageColors(rawColors);
   const bgLum = relativeLuminance(colors.bg);
-  const inkLum = relativeLuminance(colors.ink);
+  const btnBgLum = relativeLuminance(colors.btn_bg);
   const photoBorderLum = relativeLuminance(colors.photo_border);
   const isDarkBg = bgLum < 0.35;
 
   const accentRgb = hexToRgb(colors.accent, VINTAGE_COLOR_DEFAULTS.accent);
-  const inkRgb = hexToRgb(colors.ink, VINTAGE_COLOR_DEFAULTS.ink);
+  const inkRgb = hexToRgb(colors.body_title, VINTAGE_COLOR_DEFAULTS.body_title);
   const surfaceRgb = hexToRgb(colors.surface, VINTAGE_COLOR_DEFAULTS.surface);
+  const btnHover = btnBgLum > 0.45
+    ? mixHex(colors.btn_bg, '#000000', 0.16)
+    : mixHex(colors.btn_bg, '#FFFFFF', 0.14);
 
   return {
     '--vc-bg': colors.bg,
     '--vc-surface': colors.surface,
     '--vc-surface-soft': mixHex(colors.bg, colors.surface, 0.45),
-    '--vc-ink': colors.ink,
-    '--vc-ink-soft': mixHex(colors.ink, colors.bg, 0.28),
-    '--vc-ink-muted': mixHex(colors.ink, colors.bg, 0.5),
-    '--vc-ink-hover': inkLum > 0.45 ? mixHex(colors.ink, colors.accent, 0.32) : mixHex(colors.ink, '#000000', 0.24),
-    '--vc-btn-text': inkLum > 0.45 ? '#1B1714' : '#FBF9F5',
+    '--vc-ink': colors.body_title,
+    '--vc-ink-soft': colors.body_text,
+    '--vc-ink-muted': mixHex(colors.body_text, colors.bg, 0.36),
+    '--vc-ink-hover': btnHover,
+    '--vc-btn-bg': colors.btn_bg,
+    '--vc-btn-hover': btnHover,
+    '--vc-btn-text': colors.btn_text,
+    '--vc-cover-title': colors.cover_title,
+    '--vc-cover-subtitle': colors.cover_subtitle,
+    '--vc-cover-body': colors.cover_body,
+    '--vc-body-title': colors.body_title,
+    '--vc-body-subtitle': colors.body_subtitle,
+    '--vc-body-text': colors.body_text,
     '--vc-accent': colors.accent,
     '--vc-accent-rgb': `${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}`,
     '--vc-ink-rgb': `${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}`,

@@ -3,6 +3,7 @@ import VintageColorWheel from './VintageColorWheel.jsx';
 import {
   VINTAGE_COLOR_DEFAULTS,
   VINTAGE_COLOR_FIELDS,
+  VINTAGE_COLOR_GROUPS,
   VINTAGE_COLOR_PRESETS,
   areVintageColorsEqual,
   normalizeVintageColors,
@@ -163,56 +164,70 @@ export default function VintageColorCustomizer({
               <strong>Warna Bagian Detail</strong>
               <span>Pilih bagian di bawah lalu atur dengan Bola Warna atau ketik kode hex</span>
             </div>
-            <div className="vc-color-fields">
-              {VINTAGE_COLOR_FIELDS.map((field) => {
-                const activeHex = colors[field.key];
-                const draftHex = hexDrafts[field.key] ?? activeHex;
-                const isSelected = field.key === activeField.key;
+            <div className="vc-color-groups">
+              {VINTAGE_COLOR_GROUPS.map((group) => {
+                const groupFields = VINTAGE_COLOR_FIELDS.filter((f) => f.group === group.id);
+                if (!groupFields.length) return null;
                 return (
-                  <div
-                    key={field.key}
-                    className={`vc-color-field${isSelected ? ' is-selected' : ''}`}
-                    data-vc-color-field={field.key}
-                    onClick={() => setActiveFieldKey(field.key)}
-                  >
-                    <div className="vc-color-field-controls">
-                      <button
-                        type="button"
-                        className="vc-color-swatch-wrap vc-color-swatch-btn"
-                        aria-label={`Pilih ${field.label} untuk diedit di Bola Warna`}
-                        aria-pressed={isSelected}
-                        data-vc-select-slot={field.key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveFieldKey(field.key);
-                        }}
-                      >
-                        <span className="vc-color-swatch-preview" style={{ backgroundColor: activeHex }} />
-                      </button>
-                      <div className="vc-color-field-meta">
-                        <span className="vc-color-field-label">{field.label}</span>
-                        <small className="vc-color-field-desc">{field.description}</small>
-                      </div>
-                      <input
-                        type="text"
-                        className="vc-color-hex-input"
-                        value={draftHex}
-                        maxLength={7}
-                        spellCheck={false}
-                        autoComplete="off"
-                        aria-label={`Kode hex ${field.label}`}
-                        data-vc-hex={field.key}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={() => setActiveFieldKey(field.key)}
-                        onChange={(e) => handleHexInputChange(field.key, e.target.value)}
-                        onBlur={() => handleHexInputBlur(field.key)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleHexInputBlur(field.key);
-                          }
-                        }}
-                      />
+                  <div key={group.id} className="vc-color-group" data-vc-color-group={group.id}>
+                    <div className="vc-color-group-head">
+                      <strong>{group.title}</strong>
+                      <small>{group.hint}</small>
+                    </div>
+                    <div className="vc-color-fields">
+                      {groupFields.map((field) => {
+                        const activeHex = colors[field.key];
+                        const draftHex = hexDrafts[field.key] ?? activeHex;
+                        const isSelected = field.key === activeField.key;
+                        return (
+                          <div
+                            key={field.key}
+                            className={`vc-color-field${isSelected ? ' is-selected' : ''}`}
+                            data-vc-color-field={field.key}
+                            onClick={() => setActiveFieldKey(field.key)}
+                          >
+                            <div className="vc-color-field-controls">
+                              <button
+                                type="button"
+                                className="vc-color-swatch-wrap vc-color-swatch-btn"
+                                aria-label={`Pilih ${field.label} untuk diedit di Bola Warna`}
+                                aria-pressed={isSelected}
+                                data-vc-select-slot={field.key}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveFieldKey(field.key);
+                                }}
+                              >
+                                <span className="vc-color-swatch-preview" style={{ backgroundColor: activeHex }} />
+                              </button>
+                              <div className="vc-color-field-meta">
+                                <span className="vc-color-field-label">{field.label}</span>
+                                <small className="vc-color-field-desc">{field.description}</small>
+                              </div>
+                              <input
+                                type="text"
+                                className="vc-color-hex-input"
+                                value={draftHex}
+                                maxLength={7}
+                                spellCheck={false}
+                                autoComplete="off"
+                                aria-label={`Kode hex ${field.label}`}
+                                data-vc-hex={field.key}
+                                onClick={(e) => e.stopPropagation()}
+                                onFocus={() => setActiveFieldKey(field.key)}
+                                onChange={(e) => handleHexInputChange(field.key, e.target.value)}
+                                onBlur={() => handleHexInputBlur(field.key)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleHexInputBlur(field.key);
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
