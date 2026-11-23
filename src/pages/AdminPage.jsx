@@ -38,6 +38,19 @@ function orderDateValue(order) {
   return String(order.created_at || '').slice(0, 10);
 }
 
+function isAdminDemoOrder(order) {
+  if (!order || typeof order !== 'object') return false;
+  const code = String(order.order_code || '').trim().toUpperCase();
+  const note = String(order.complimentary_note || '').trim();
+  const gateway = String(order.gateway || '').trim().toLowerCase();
+  return code.startsWith('DEMO-') || note === '__ADMIN_DEMO_LINK__' || gateway === 'admin_demo';
+}
+
+function hasRealDemoEmail(email) {
+  const clean = String(email || '').trim().toLowerCase();
+  return Boolean(clean && clean !== 'demo@daymoment.id');
+}
+
 function formatRupiahInput(value) {
   const digits = String(value || '').replace(/\D/g, '');
   return digits ? Number(digits).toLocaleString('id-ID') : '';
@@ -776,6 +789,533 @@ function ComplimentaryOrdersPanel({ orders, templates, working, onCreate, onRese
           return ok;
         }}
       />
+    )}
+  </>;
+}
+
+function DemoLinksPanel({ demoLinks, templates, working, onCreate, onUpdate, onResendEmail, onDelete, onReload }) {
+  const firstTemplate = templates[0];
+  const [form, setForm] = useState({
+    template_code: firstTemplate?.code || '',
+    package_code: firstTemplate?.packages?.[0]?.code || '',
+    customer_email: '',
+  });
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [feedback, setFeedback] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ template_code: '', package_code: '', customer_email: '' });
+  const [editError, setEditError] = useState('');
+  const pageSize = 10;
+
+  useEffect(() => {
+    if (!templates.length) return;
+    const selectedTemplate = templates.find((item) => item.code === form.template_code) || templates[0];
+    const selectedPackage = selectedTemplate.packages?.find((item) => item.code === form.package_code) || selectedTemplate.packages?.[0];
+    if (selectedTemplate.code !== form.template_code || selectedPackage?.code !== form.package_code) {
+      setForm((current) => ({
+        ...current,
+        template_code: selectedTemplate.code,
+        package_code: selectedPackage?.code || '',
+      }));
+    }
+  }, [templates, form.template_code, form.package_code]);
+
+  const selectedTemplate = templates.find((item) => item.code === form.template_code) || templates[0];
+  const selectedPackages = selectedTemplate?.packages || [];
+
+  const editTemplateObj = templates.find((item) => item.code === editForm.template_code) || templates[0];
+  const editPackages = editTemplateObj?.packages || [];
+
+  const updateTemplate = (templateCode) => {
+    const nextTemplate = templates.find((item) => item.code === templateCode);
+    setForm((current) => ({
+      ...current,
+      template_code: templateCode,
+      package_code: nextTemplate?.packages?.[0]?.code || '',
+    }));
+  };
+
+  const openEditModal = (item) => {
+    const matchedTemplate = templates.find((t) => t.code === item.template_code) || templates[0];
+    const matchedPackage = matchedTemplate?.packages?.find((p) => p.code === item.package_code) || matchedTemplate?.packages?.[0];
+    setEditing(item);
+    setEditError('');
+    setEditForm({
+      template_code: matchedTemplate?.code || item.template_code || '',
+      package_code: matchedPackage?.code || item.package_code || '',
+      customer_email: hasRealDemoEmail(item.customer_email) ? item.customer_email : '',
+    });
+  };
+
+  const updateEditTemplate = (templateCode) => {
+    const nextTemplate = templates.find((item) => item.code === templateCode);
+    const keepPackage = nextTemplate?.packages?.find((p) => p.code === editForm.package_code);
+    setEditForm((current) => ({
+      ...current,
+      template_code: templateCode,
+      package_code: keepPackage?.code || nextTemplate?.packages?.[0]?.code || '',
+    }));
+  };
+
+  const resolveLinkUrl = (rawUrl, fallbackPath) => {
+    const candidate = String(rawUrl || '').trim() || String(fallbackPath || '').trim();
+    if (!candidate) return '';
+    if (/^https?:\/\//i.test(candidate)) return candidate;
+    const normalizedPath = candidate.startsWith('/') ? candidate : `/${candidate}`;
+    return `${window.location.origin}${normalizedPath}`;
+  };
+
+  const copyLink = async (url, label) => {
+    if (!url) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+      }
+      setFeedback((prev) => ({
+        type: 'success',
+        message: `${label} berhasil disalin: ${url}`,
+        demoLink: prev?.demoLink || null,
+      }));
+      window.showToast?.(`${label} berhasil disalin!`);
+    } catch {
+      window.prompt(`Salin ${label} berikut:`, url);
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!form.template_code || !form.package_code) {
+      setFeedback({ type: 'error', message: 'Pilih nama template dan kategori terlebih dahulu.' });
+      return;
+    }
+    setFeedback(null);
+    const payload = {
+      template_code: form.template_code,
+      package_code: form.package_code,
+      customer_email: form.customer_email.trim(),
+    };
+    const result = await onCreate(payload);
+    if (!result?.ok) {
+      setFeedback({ type: 'error', message: result?.message || 'Gagal membuat link demo baru.' });
+      return;
+    }
+    setForm((current) => ({ ...current, customer_email: '' }));
+    const hadEmail = Boolean(payload.customer_email);
+    setFeedback({
+      type: hadEmail && result.email_sent === false ? 'error' : 'success',
+      message: result.message || 'Link demo berhasil dibuat dan otomatis dipublish.',
+      demoLink: result.demo_link || null,
+    });
+  };
+
+  const saveEdit = async (andResend = false) => {
+    if (!editing) return;
+    setEditError('');
+    const trimmedEmail = editForm.customer_email.trim();
+    if (andResend && !trimmedEmail) {
+      setEditError('Isi alamat email terlebih dahulu untuk mengirim ulang email.');
+      return;
+    }
+    const result = await onUpdate(editing.order_code, {
+      template_code: editForm.template_code,
+      package_code: editForm.package_code,
+      customer_email: trimmedEmail,
+    });
+    if (!result?.ok) {
+      setEditError(result?.message || 'Gagal memperbarui data link demo.');
+      return;
+    }
+    const targetCode = editing.order_code;
+    setEditing(null);
+    if (andResend) {
+      const resendRes = await onResendEmail(targetCode);
+      setFeedback({
+        type: resendRes?.ok ? 'success' : 'error',
+        message: resendRes?.ok
+          ? (resendRes.message || `Data disimpan dan email dikirim ke ${trimmedEmail}.`)
+          : `Data link demo disimpan, tetapi email gagal dikirim: ${resendRes?.message || 'coba lagi.'}`,
+        demoLink: result.demo_link || null,
+      });
+      return;
+    }
+    setFeedback({
+      type: 'success',
+      message: result.message || 'Data link demo berhasil diperbarui.',
+      demoLink: result.demo_link || null,
+    });
+  };
+
+  const handleResendEmail = async (item) => {
+    if (!hasRealDemoEmail(item.customer_email)) {
+      openEditModal(item);
+      return;
+    }
+    setFeedback(null);
+    const result = await onResendEmail(item.order_code);
+    setFeedback({
+      type: result?.ok ? 'success' : 'error',
+      message: result?.message || (result?.ok ? 'Email link demo berhasil dikirim.' : 'Gagal mengirim email link demo.'),
+    });
+  };
+
+  const handleDelete = async (item) => {
+    const confirmMessage = `Hapus permanen link demo "${item.template_name || '-'} (${item.package_name || '-'})" dengan URL /${item.slug || ''}?\n\nSeluruh data demo termasuk gambar, musik, dan pengaturan undangan akan dihapus permanen.`;
+    if (!window.confirm(confirmMessage)) return;
+    const result = await onDelete(item);
+    if (!result?.ok) {
+      setFeedback({ type: 'error', message: result?.message || 'Gagal menghapus link demo.' });
+      return;
+    }
+    setFeedback({
+      type: 'success',
+      message: result.message || `Link demo ${item.order_code} beserta seluruh datanya berhasil dihapus permanen.`,
+    });
+  };
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (demoLinks || []).filter((item) => {
+      if (!needle) return true;
+      const emailPart = hasRealDemoEmail(item.customer_email) ? item.customer_email : '';
+      const haystack = `${item.order_code || ''} ${item.template_name || ''} ${item.template_code || ''} ${item.package_name || ''} ${item.package_code || ''} ${item.slug || ''} ${emailPart}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [demoLinks, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginationItems = affiliatePaginationItems(currentPage, pageCount);
+
+  useEffect(() => setPage(1), [query]);
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
+
+  const createdDemoUrl = feedback?.demoLink ? resolveLinkUrl(feedback.demoLink.website_url, feedback.demoLink.slug ? `/${feedback.demoLink.slug}` : '') : '';
+  const createdEditorUrl = feedback?.demoLink ? resolveLinkUrl(feedback.demoLink.editor_url, '') : '';
+
+  return <>
+    <section className="admin-demo-link-create">
+      <div className="admin-demo-link-intro">
+        <span className="eyebrow">PRATINJAU KLIEN</span>
+        <h2>Buat link demo baru</h2>
+        <p>Pilih nama template dan kategori paket, lalu simpan. Link demo langsung aktif (otomatis publish), slug URL bawaan dikunci agar konsisten, dan tersedia tautan menuju editor.</p>
+        <div className="admin-demo-link-intro-meta">
+          <strong>Otomatis Publish · Slug Terkunci</strong>
+          <small>Anda juga dapat mengisi email opsional untuk langsung mengirim link demo, atau ubah &amp; kirim ulang kapan saja.</small>
+        </div>
+      </div>
+
+      <form className="admin-demo-link-form" onSubmit={submit}>
+        <AdminFilterDropdown
+          label="Nama template *"
+          value={form.template_code}
+          options={templates.map((item) => ({ value: item.code, label: item.name, description: item.category || '' }))}
+          onChange={updateTemplate}
+        />
+        <AdminFilterDropdown
+          label="Kategori / Paket *"
+          value={form.package_code}
+          options={selectedPackages.map((item) => ({ value: item.code, label: item.name, description: item.tagline || '' }))}
+          onChange={(value) => setForm((current) => ({ ...current, package_code: value }))}
+        />
+        <label className="wide admin-demo-email-field">
+          <span>Email penerima (opsional)</span>
+          <input
+            type="email"
+            maxLength="254"
+            value={form.customer_email}
+            onChange={(event) => setForm((current) => ({ ...current, customer_email: event.target.value }))}
+            placeholder="contoh@email.com"
+          />
+          <small>Opsional. Jika diisi, link demo dan editor langsung dikirim ke email penerima.</small>
+        </label>
+
+        {feedback && (
+          <div className={`admin-demo-link-feedback ${feedback.type}`} role="status">
+            <span>{feedback.message}</span>
+            {feedback.demoLink && (createdDemoUrl || createdEditorUrl) && (
+              <div className="admin-demo-link-feedback-actions">
+                {createdDemoUrl && <a className="primary" href={createdDemoUrl} target="_blank" rel="noreferrer">Buka Link Demo ↗</a>}
+                {createdDemoUrl && <button type="button" className="secondary" onClick={() => copyLink(createdDemoUrl, 'Link demo')}>Salin Link Demo</button>}
+                {createdEditorUrl && <a className="secondary" href={createdEditorUrl} target="_blank" rel="noreferrer">Buka Editor Demo ↗</a>}
+                {createdEditorUrl && <button type="button" className="secondary" onClick={() => copyLink(createdEditorUrl, 'Link editor')}>Salin Link Editor</button>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="admin-demo-link-submit">
+          <p>
+            <strong>Slug URL dibuat otomatis saat disimpan.</strong>
+            <span>Slug demo tidak dapat diubah melalui editor agar link demo tetap permanen.</span>
+          </p>
+          <button type="submit" disabled={working === 'demo-links:create' || !templates.length || !selectedPackages.length}>
+            {working === 'demo-links:create' ? 'Menyimpan...' : 'Simpan & Buat Link Demo →'}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section className="admin-order-history-summary admin-free-order-summary">
+      <div><span>Total link demo</span><strong>{(demoLinks || []).length}</strong><small>seluruh demo aktif</small></div>
+      <div><span>Sesuai filter</span><strong>{filtered.length}</strong><small>hasil pencarian saat ini</small></div>
+      <div><span>Status publikasi</span><strong>Otomatis Publish</strong><small>langsung dapat diakses</small></div>
+    </section>
+
+    <section className="admin-order-history-filter" style={{ gridTemplateColumns: 'minmax(240px, 1fr) auto' }}>
+      <label className="admin-order-search">
+        <span>Cari link demo</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Cari kode demo, nama template, kategori, email, atau slug URL..."
+        />
+      </label>
+      <div className="admin-order-filter-footer" style={{ alignSelf: 'end', borderTop: 0, paddingTop: 0 }}>
+        <div>
+          {query && <button type="button" className="reset" onClick={() => setQuery('')}>Reset</button>}
+          <button type="button" className="reload" onClick={onReload}>Muat ulang</button>
+        </div>
+      </div>
+    </section>
+
+    <section className="admin-order-history-list admin-demo-link-list">
+      <div className="admin-section-heading">
+        <div>
+          <span className="eyebrow">DAFTAR LINK DEMO</span>
+          <h2>Semua link demo tersimpan</h2>
+        </div>
+        <span className="admin-count">Maksimal 10 data per halaman</span>
+      </div>
+
+      <div className="admin-order-table-wrap">
+        <table className="admin-order-history-table">
+          <thead>
+            <tr>
+              <th>Template &amp; Kategori</th>
+              <th>Slug URL Default</th>
+              <th>Email Penerima</th>
+              <th>Status</th>
+              <th>Dibuat</th>
+              <th>Link &amp; Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageItems.length ? pageItems.map((item) => {
+              const demoUrl = resolveLinkUrl(item.website_url, item.slug ? `/${item.slug}` : '');
+              const editorUrl = resolveLinkUrl(item.editor_url, '');
+              const hasEmail = hasRealDemoEmail(item.customer_email);
+              const isDeleting = working === `demo-links:delete:${item.order_code}`;
+              const isResending = working === `demo-links:resend:${item.order_code}`;
+              const isUpdating = working === `demo-links:update:${item.order_code}`;
+              const busyRow = isDeleting || isResending || isUpdating;
+              return (
+                <tr key={item.id || item.order_code}>
+                  <td>
+                    <strong>{item.template_name || '-'}</strong>
+                    <small>{item.package_name || '-'}</small>
+                    <small>{item.order_code}</small>
+                  </td>
+                  <td>
+                    <div className="admin-demo-link-url-cell">
+                      <span className="admin-demo-link-slug-code">/{item.slug || '-'}</span>
+                      <span className="admin-demo-link-lock-note">🔒 Slug bawaan terkunci</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="admin-demo-email-cell">
+                      {hasEmail ? (
+                        <>
+                          <strong className="admin-demo-email-addr">{item.customer_email}</strong>
+                          <span className={`admin-free-email-state ${item.editor_email_sent_at ? 'sent' : 'waiting'}`}>
+                            {item.editor_email_sent_at ? 'Email terkirim' : 'Belum dikirim'}
+                          </span>
+                          {item.editor_email_sent_at && <small>{dateFormat.format(new Date(item.editor_email_sent_at))}</small>}
+                        </>
+                      ) : (
+                        <>
+                          <span className="admin-demo-email-empty">Tanpa email</span>
+                          <small>Klik Edit jika ingin isi email</small>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={`admin-pill ${item.website_active ? 'paid' : 'waiting'}`}>
+                      {item.website_active ? 'Otomatis Publish' : 'Nonaktif'}
+                    </span>
+                  </td>
+                  <td>
+                    <strong>{item.created_at ? dateFormat.format(new Date(item.created_at)) : '-'}</strong>
+                  </td>
+                  <td>
+                    <div className="admin-demo-link-actions">
+                      {demoUrl && (
+                        <a className="btn-open-demo" href={demoUrl} target="_blank" rel="noreferrer">
+                          Buka Demo ↗
+                        </a>
+                      )}
+                      {demoUrl && (
+                        <button type="button" className="btn-copy-link" onClick={() => copyLink(demoUrl, 'Link demo')}>
+                          Salin Demo
+                        </button>
+                      )}
+                      {editorUrl && (
+                        <a className="btn-open-editor" href={editorUrl} target="_blank" rel="noreferrer">
+                          Editor ↗
+                        </a>
+                      )}
+                      {editorUrl && (
+                        <button type="button" className="btn-copy-link" onClick={() => copyLink(editorUrl, 'Link editor')}>
+                          Salin Editor
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-edit-demo"
+                        disabled={busyRow || Boolean(working)}
+                        onClick={() => openEditModal(item)}
+                        title="Edit template, kategori, atau email link demo"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-resend-demo"
+                        disabled={busyRow || Boolean(working)}
+                        onClick={() => handleResendEmail(item)}
+                        title={hasEmail ? `Kirim ulang link demo ke ${item.customer_email}` : 'Isi email terlebih dahulu melalui Edit'}
+                      >
+                        {isResending ? 'Mengirim...' : (hasEmail ? (item.editor_email_sent_at ? 'Kirim Ulang Email' : 'Kirim Email') : 'Kirim Email')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-delete-demo"
+                        disabled={busyRow || Boolean(working)}
+                        onClick={() => handleDelete(item)}
+                        title="Hapus permanen link demo beserta seluruh gambar & datanya"
+                      >
+                        {isDeleting ? 'Menghapus...' : 'Hapus'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            }) : (
+              <tr>
+                <td className="admin-order-empty" colSpan="6">
+                  {query ? 'Tidak ada link demo yang cocok dengan kata kunci pencarian.' : 'Belum ada link demo. Pilih template dan kategori di atas lalu klik Simpan untuk membuat link demo baru.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {filtered.length > 0 && (
+        <div className="admin-affiliate-pagination">
+          <span>Menampilkan {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} dari {filtered.length} data</span>
+          <nav aria-label="Halaman link demo">
+            <button type="button" className="direction" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button>
+            {paginationItems.map((item) => typeof item === 'number'
+              ? <button type="button" className={item === currentPage ? 'is-active' : ''} aria-current={item === currentPage ? 'page' : undefined} key={item} onClick={() => setPage(item)}>{item}</button>
+              : <span className="ellipsis" key={item}>…</span>)}
+            <button type="button" className="direction" disabled={currentPage === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>›</button>
+          </nav>
+        </div>
+      )}
+    </section>
+
+    {editing && (
+      <div
+        className="admin-order-modal admin-demo-edit-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Edit link demo ${editing.order_code}`}
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !working) setEditing(null);
+        }}
+      >
+        <article className="admin-order-detail-card admin-demo-edit-card">
+          <header>
+            <div>
+              <span className="eyebrow">EDIT LINK DEMO</span>
+              <h2>Ubah data link demo</h2>
+              <p>{editing.order_code} · Slug URL: /{editing.slug || '-'}</p>
+            </div>
+            <button type="button" className="close" onClick={() => setEditing(null)} disabled={Boolean(working)} aria-label="Tutup">×</button>
+          </header>
+
+          <form
+            className="admin-demo-edit-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveEdit(false);
+            }}
+          >
+            <AdminFilterDropdown
+              label="Nama template *"
+              value={editForm.template_code}
+              options={templates.map((item) => ({ value: item.code, label: item.name, description: item.category || '' }))}
+              onChange={updateEditTemplate}
+            />
+            <AdminFilterDropdown
+              label="Kategori / Paket *"
+              value={editForm.package_code}
+              options={editPackages.map((item) => ({ value: item.code, label: item.name, description: item.tagline || '' }))}
+              onChange={(value) => setEditForm((current) => ({ ...current, package_code: value }))}
+            />
+            <label className="wide admin-demo-email-field">
+              <span>Email penerima (opsional)</span>
+              <input
+                type="email"
+                maxLength="254"
+                value={editForm.customer_email}
+                onChange={(event) => setEditForm((current) => ({ ...current, customer_email: event.target.value }))}
+                placeholder="contoh@email.com"
+              />
+              <small>Perbaiki email jika sebelumnya salah ketik, lalu simpan atau langsung kirim ulang email.</small>
+            </label>
+            <div className="admin-demo-edit-slug-notice">
+              🔒 Slug URL bawaan <strong>/{editing.slug || '-'}</strong> tetap dikunci agar tautan demo yang sudah dibagikan tidak berubah.
+            </div>
+            {editError && (
+              <div className="admin-demo-link-feedback error" role="alert">
+                <span>{editError}</span>
+              </div>
+            )}
+            <footer className="admin-demo-edit-footer" style={{ gridColumn: '1 / -1', marginTop: '6px', paddingInline: 0 }}>
+              <button type="button" onClick={() => setEditing(null)} disabled={Boolean(working)}>Batal</button>
+              <button
+                type="submit"
+                className="edit"
+                disabled={working === `demo-links:update:${editing.order_code}` || Boolean(working)}
+              >
+                {working === `demo-links:update:${editing.order_code}` ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+              {editForm.customer_email.trim() && (
+                <button
+                  type="button"
+                  className="btn-send-now"
+                  disabled={Boolean(working)}
+                  onClick={() => saveEdit(true)}
+                >
+                  Simpan &amp; Kirim Ulang Email →
+                </button>
+              )}
+            </footer>
+          </form>
+        </article>
+      </div>
     )}
   </>;
 }
@@ -3556,7 +4096,8 @@ export default function AdminPage() {
       </div>
     );
   };
-  const orders = data?.orders || [];
+  const orders = useMemo(() => (data?.orders || []).filter((order) => !isAdminDemoOrder(order)), [data?.orders]);
+  const demoLinks = useMemo(() => data?.demo_links || [], [data?.demo_links]);
   const regularOrders = useMemo(() => orders.filter((order) => order.order_source !== 'admin_free'), [orders]);
   const freeOrders = useMemo(() => orders.filter((order) => order.order_source === 'admin_free'), [orders]);
 
@@ -4279,6 +4820,67 @@ export default function AdminPage() {
     } catch (failure) {
       window.showToast?.(failure.message || 'Gagal menghapus data customer.', 'error');
       return false;
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const createDemoLink = async (values) => {
+    setWorking('demo-links:create');
+    try {
+      const result = await post('/api/admin/demo-links', values);
+      await reload();
+      window.showToast?.(result.message || 'Link demo berhasil dibuat.');
+      return result;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal membuat link demo.', 'error');
+      return { ok: false, message: failure.message || 'Gagal membuat link demo.' };
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const updateDemoLink = async (orderCode, values) => {
+    setWorking(`demo-links:update:${orderCode}`);
+    try {
+      const result = await patch(`/api/admin/demo-links/${encodeURIComponent(orderCode)}`, values);
+      await reload();
+      window.showToast?.(result.message || 'Data link demo berhasil diperbarui.');
+      return result;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal memperbarui link demo.', 'error');
+      return { ok: false, message: failure.message || 'Gagal memperbarui link demo.' };
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const resendDemoLinkEmail = async (orderCode) => {
+    setWorking(`demo-links:resend:${orderCode}`);
+    try {
+      const result = await post(`/api/admin/demo-links/${encodeURIComponent(orderCode)}/resend-email`, {});
+      await reload();
+      window.showToast?.(result.message || 'Email link demo berhasil dikirim ulang.');
+      return result;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal mengirim email link demo.', 'error');
+      return { ok: false, message: failure.message || 'Gagal mengirim email link demo.' };
+    } finally {
+      setWorking('');
+    }
+  };
+
+  const deleteDemoLink = async (item) => {
+    if (!item?.order_code) return { ok: false, message: 'Kode link demo tidak valid.' };
+    setWorking(`demo-links:delete:${item.order_code}`);
+    try {
+      const result = await del(`/api/admin/demo-links/${encodeURIComponent(item.order_code)}`);
+      await reload();
+      window.showToast?.(result.message || 'Link demo berhasil dihapus.');
+      return result;
+    } catch (failure) {
+      window.showToast?.(failure.message || 'Gagal menghapus link demo.', 'error');
+      return { ok: false, message: failure.message || 'Gagal menghapus link demo.' };
     } finally {
       setWorking('');
     }
@@ -5139,6 +5741,7 @@ export default function AdminPage() {
         <button className={`admin-nav-review ${activeView === 'affiliates' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliates')}>Review affiliate</button>
         <button className={activeView === 'order-history' ? 'is-active' : ''} type="button" onClick={() => setActiveView('order-history')}>Riwayat pesanan</button>
         <button className={`admin-nav-free-orders ${activeView === 'complimentary-orders' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('complimentary-orders')}>Order gratis</button>
+        <button className={`admin-nav-demo-links ${activeView === 'demo-links' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('demo-links')}>Link demo</button>
         <button className={activeView === 'feedback' ? 'is-active' : ''} type="button" onClick={() => setActiveView('feedback')}>Feedback saran</button>
         <button className="admin-sidebar-logout" type="button" onClick={logout}>Keluar</button>
       </nav>
@@ -5229,6 +5832,15 @@ export default function AdminPage() {
       <section className="admin-shell admin-view-free-orders">
         <div className="admin-heading"><div><span className="eyebrow">AKSES KHUSUS CUSTOMER</span><h1>Order gratis</h1><p>Buat undangan tanpa pembayaran dan kirim akses editornya langsung ke email penerima.</p></div>{mobileStandaloneMenu}</div>
         <ComplimentaryOrdersPanel orders={orders} templates={templateCatalog} working={working} onCreate={createComplimentaryOrder} onResend={resendComplimentaryEmail} onSaveWebsite={saveWebsiteAccess} onReload={reload}/>
+      </section>
+    </AdminTemplate>;
+  }
+
+  if (activeView === 'demo-links') {
+    return <AdminTemplate sidebar={sidebarNavigation}>
+      <section className="admin-shell admin-view-demo-links">
+        <div className="admin-heading"><div><span className="eyebrow">PRATINJAU &amp; DEMO TEMPLATE</span><h1>Link demo</h1><p>Buat link demo undangan per template dan kategori secara instan. Otomatis publish, slug terkunci, dan bebas diedit lewat editor.</p></div>{mobileStandaloneMenu}</div>
+        <DemoLinksPanel demoLinks={demoLinks} templates={templateCatalog} working={working} onCreate={createDemoLink} onUpdate={updateDemoLink} onResendEmail={resendDemoLinkEmail} onDelete={deleteDemoLink} onReload={reload}/>
       </section>
     </AdminTemplate>;
   }

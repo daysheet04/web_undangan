@@ -1,7 +1,18 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
-import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail } from '../lib/email.js';
-import { cleanText, normalizePhone, orderCode, randomHex, validEmail, validPhone } from '../lib/helpers.js';
+import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail, sendDemoLinkEmail } from '../lib/email.js';
+import { cleanText, normalizePhone, orderCode, randomHex, RESERVED_SLUGS, validEmail, validPhone } from '../lib/helpers.js';
+import {
+  ADMIN_DEMO_NOTE_MARKER,
+  buildDemoInitialInvitationFields,
+  buildDemoSlugBase,
+  collectInvitationR2Keys,
+  DEMO_PLACEHOLDER_EMAIL,
+  deleteR2KeysAndCache,
+  demoActiveUntilIso,
+  hasRealDemoRecipientEmail,
+  isAdminDemoOrder,
+} from '../lib/demoLinks.js';
 import { allTemplates, canonicalTemplateCode, demoTemplates, findActiveSlugConflict, hasRealSupabaseConfig } from '../lib/repositories.js';
 import { extractVintageColorsFromPayload } from '../../src/lib/vintageThemeColors.js';
 import {
@@ -388,7 +399,9 @@ async function adminAffiliateOptions(env) {
 }
 
 admin.get('/admin/summary', async (c) => {
-  const orders = await adminOrders(c.env);
+  const allOrders = await adminOrders(c.env);
+  const demoLinks = allOrders.filter(isAdminDemoOrder);
+  const orders = allOrders.filter((order) => !isAdminDemoOrder(order));
   const salesOrders = orders.filter((order) => order.order_source !== 'admin_free');
   const templates = await allTemplates(c.env);
   const affiliateOptions = await adminAffiliateOptions(c.env);
@@ -456,6 +469,7 @@ admin.get('/admin/summary', async (c) => {
     ok: true,
     summary,
     orders,
+    demo_links: demoLinks,
     withdrawals,
     affiliates,
     templates: templates.map((template) => adminTemplate(c.env, template)),
@@ -467,7 +481,414 @@ admin.get('/admin/summary', async (c) => {
 });
 
 admin.get('/admin/orders', async (c) => {
-  return c.json({ ok: true, orders: await adminOrders(c.env), mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+  const allOrders = await adminOrders(c.env);
+  return c.json({ ok: true, orders: allOrders.filter((order) => !isAdminDemoOrder(order)), mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+});
+
+async function nextAvailableDemoSlug(env, template, selectedPackage) {
+  const base = buildDemoSlugBase(template, selectedPackage);
+  const db = hasRealSupabaseConfig(env) ? database(env) : null;
+  const isSlugBusy = async (candidate) => {
+    if (!candidate || RESERVED_SLUGS.has(candidate)) return true;
+    const conflict = await findActiveSlugConflict(env, candidate);
+    if (conflict) return true;
+    if (db) {
+      const { data } = await db.from('invitations').select('id').eq('slug', candidate).limit(1);
+      if (data && data.length > 0) return true;
+    } else {
+      const demoTaken = [...(DEMO_STATE.orders.values?.() || [])].some((item) => item.slug === candidate);
+      if (demoTaken) return true;
+    }
+    return false;
+  };
+  if (!(await isSlugBusy(base))) return base;
+  for (let i = 2; i <= 50; i += 1) {
+    const candidate = `${base.slice(0, 110)}-${i}`;
+    if (!(await isSlugBusy(candidate))) return candidate;
+  }
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const candidate = `${base.slice(0, 108)}-${randomHex(2)}`;
+    if (!(await isSlugBusy(candidate))) return candidate;
+  }
+  return `${base.slice(0, 104)}-${randomHex(4)}`;
+}
+
+admin.get('/admin/demo-links', async (c) => {
+  const demoLinks = (await adminOrders(c.env)).filter(isAdminDemoOrder);
+  return c.json({ ok: true, demo_links: demoLinks, mode: hasRealSupabaseConfig(c.env) ? 'database' : 'demo' });
+});
+
+admin.post('/admin/demo-links', async (c) => {
+  const input = await c.req.json().catch(() => ({}));
+  const templateCode = cleanText(input.template_code, 50);
+  const packageCode = cleanText(input.package_code, 30);
+  const rawEmail = cleanText(input.customer_email, 254).toLowerCase();
+
+  const templates = await allTemplates(c.env);
+  const template = templates.find((item) => item.code === templateCode || canonicalTemplateCode(item.code) === canonicalTemplateCode(templateCode));
+  const selectedPackage = template?.packages?.find((item) => item.code === packageCode);
+  const errors = {};
+  if (!template) errors.template_code = 'Pilih nama template yang tersedia.';
+  if (!selectedPackage) errors.package_code = 'Pilih kategori / paket yang tersedia.';
+  if (rawEmail && !validEmail(rawEmail)) errors.customer_email = 'Masukkan alamat email yang valid.';
+  if (Object.keys(errors).length) {
+    return c.json({ ok: false, message: errors.customer_email || 'Pilih template dan kategori terlebih dahulu.', errors }, 422);
+  }
+
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const activeUntil = demoActiveUntilIso(nowDate);
+  const code = `DEMO-${randomHex(4).toUpperCase()}`;
+  const editorToken = randomHex(32);
+  const slug = await nextAvailableDemoSlug(c.env, template, selectedPackage);
+  const customerName = `Demo · ${template.name} (${selectedPackage.name})`;
+  const storedEmail = rawEmail || DEMO_PLACEHOLDER_EMAIL;
+  const starterFields = buildDemoInitialInvitationFields(nowDate);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    DEMO_STATE.orders.set(code, {
+      id: `demo-${code}`,
+      order_code: code,
+      customer_name: customerName,
+      customer_email: storedEmail,
+      customer_phone: '6280000000000',
+      template_id: template.id,
+      template_code: template.code,
+      template_name: template.name,
+      template_category: template.category,
+      package_id: selectedPackage.id,
+      package_code: selectedPackage.code,
+      package_name: selectedPackage.name,
+      package_price: Number(selectedPackage.price || 0),
+      gallery_limit: selectedPackage.gallery_limit ?? 2,
+      has_music: Boolean(selectedPackage.has_music),
+      has_gift: Boolean(selectedPackage.has_gift),
+      has_wishes: Boolean(selectedPackage.has_wishes),
+      editor_token: editorToken,
+      status: 'published',
+      payment_status: 'paid',
+      payment_amount: 0,
+      paid_at: now,
+      gateway: 'admin_demo',
+      transaction_id: code,
+      order_source: 'admin_free',
+      complimentary_note: ADMIN_DEMO_NOTE_MARKER,
+      referral_name: null,
+      referral_amount: 0,
+      slug,
+      is_active: true,
+      website_active: true,
+      website_enabled: true,
+      published_at: now,
+      active_until: activeUntil,
+      created_at: now,
+      updated_at: now,
+      ...starterFields,
+    });
+  } else {
+    const db = database(c.env);
+    const { data: insertedOrder, error: orderError } = await db.from('orders').insert({
+      order_code: code,
+      template_id: template.id,
+      package_id: selectedPackage.id,
+      customer_name: customerName,
+      customer_phone: '6280000000000',
+      customer_email: storedEmail,
+      editor_token: editorToken,
+      status: 'published',
+      payment_status: 'paid',
+      order_source: 'admin_free',
+      complimentary_note: ADMIN_DEMO_NOTE_MARKER,
+    }).select('id').single();
+    if (orderError) throw orderError;
+
+    try {
+      const { error: paymentError } = await db.from('payments').insert({
+        order_id: insertedOrder.id,
+        gateway: 'admin_demo',
+        transaction_id: code,
+        amount: 0,
+        status: 'paid',
+        paid_at: now,
+      });
+      if (paymentError) throw paymentError;
+
+      const { error: invError } = await db.from('invitations').insert({
+        order_id: insertedOrder.id,
+        slug,
+        is_active: true,
+        published_at: now,
+        active_until: activeUntil,
+        ...starterFields,
+      });
+      if (invError) throw invError;
+    } catch (childErr) {
+      await db.from('orders').delete().eq('id', insertedOrder.id).catch(() => {});
+      throw childErr;
+    }
+  }
+
+  let created = (await adminOrders(c.env)).find((item) => item.order_code === code);
+  const editorUrl = created?.editor_url || publicAppUrl(c.env, `/edit/${encodeURIComponent(editorToken)}`);
+  const websiteUrl = created?.website_url || publicAppUrl(c.env, `/${encodeURIComponent(slug)}`);
+
+  let emailSent = false;
+  let emailWarning = '';
+  if (hasRealDemoRecipientEmail(storedEmail)) {
+    try {
+      const sent = await sendDemoLinkEmail(c.env, {
+        order_code: code,
+        customer_email: storedEmail,
+        template_name: template.name,
+        package_name: selectedPackage.name,
+        slug,
+      }, websiteUrl, editorUrl);
+      emailSent = sent?.skipped !== true;
+      if (!emailSent) emailWarning = 'SMTP belum dikonfigurasi, email link demo belum terkirim.';
+    } catch (emailError) {
+      console.error('Demo link email failed:', emailError.message);
+      emailWarning = 'Link demo berhasil dibuat, tetapi email gagal dikirim. Gunakan tombol Kirim Email untuk mencoba ulang.';
+    }
+
+    if (emailSent) {
+      if (!hasRealSupabaseConfig(c.env)) {
+        const stored = DEMO_STATE.orders.get(code);
+        if (stored) stored.editor_email_sent_at = now;
+      } else {
+        const db = database(c.env);
+        const { error: stampError } = await db.from('orders').update({ editor_email_sent_at: now }).eq('order_code', code);
+        if (stampError) console.error('Demo email timestamp failed:', stampError.message);
+      }
+      created = { ...(created || {}), editor_email_sent_at: now };
+    }
+  }
+
+  const baseMessage = `Link demo ${template.name} (${selectedPackage.name}) berhasil dibuat dan otomatis dipublish.`;
+  const fullMessage = hasRealDemoRecipientEmail(storedEmail)
+    ? (emailSent ? `${baseMessage} Email link demo terkirim ke ${storedEmail}.` : `${baseMessage} (${emailWarning})`)
+    : baseMessage;
+
+  return c.json({
+    ok: true,
+    email_sent: emailSent,
+    demo_link: {
+      ...(created || {}),
+      order_code: code,
+      customer_email: storedEmail,
+      slug,
+      slug_locked: true,
+      editor_url: editorUrl,
+      website_url: websiteUrl,
+    },
+    message: fullMessage,
+  }, 201);
+});
+
+admin.patch('/admin/demo-links/:code', async (c) => {
+  const code = cleanText(c.req.param('code'), 64);
+  if (!code) return c.json({ ok: false, message: 'Kode link demo tidak valid.' }, 400);
+
+  const input = await c.req.json().catch(() => ({}));
+  const templateCode = cleanText(input.template_code, 50);
+  const packageCode = cleanText(input.package_code, 30);
+  const hasEmailField = Object.hasOwn(input, 'customer_email');
+  const rawEmail = hasEmailField ? cleanText(input.customer_email, 254).toLowerCase() : '';
+
+  const templates = await allTemplates(c.env);
+  const template = templates.find((item) => item.code === templateCode || canonicalTemplateCode(item.code) === canonicalTemplateCode(templateCode));
+  const selectedPackage = template?.packages?.find((item) => item.code === packageCode);
+  const errors = {};
+  if (!template) errors.template_code = 'Pilih nama template yang tersedia.';
+  if (!selectedPackage) errors.package_code = 'Pilih kategori / paket yang tersedia.';
+  if (hasEmailField && rawEmail && !validEmail(rawEmail)) errors.customer_email = 'Masukkan alamat email yang valid.';
+  if (Object.keys(errors).length) {
+    return c.json({ ok: false, message: errors.customer_email || 'Periksa kembali data link demo.', errors }, 422);
+  }
+
+  const now = new Date().toISOString();
+  const nextCustomerName = `Demo · ${template.name} (${selectedPackage.name})`;
+  let existingSlug = null;
+  let emailChanged = false;
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const existing = DEMO_STATE.orders.get(code);
+    if (!existing || !isAdminDemoOrder(existing)) {
+      return c.json({ ok: false, message: 'Link demo tidak ditemukan.' }, 404);
+    }
+    const nextEmail = hasEmailField ? (rawEmail || DEMO_PLACEHOLDER_EMAIL) : (existing.customer_email || DEMO_PLACEHOLDER_EMAIL);
+    emailChanged = nextEmail.toLowerCase() !== String(existing.customer_email || '').trim().toLowerCase();
+    existingSlug = existing.slug || null;
+    Object.assign(existing, {
+      template_id: template.id,
+      template_code: template.code,
+      template_name: template.name,
+      template_category: template.category,
+      package_id: selectedPackage.id,
+      package_code: selectedPackage.code,
+      package_name: selectedPackage.name,
+      package_price: Number(selectedPackage.price || 0),
+      gallery_limit: selectedPackage.gallery_limit ?? 2,
+      has_music: Boolean(selectedPackage.has_music),
+      has_gift: Boolean(selectedPackage.has_gift),
+      has_wishes: Boolean(selectedPackage.has_wishes),
+      customer_name: nextCustomerName,
+      customer_email: nextEmail,
+      editor_email_sent_at: emailChanged ? null : (existing.editor_email_sent_at || null),
+      updated_at: now,
+    });
+  } else {
+    const db = database(c.env);
+    const { data: order, error: orderReadError } = await db.from('orders')
+      .select('id,order_code,customer_email,complimentary_note,order_source')
+      .eq('order_code', code)
+      .maybeSingle();
+    if (orderReadError) throw orderReadError;
+    if (!order) return c.json({ ok: false, message: 'Link demo tidak ditemukan.' }, 404);
+
+    let payment = null;
+    try {
+      const { data: payRow } = await db.from('payments').select('gateway').eq('order_id', order.id).maybeSingle();
+      payment = payRow || null;
+    } catch {}
+    if (!isAdminDemoOrder({ ...order, gateway: payment?.gateway })) {
+      return c.json({ ok: false, message: 'Data yang dipilih bukan link demo.' }, 400);
+    }
+
+    const nextEmail = hasEmailField ? (rawEmail || DEMO_PLACEHOLDER_EMAIL) : (order.customer_email || DEMO_PLACEHOLDER_EMAIL);
+    emailChanged = nextEmail.toLowerCase() !== String(order.customer_email || '').trim().toLowerCase();
+    const orderUpdate = {
+      template_id: template.id,
+      package_id: selectedPackage.id,
+      customer_name: nextCustomerName,
+      customer_email: nextEmail,
+      updated_at: now,
+    };
+    if (emailChanged) orderUpdate.editor_email_sent_at = null;
+    const { error: updateError } = await db.from('orders').update(orderUpdate).eq('id', order.id);
+    if (updateError) throw updateError;
+
+    const { data: invRow } = await db.from('invitations').select('slug').eq('order_id', order.id).maybeSingle();
+    existingSlug = invRow?.slug || null;
+  }
+
+  if (existingSlug) {
+    await deleteR2KeysAndCache(c.env, null, existingSlug);
+  }
+
+  const updated = (await adminOrders(c.env)).find((item) => item.order_code === code);
+  return c.json({
+    ok: true,
+    email_changed: emailChanged,
+    demo_link: { ...(updated || {}), slug_locked: true },
+    message: `Data link demo berhasil diperbarui menjadi ${template.name} (${selectedPackage.name}).`,
+  });
+});
+
+admin.post('/admin/demo-links/:code/resend-email', async (c) => {
+  const code = cleanText(c.req.param('code'), 64);
+  if (!code) return c.json({ ok: false, message: 'Kode link demo tidak valid.' }, 400);
+
+  const order = (await adminOrders(c.env)).find((item) => item.order_code === code);
+  if (!order || !isAdminDemoOrder(order)) {
+    return c.json({ ok: false, message: 'Link demo tidak ditemukan.' }, 404);
+  }
+  if (!hasRealDemoRecipientEmail(order.customer_email)) {
+    return c.json({ ok: false, message: 'Email penerima belum diisi. Klik Edit untuk mengisi email terlebih dahulu.' }, 422);
+  }
+
+  const websiteUrl = order.website_url || (order.slug ? publicAppUrl(c.env, `/${encodeURIComponent(order.slug)}`) : '');
+  const editorUrl = order.editor_url || '';
+
+  try {
+    const sent = await sendDemoLinkEmail(c.env, order, websiteUrl, editorUrl);
+    if (sent?.skipped) {
+      return c.json({ ok: false, message: 'SMTP belum dikonfigurasi sehingga email belum dapat dikirim.' }, 503);
+    }
+  } catch (emailError) {
+    console.error('Demo link resend email failed:', emailError.message);
+    return c.json({ ok: false, message: 'Email gagal dikirim. Periksa konfigurasi SMTP lalu coba lagi.' }, 502);
+  }
+
+  const sentAt = new Date().toISOString();
+  if (!hasRealSupabaseConfig(c.env)) {
+    const stored = DEMO_STATE.orders.get(code);
+    if (stored) stored.editor_email_sent_at = sentAt;
+  } else {
+    const db = database(c.env);
+    const { error } = await db.from('orders').update({ editor_email_sent_at: sentAt }).eq('order_code', code);
+    if (error) throw error;
+  }
+
+  return c.json({
+    ok: true,
+    email_sent_at: sentAt,
+    message: `Link demo berhasil dikirim ulang ke ${order.customer_email}.`,
+  });
+});
+
+admin.delete('/admin/demo-links/:code', async (c) => {
+  const code = cleanText(c.req.param('code'), 64);
+  if (!code) return c.json({ ok: false, message: 'Kode link demo tidak valid.' }, 400);
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const existing = DEMO_STATE.orders.get(code);
+    if (!existing || !isAdminDemoOrder(existing)) {
+      return c.json({ ok: false, message: 'Link demo tidak ditemukan.' }, 404);
+    }
+    const r2Keys = await collectInvitationR2Keys(c.env, null, existing);
+    DEMO_STATE.orders.delete(code);
+    await deleteR2KeysAndCache(c.env, r2Keys, existing.slug);
+    return c.json({
+      ok: true,
+      deleted_order_code: code,
+      deleted_media_count: r2Keys.size,
+      message: `Link demo ${code} beserta seluruh data dan file media berhasil dihapus permanen.`,
+    });
+  }
+
+  const db = database(c.env);
+  const { data: order, error: orderReadError } = await db.from('orders')
+    .select('id,order_code,customer_name,order_source,complimentary_note')
+    .eq('order_code', code)
+    .maybeSingle();
+  if (orderReadError) throw orderReadError;
+  if (!order) return c.json({ ok: false, message: 'Link demo tidak ditemukan.' }, 404);
+
+  let payment = null;
+  try {
+    const { data: payRow } = await db.from('payments').select('gateway').eq('order_id', order.id).maybeSingle();
+    payment = payRow || null;
+  } catch {}
+
+  if (!isAdminDemoOrder({ ...order, gateway: payment?.gateway })) {
+    return c.json({ ok: false, message: 'Data yang dipilih bukan link demo.' }, 400);
+  }
+
+  const { data: invitation, error: invReadError } = await db.from('invitations')
+    .select('id,slug,cover_image,groom_photo,bride_photo,music_file')
+    .eq('order_id', order.id)
+    .maybeSingle();
+  if (invReadError) throw invReadError;
+
+  const r2Keys = invitation?.id ? await collectInvitationR2Keys(c.env, db, invitation) : new Set();
+
+  if (invitation?.id) {
+    try {
+      await db.from('site_settings').delete().eq('key', `inv_theme_${invitation.id}`);
+    } catch {}
+  }
+
+  const { error: deleteOrderError } = await db.from('orders').delete().eq('id', order.id);
+  if (deleteOrderError) throw deleteOrderError;
+
+  await deleteR2KeysAndCache(c.env, r2Keys, invitation?.slug);
+
+  return c.json({
+    ok: true,
+    deleted_order_code: order.order_code,
+    deleted_media_count: r2Keys.size,
+    message: `Link demo ${order.customer_name || order.order_code} beserta seluruh data, gambar, dan media berhasil dihapus permanen.`,
+  });
 });
 
 admin.post('/admin/complimentary-orders', async (c) => {
@@ -582,7 +1003,7 @@ admin.post('/admin/complimentary-orders', async (c) => {
 admin.post('/admin/complimentary-orders/:code/resend-email', async (c) => {
   const code = c.req.param('code');
   const order = (await adminOrders(c.env)).find((item) => item.order_code === code);
-  if (!order || order.order_source !== 'admin_free') return c.json({ ok: false, message: 'Order gratis tidak ditemukan.' }, 404);
+  if (!order || order.order_source !== 'admin_free' || isAdminDemoOrder(order)) return c.json({ ok: false, message: 'Order gratis tidak ditemukan.' }, 404);
   if (!order.editor_url) return c.json({ ok: false, message: 'Akses editor untuk order ini belum tersedia.' }, 422);
 
   try {
@@ -2954,7 +3375,7 @@ admin.get('/admin/notifications', async (c) => {
   // 1. Orders
   let ordersList = [];
   try {
-    ordersList = await adminOrders(env);
+    ordersList = (await adminOrders(env)).filter((o) => !isAdminDemoOrder(o));
   } catch (err) {
     ordersList = [];
   }

@@ -3,6 +3,7 @@ import { database, many } from '../lib/database.js';
 import { absoluteUrl, cleanText, invitationActiveUntil, invitationDateLabel, invitationInput, normalizeSlug, randomHex, RESERVED_SLUGS } from '../lib/helpers.js';
 import { findActiveSlugConflict, hasRealSupabaseConfig, invitationByToken, invitationExtras, activeTemplates, canonicalTemplateCode, updateInvitationWithThemeColors } from '../lib/repositories.js';
 import { validUploadedMedia } from '../lib/mediaValidation.js';
+import { isAdminDemoOrder } from '../lib/demoLinks.js';
 import { extractVintageColorsFromPayload } from '../../src/lib/vintageThemeColors.js';
 
 const editor = new Hono();
@@ -146,9 +147,12 @@ editor.get('/editor/:token', async (c) => {
         supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
       }));
 
+    const slugLocked = isAdminDemoOrder(invitation);
+
     return c.json({
       ok: true,
-      invitation,
+      invitation: { ...invitation, slug_locked: slugLocked },
+      slug_locked: slugLocked,
       media: [],
       giftAccounts: [],
       greetings: Array.isArray(invitation.greetings) ? invitation.greetings : [],
@@ -166,6 +170,7 @@ editor.get('/editor/:token', async (c) => {
   const allTpls = await activeTemplates(c.env);
   const currentPkgCode = String(invitation.package_code || 'signature').toLowerCase().trim();
   const isCurrentVintage = canonicalTemplateCode(invitation.template_code) === 'vintage_classic';
+  const slugLocked = isAdminDemoOrder(invitation);
   const availableTemplates = allTpls
     .filter((t) => t.is_active !== false)
     .filter((t) => {
@@ -183,7 +188,7 @@ editor.get('/editor/:token', async (c) => {
       supported: (t.packages || []).some((p) => String(p.code || '').toLowerCase().trim() === currentPkgCode),
     }));
 
-  return c.json({ ok: true, invitation, ...extras, can_change_template: !isCurrentVintage, availableTemplates, appUrl: c.env.APP_URL });
+  return c.json({ ok: true, invitation: { ...invitation, slug_locked: slugLocked }, slug_locked: slugLocked, ...extras, can_change_template: !isCurrentVintage, availableTemplates, appUrl: c.env.APP_URL });
 });
 
 editor.get('/editor/:token/greetings', async (c) => {
@@ -304,10 +309,18 @@ editor.post('/invitation/change-template', async (c) => {
 editor.post('/invitation/autosave', async (c) => {
   const input = await c.req.json();
   const invitation = await invitationByToken(c.env, cleanText(input.editor_token, 128));
+  const slugLocked = isAdminDemoOrder(invitation);
   const clean = invitationInput(input, false);
   const themeColors = extractVintageColorsFromPayload(input);
   let slug = null;
-  if (Object.hasOwn(input, 'slug')) {
+  if (slugLocked) {
+    slug = {
+      slug: invitation.slug || '',
+      available: true,
+      message: 'Slug URL bawaan link demo tidak dapat diubah.',
+      suggestions: [],
+    };
+  } else if (Object.hasOwn(input, 'slug')) {
     const state = await slugState(c.env, input.slug, invitation.id);
     slug = state;
     if (!String(input.slug || '').trim()) clean.slug = null;
@@ -318,7 +331,7 @@ editor.post('/invitation/autosave', async (c) => {
   }
   await purgeInvitationCache(invitation.slug);
   const saved = themeColors ? { ...clean, theme_colors: themeColors } : clean;
-  return c.json({ ok: true, message: 'Tersimpan', saved, slug: slug?.slug || '', slug_available: slug?.available || false, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
+  return c.json({ ok: true, message: 'Tersimpan', saved, slug: slug?.slug || '', slug_available: slug?.available || false, slug_locked: slugLocked, slug_message: slug?.message || null, slug_suggestions: slug?.suggestions || [] });
 });
 
 function uploadRules(kind) {
@@ -741,10 +754,18 @@ editor.post('/invitation/publish', async (c) => {
   };
   const errors = {};
   for (const [field, label] of Object.entries(required)) if (!clean[field]) errors[field] = `${label} wajib diisi.`;
+  const slugLocked = isAdminDemoOrder(invitation);
   if (!/^https?:\/\//i.test(clean.maps_url || '')) errors.maps_url = 'Link Google Maps harus berupa URL http/https yang valid.';
-  const slug = await slugState(c.env, input.slug, invitation.id);
-  if (!slug.available) errors.slug = slug.message;
-  else clean.slug = slug.slug;
+  const slug = slugLocked
+    ? { slug: invitation.slug || '', available: Boolean(invitation.slug), message: null, suggestions: [] }
+    : await slugState(c.env, input.slug, invitation.id);
+  if (slugLocked) {
+    clean.slug = invitation.slug || '';
+  } else if (!slug.available) {
+    errors.slug = slug.message;
+  } else {
+    clean.slug = slug.slug;
+  }
   if (Object.keys(errors).length) return c.json({ ok: false, message: 'Lengkapi data yang masih belum valid.', errors, slug_suggestions: slug.suggestions }, 422);
   const firstPublish = invitation.order_status !== 'published' || !invitation.published_at;
   const publishedAt = firstPublish ? new Date().toISOString() : invitation.published_at;
@@ -757,6 +778,7 @@ editor.post('/invitation/publish', async (c) => {
       if (firstPublish) Object.assign(order, { published_at: publishedAt, is_active: true, active_until: activeUntil });
       else if (!invitation.active_until) order.active_until = activeUntil;
     }
+    await purgeInvitationCache(clean.slug || invitation.slug);
     return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', first_publish: firstPublish, active_until: activeUntil, active_until_label: invitationDateLabel(activeUntil), redirect: `/success/${invitation.editor_token}` });
   }
   const db = database(c.env);
@@ -766,6 +788,7 @@ editor.post('/invitation/publish', async (c) => {
   await updateInvitationWithThemeColors(c.env, invitation, invitationUpdate, themeColors);
   const { error: orderError } = await db.from('orders').update({ status: 'published' }).eq('id', invitation.order_id);
   if (orderError) throw orderError;
+  await purgeInvitationCache(clean.slug || invitation.slug);
   return c.json({ ok: true, message: 'Undangan berhasil diterbitkan.', first_publish: firstPublish, active_until: activeUntil, active_until_label: invitationDateLabel(activeUntil), redirect: `/success/${invitation.editor_token}` });
 });
 

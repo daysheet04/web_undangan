@@ -269,6 +269,56 @@ export async function sendComplimentaryOrderEmail(env, order, editorUrl) {
   });
 }
 
+export async function sendDemoLinkEmail(env, order, websiteUrl, editorUrl) {
+  const recipient = String(order?.customer_email || '').trim().toLowerCase();
+  if (!recipient || recipient === 'demo@daymoment.id') return { skipped: true };
+
+  const orderCode = escapeHtml(order.order_code || 'DEMO');
+  const templateName = escapeHtml(order.template_name || 'Undangan Daymoment');
+  const packageName = escapeHtml(order.package_name || 'Paket undangan');
+  const slugPath = escapeHtml(order.slug ? `/${order.slug}` : '');
+  const safeWebsiteUrl = escapeHtml(websiteUrl || '');
+  const safeEditorUrl = escapeHtml(editorUrl || '');
+
+  return sendSmtpEmail(env, {
+    to: recipient,
+    subject: `Link demo Daymoment siap dibuka — ${order.template_name || 'Undangan'} (${order.package_name || 'Demo'})`,
+    text: `Halo, berikut adalah akses link demo undangan Daymoment (${order.order_code}). Template: ${order.template_name}. Kategori: ${order.package_name}. Buka Link Demo: ${websiteUrl}. Buka Editor Demo: ${editorUrl}.`,
+    html: `<!doctype html>
+      <html lang="id">
+        <body style="margin:0;background:#f6f2ec;font-family:Arial,sans-serif;color:#17352f">
+          <div style="padding:32px 16px">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e5ddd2;border-radius:20px;overflow:hidden">
+              <div style="padding:31px 32px;background:#17493d;color:#ffffff;text-align:center">
+                <div style="font-size:12px;letter-spacing:3px;color:#e6c98f">DAYMOMENT</div>
+                <h1 style="margin:11px 0 0;font-family:Georgia,serif;font-size:28px;font-weight:normal">Link Demo Undangan Siap</h1>
+              </div>
+              <div style="padding:32px">
+                <p style="margin:0 0 14px;font-size:16px;line-height:1.7">Halo,</p>
+                <p style="margin:0 0 22px;color:#60716a;font-size:15px;line-height:1.75">Link demo undangan digital Daymoment telah dibuat dan langsung aktif. Anda dapat melihat pratinjau undangan maupun mengubah kontennya melalui editor.</p>
+                <div style="padding:18px 20px;background:#f7f4ed;border-radius:14px;font-size:14px;line-height:1.9">
+                  <div><span style="color:#718078">Kode demo:</span> <strong>${orderCode}</strong></div>
+                  <div><span style="color:#718078">Template:</span> <strong>${templateName}</strong></div>
+                  <div><span style="color:#718078">Kategori:</span> <strong>${packageName}</strong></div>
+                  ${slugPath ? `<div><span style="color:#718078">URL demo:</span> <strong>${slugPath}</strong></div>` : ''}
+                </div>
+                <div style="padding:26px 0 14px;text-align:center">
+                  ${safeWebsiteUrl ? `<a href="${safeWebsiteUrl}" style="display:inline-block;margin:0 6px 10px;padding:14px 24px;background:#17493d;color:#ffffff;text-decoration:none;border-radius:12px;font-weight:bold">Buka Link Demo</a>` : ''}
+                  ${safeEditorUrl ? `<a href="${safeEditorUrl}" style="display:inline-block;margin:0 6px 10px;padding:14px 24px;background:#eef5f2;color:#17493d;border:1px solid #bfd3ca;text-decoration:none;border-radius:12px;font-weight:bold">Buka Editor Demo</a>` : ''}
+                </div>
+                <p style="margin:14px 0 0;color:#7f8c86;font-size:12px;line-height:1.65;text-align:center">
+                  Jika tombol tidak dapat dibuka, salin tautan berikut:<br>
+                  ${safeWebsiteUrl ? `Link Demo: <a href="${safeWebsiteUrl}" style="color:#326858;word-break:break-all">${safeWebsiteUrl}</a><br>` : ''}
+                  ${safeEditorUrl ? `Editor Demo: <a href="${safeEditorUrl}" style="color:#326858;word-break:break-all">${safeEditorUrl}</a>` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>`,
+  });
+}
+
 export async function sendAffiliateVerificationEmail(env, affiliate, verificationUrl) {
   const recipient = String(affiliate.email || '').trim();
   if (!recipient) return { skipped: true };
