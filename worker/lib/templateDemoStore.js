@@ -413,23 +413,37 @@ export async function saveTemplateDemoData(env, templateCode, data) {
   const memStore = getMemoryStore();
   memStore.set(code, { data: updated, cachedAt: Date.now() });
 
+  let supabaseSaved = false;
+  let supabaseError = null;
+  let r2Saved = false;
+
   // 1. Save to Supabase Database (site_settings table)
   if (hasRealSupabaseConfig(env)) {
     try {
       const db = database(env);
-      await db.from('site_settings').upsert({
+      const { error } = await db.from('site_settings').upsert({
         key: `template_demo_${code}`,
         value: JSON.stringify(updated),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'key' });
+      if (error) {
+        supabaseError = error;
+        console.warn(`Failed saving demo data to Supabase for ${code}:`, error.message || error);
+      } else {
+        supabaseSaved = true;
+      }
       if (code === 'java_vibes') {
-        await db.from('site_settings').upsert({
+        const { error: aliasError } = await db.from('site_settings').upsert({
           key: 'template_demo_puspa_jawi',
           value: JSON.stringify(updated),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'key' });
+        if (aliasError) {
+          console.warn('Failed saving demo data alias puspa_jawi to Supabase:', aliasError.message || aliasError);
+        }
       }
     } catch (err) {
+      supabaseError = err;
       console.warn(`Failed saving demo data to Supabase for ${code}:`, err.message);
     }
   }
@@ -442,9 +456,14 @@ export async function saveTemplateDemoData(env, templateCode, data) {
         httpMetadata: { contentType: 'application/json; charset=utf-8' },
         customMetadata: { templateCode: code, updatedAt: new Date().toISOString() },
       });
+      r2Saved = true;
     } catch (err) {
       console.warn(`Failed writing demo data to R2 for ${code}:`, err.message);
     }
+  }
+
+  if (hasRealSupabaseConfig(env) && !supabaseSaved && !r2Saved) {
+    throw new Error(supabaseError?.message || 'Gagal menyimpan data demo template ke penyimpanan.');
   }
 
   return updated;

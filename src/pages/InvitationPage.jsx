@@ -16,7 +16,7 @@ function canonicalCode(c) {
   if (s === 'lunara_azure' || s === 'lunara-azure' || s === 'butterfly_blum' || s === 'butterfly-blum' || s === 'butterfly_bloom' || s === 'butterfly-bloom') return 'lunara_azure';
   if (s === 'aurelia_grande' || s === 'aurelia-grande' || s === 'luxury_vibes' || s === 'luxury-vibes') return 'aurelia_grande';
   if (s === 'verdant_vow' || s === 'verdant-vow' || s === 'modern_javanese' || s === 'modern-javanese') return 'verdant_vow';
-  if (s === 'vintage_classic' || s === 'vintage-classic' || s === 'classic_vintage' || s === 'classic-vintage' || s === 'vintage_editorial' || s === 'vintage-editorial') return 'vintage_classic';
+  if (s === 'vintage_classic' || s === 'vintage-classic' || s === 'classic_vintage' || s === 'classic-vintage' || s === 'vintage_editorial' || s === 'vintage-editorial' || s === 'the_heritage' || s === 'the-heritage') return 'vintage_classic';
   return s;
 }
 

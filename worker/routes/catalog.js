@@ -174,7 +174,7 @@ catalog.get('/templates/:code', async (c) => {
   };
 
   if (!referralCode || !hasRealSupabaseConfig(c.env)) {
-    c.header('Cache-Control', 'no-cache, must-revalidate');
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
     return c.json({ ok: true, ...baseResponse });
   }
   const db = database(c.env);
@@ -183,7 +183,10 @@ catalog.get('/templates/:code', async (c) => {
     .ilike('referral_code', referralCode)
     .maybeSingle();
   if (accountError) throw accountError;
-  if (!account) return c.json({ ok: true, ...baseResponse });
+  if (!account) {
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return c.json({ ok: true, ...baseResponse });
+  }
   if (account.status === 'suspended') {
     c.header('Cache-Control', 'private, no-store, max-age=0');
     return c.json({
@@ -192,7 +195,10 @@ catalog.get('/templates/:code', async (c) => {
       message: 'Link referral ini sudah tidak aktif karena akun affiliate sedang ditangguhkan.',
     }, 403);
   }
-  if (account.status !== 'active') return c.json({ ok: true, ...baseResponse });
+  if (account.status !== 'active') {
+    c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return c.json({ ok: true, ...baseResponse });
+  }
   const packageIds = template.packages.map((item) => item.id);
   const { data: settings, error } = packageIds.length
     ? await db.from('affiliate_product_settings').select('package_id,is_visible').eq('affiliate_id', account.id).in('package_id', packageIds)

@@ -74,6 +74,17 @@ function cleanTemplateField(value, maxLength) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
 }
 
+function cleanMultilineTemplateField(value, maxLength) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim().replace(/[ \t]+/g, ' '))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, maxLength);
+}
+
 function normalizeAffiliatePhone(value) {
   const raw = String(value || '').trim().replace(/[\s().-]/g, '');
   if (raw.startsWith('+')) return `+${raw.slice(1).replace(/\D/g, '')}`.slice(0, 24);
@@ -2746,6 +2757,7 @@ admin.get('/admin/templates/:templateCode/editor-demo', async (c) => {
   if (!template) return c.json({ ok: false, message: 'Template tidak ditemukan.' }, 404);
 
   const demoData = await getTemplateDemoData(c.env, templateCode);
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
   return c.json({
     ok: true,
     template: adminTemplate(c.env, template),
@@ -2776,12 +2788,12 @@ admin.put('/admin/templates/:templateCode/editor-demo', async (c) => {
     reception_start_time: cleanTemplateField(invitation.reception_start_time, 10),
     reception_end_time: cleanTemplateField(invitation.reception_end_time, 10),
     venue_name: cleanTemplateField(invitation.venue_name, 180),
-    venue_address: cleanTemplateField(invitation.venue_address, 1000),
+    venue_address: cleanMultilineTemplateField(invitation.venue_address, 1000),
     maps_url: cleanTemplateField(invitation.maps_url, 500),
     nearest_landmark: cleanTemplateField(invitation.nearest_landmark, 240),
-    route_directions: cleanTemplateField(invitation.route_directions, 1200),
-    transportation_guide: cleanTemplateField(invitation.transportation_guide, 1000),
-    love_story: cleanTemplateField(invitation.love_story, 3000),
+    route_directions: cleanMultilineTemplateField(invitation.route_directions, 1200),
+    transportation_guide: cleanMultilineTemplateField(invitation.transportation_guide, 1000),
+    love_story: cleanMultilineTemplateField(invitation.love_story, 3000),
     instagram: cleanTemplateField(invitation.instagram, 100),
     music_title: cleanTemplateField(invitation.music_title, 150),
     guest_name: cleanTemplateField(invitation.guest_name, 100) || 'Bapak/Ibu/Saudara/i',
@@ -2807,7 +2819,7 @@ admin.put('/admin/templates/:templateCode/editor-demo', async (c) => {
           id: g.id || `greet-${idx + 1}`,
           guest_name: cleanTemplateField(g.guest_name, 120),
           attendance_status: ['attending', 'not_attending', 'unsure'].includes(g.attendance_status) ? g.attendance_status : 'attending',
-          message: cleanTemplateField(g.message, 500),
+          message: cleanMultilineTemplateField(g.message, 500),
           created_at: g.created_at || new Date().toISOString(),
         })).filter((g) => g.guest_name && g.message)
       : [],

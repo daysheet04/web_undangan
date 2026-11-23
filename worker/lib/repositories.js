@@ -16,7 +16,7 @@ export function canonicalTemplateCode(rawCode) {
   if (code === 'verdant_vow' || code === 'verdant-vow' || code === 'modern_javanese' || code === 'modern-javanese') {
     return 'verdant_vow';
   }
-  if (code === 'vintage_classic' || code === 'vintage-classic' || code === 'classic_vintage' || code === 'classic-vintage' || code === 'vintage_editorial' || code === 'vintage-editorial') {
+  if (code === 'vintage_classic' || code === 'vintage-classic' || code === 'classic_vintage' || code === 'classic-vintage' || code === 'vintage_editorial' || code === 'vintage-editorial' || code === 'the_heritage' || code === 'the-heritage') {
     return 'vintage_classic';
   }
   return code;

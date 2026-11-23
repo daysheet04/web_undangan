@@ -27,6 +27,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
   const [activePkg, setActivePkg] = useState('essential'); // 'essential' | 'signature' | 'prestige'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState(null);
   const [uploadingSlot, setUploadingSlot] = useState(null); // `${pkg}:${index}` | 'groom' | 'bride' | 'cover' | 'music'
   const [invitation, setInvitation] = useState({});
   const [gallery, setGallery] = useState({ essential: [], signature: [], prestige: [] });
@@ -56,6 +57,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
     if (!isOpen || !template?.code) return;
     let cancelled = false;
     setLoading(true);
+    setSaveFeedback(null);
 
     get(`/api/admin/templates/${encodeURIComponent(template.code)}/editor-demo`)
       .then((res) => {
@@ -91,21 +93,27 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
   const effectiveStage = pkgStageCustom || invitation.stage_photo || invitation.custom_couple_image || null;
 
   const handleFieldChange = (field, value) => {
+    setSaveFeedback(null);
     setInvitation((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSaveInfo = async (e) => {
     if (e) e.preventDefault();
     setSaving(true);
+    setSaveFeedback(null);
     try {
       const res = await put(`/api/admin/templates/${encodeURIComponent(template.code)}/editor-demo`, {
         invitation,
       });
-      window.showToast?.(res.message || 'Data editor demo berhasil disimpan.');
+      const successMsg = res.message || 'Data editor demo berhasil disimpan.';
+      window.showToast?.(successMsg);
       if (res.invitation) setInvitation(res.invitation);
+      setSaveFeedback({ type: 'success', text: successMsg });
       onReload?.();
     } catch (err) {
-      window.showToast?.(err.message || 'Gagal menyimpan data editor demo.', 'error');
+      const errMsg = err.message || 'Gagal menyimpan data editor demo.';
+      window.showToast?.(errMsg, 'error');
+      setSaveFeedback({ type: 'error', text: errMsg });
     } finally {
       setSaving(false);
     }
@@ -1253,6 +1261,27 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
             color: #0b4938;
             transform: translateY(-1px);
           }
+          .editor-save-feedback {
+            margin: 0 0 10px 0;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.45;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .editor-save-feedback.is-success {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+          }
+          .editor-save-feedback.is-error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+          }
         ` }} />
 
         {/* Header */}
@@ -1357,7 +1386,7 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
             /* ======================================================== */
             /* TAB 1: FORM PENGANTIN & ACARA */
             /* ======================================================== */
-            <form onSubmit={handleSaveInfo} className="template-editor-form">
+            <form onSubmit={handleSaveInfo} className="template-editor-form" noValidate>
               <div className="editor-banner-hint">
                 <span className="hint-icon">💡</span>
                 <div>
@@ -1651,7 +1680,8 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
                   <label className="editor-field">
                     <span>Link Google Maps</span>
                     <input
-                      type="url"
+                      type="text"
+                      inputMode="url"
                       value={invitation.maps_url || ''}
                       onChange={(e) => handleFieldChange('maps_url', e.target.value)}
                       placeholder="https://maps.google.com/..."
@@ -1715,6 +1745,15 @@ export default function AdminTemplateEditorModal({ isOpen, onClose, template, on
 
               {/* Bottom Sticky Action Bar */}
               <div className="editor-form-bottom-bar">
+                {saveFeedback && (
+                  <div
+                    className={`editor-save-feedback ${saveFeedback.type === 'error' ? 'is-error' : 'is-success'}`}
+                    role={saveFeedback.type === 'error' ? 'alert' : 'status'}
+                  >
+                    <span>{saveFeedback.type === 'error' ? '⚠️' : '✅'}</span>
+                    <span>{saveFeedback.text}</span>
+                  </div>
+                )}
                 <button
                   type="submit"
                   className="btn-save-editor"

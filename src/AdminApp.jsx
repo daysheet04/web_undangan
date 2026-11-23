@@ -16,7 +16,7 @@ export default function AdminApp() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
   let match;
   if (path === '/' || path === '/admin') return <AdminPage />;
-  if ((match = path.match(/^\/template\/([a-z0-9_]+)$/))) {
+  if ((match = path.match(/^\/template\/([a-z0-9_-]+)$/))) {
     const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
     return (
       <Suspense fallback={<RouteLoading />}>
@@ -24,7 +24,7 @@ export default function AdminApp() {
       </Suspense>
     );
   }
-  if ((match = path.match(/^\/undangan\/([a-z0-9_]+)$/))) {
+  if ((match = path.match(/^\/undangan\/([a-z0-9_-]+)$/))) {
     return (
       <Suspense fallback={<RouteLoading />}>
         <InvitationPage templateCode={match[1]} preview />
