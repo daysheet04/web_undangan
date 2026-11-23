@@ -721,15 +721,22 @@ export default function VintageClassicTemplate({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [lightbox]);
 
+  const startMusicPlayback = () => {
+    const audio = audioRef.current;
+    if (!audio || !live.has_music || !live.music_file) return;
+    if (audio.error || audio.networkState === 0) {
+      try { audio.load(); } catch {}
+    }
+    audio
+      .play()
+      .then(() => setMusicPlaying(true))
+      .catch(() => {});
+  };
+
   const handleOpenInvitation = () => {
     if (openingPhase !== 'closed') return;
     setOpeningPhase('opening');
-    if (live.has_music && live.music_file && audioRef.current) {
-      audioRef.current
-        .play()
-        .then(() => setMusicPlaying(true))
-        .catch(() => {});
-    }
+    startMusicPlayback();
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       setHeroEntered(true);
     } else {
@@ -748,10 +755,7 @@ export default function VintageClassicTemplate({
       audioRef.current.pause();
       setMusicPlaying(false);
     } else {
-      audioRef.current
-        .play()
-        .then(() => setMusicPlaying(true))
-        .catch(() => {});
+      startMusicPlayback();
     }
   };
 
@@ -1445,7 +1449,15 @@ export default function VintageClassicTemplate({
       {/* FLOATING MUSIC CONTROLLER */}
       {Boolean(live.has_music && live.music_file) && (
         <>
-          <audio ref={audioRef} loop preload="metadata" src={mediaUrl(live.music_file)} />
+          <audio
+            ref={audioRef}
+            data-wedding-audio
+            loop
+            preload="auto"
+            src={mediaUrl(live.music_file)}
+            onPlay={() => setMusicPlaying(true)}
+            onPause={() => setMusicPlaying(false)}
+          />
           <button
             type="button"
             className={`vc-music-btn${musicPlaying ? ' is-playing' : ''}`}

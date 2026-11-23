@@ -435,9 +435,23 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
     });
   }, []);
 
+  const musicUserPausedRef = useRef(false);
+  const startMusic = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !i.has_music || !i.music_file) return;
+    musicUserPausedRef.current = false;
+    if (audio.error || audio.networkState === 0) {
+      try { audio.load(); } catch {}
+    }
+    audio.play().then(() => setMusicPlaying(true)).catch(() => {});
+  }, [i.has_music, i.music_file]);
+
   useEffect(() => {
-    if (!opened) return undefined;
-    if (i.has_music && i.music_file && audioRef.current) audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
+    if (!opened || musicUserPausedRef.current) return undefined;
+    const audio = audioRef.current;
+    if (i.has_music && i.music_file && audio && audio.paused) {
+      audio.play().then(() => setMusicPlaying(true)).catch(() => {});
+    }
     return undefined;
   },[opened,i.has_music,i.music_file]);
   useEffect(() => {
@@ -854,7 +868,8 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   },[]);
   const prepareJourney = useCallback(() => {
     setJourneyMounted(true);
-  },[]);
+    startMusic();
+  },[startMusic]);
   const startJourney = useCallback(() => setJourneyStarted(true),[]);
   const markJourneyReady = useCallback(() => setJourneyReady(true),[]);
   const navigateSection = id => {
@@ -869,8 +884,13 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
   };
   const toggleMusic = () => {
     if (!audioRef.current) return;
-    if (musicPlaying) { audioRef.current.pause(); setMusicPlaying(false); }
-    else audioRef.current.play().then(() => setMusicPlaying(true)).catch(() => {});
+    if (musicPlaying) {
+      musicUserPausedRef.current = true;
+      audioRef.current.pause();
+      setMusicPlaying(false);
+    } else {
+      startMusic();
+    }
   };
   const handleGreetingSubmit = async (e) => {
     e.preventDefault();
@@ -1272,7 +1292,20 @@ export default function VerdantVowExperience({ invitation:i, media=[], giftAccou
         {sections.map(([id,label])=><button key={id} type='button' data-section-id={id} className={activeNormalRef.current===id?'is-active':''} aria-current={activeNormalRef.current===id?'location':undefined} onClick={()=>navigateSection(id)}>{label}</button>)}
       </div>
     </nav>}
-    {opened && i.has_music && i.music_file && <><audio ref={audioRef} data-wedding-audio loop src={mediaUrl(i.music_file)}/><button type='button' className={'vv-music-toggle '+(musicPlaying?'is-playing':'')} onClick={toggleMusic} aria-label={musicPlaying?'Matikan musik':'Putar musik'}>♫</button></>}
+    {i.has_music && i.music_file && (
+      <audio
+        ref={audioRef}
+        data-wedding-audio
+        loop
+        preload="auto"
+        src={mediaUrl(i.music_file)}
+        onPlay={() => setMusicPlaying(true)}
+        onPause={() => setMusicPlaying(false)}
+      />
+    )}
+    {opened && i.has_music && i.music_file && (
+      <button type='button' className={'vv-music-toggle '+(musicPlaying?'is-playing':'')} onClick={toggleMusic} aria-label={musicPlaying?'Matikan musik':'Putar musik'}>♫</button>
+    )}
 
     {lightbox && lightbox.items[lightbox.index] && (
       <div

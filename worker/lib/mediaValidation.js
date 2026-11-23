@@ -125,6 +125,29 @@ export async function validUploadedMedia(file, allowedTypes) {
   return expectsAudio ? validAudioFile(file, allowedTypes) : validImageFile(file, allowedTypes);
 }
 
+function parseByteRange(rangeHeader, totalSize) {
+  if (!rangeHeader || !Number.isFinite(totalSize) || totalSize <= 0) return null;
+  const match = String(rangeHeader).trim().match(/^bytes=(\d*)-(\d*)$/i);
+  if (!match) return null;
+  const [, rawStart, rawEnd] = match;
+  if (!rawStart && !rawEnd) return null;
+  let start;
+  let end;
+  if (!rawStart) {
+    const suffix = Number(rawEnd);
+    if (!Number.isFinite(suffix) || suffix <= 0) return null;
+    start = Math.max(0, totalSize - suffix);
+    end = totalSize - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd ? Math.min(Number(rawEnd), totalSize - 1) : totalSize - 1;
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= totalSize) {
+    return { invalid: true };
+  }
+  return { start, end, length: end - start + 1 };
+}
+
 /**
  * Serves only strictly allowlisted public R2 object prefixes after path sanitization.
  */
@@ -151,7 +174,8 @@ export async function servePublicR2Media(c, stripPrefixRegex, { notFoundMessage 
     return c.json({ ok: false, message: notFoundMessage }, 404);
   }
 
-  let object = await c.env.MEDIA.get(key);
+  const rangeHeader = c.req.header('range') || '';
+  let object = await c.env.MEDIA.get(key, rangeHeader ? { range: c.req.raw.headers } : undefined);
   if (!object) {
     const reqHost = (() => {
       try {
@@ -193,6 +217,18 @@ export async function servePublicR2Media(c, stripPrefixRegex, { notFoundMessage 
             headers.set('Cache-Control', 'public, max-age=31536000, immutable');
             headers.set('Access-Control-Allow-Origin', '*');
             headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+            headers.set('Accept-Ranges', 'bytes');
+            const parsed = parseByteRange(rangeHeader, buf.byteLength);
+            if (parsed?.invalid) {
+              headers.set('Content-Range', `bytes */${buf.byteLength}`);
+              return new Response(null, { status: 416, headers });
+            }
+            if (parsed) {
+              headers.set('Content-Range', `bytes ${parsed.start}-${parsed.end}/${buf.byteLength}`);
+              headers.set('Content-Length', String(parsed.length));
+              return new Response(buf.slice(parsed.start, parsed.end + 1), { status: 206, headers });
+            }
+            headers.set('Content-Length', String(buf.byteLength));
             return new Response(buf, { status: 200, headers });
           }
         }
@@ -202,16 +238,43 @@ export async function servePublicR2Media(c, stripPrefixRegex, { notFoundMessage 
   }
 
   const headers = new Headers();
-  object.writeHttpMetadata(headers);
+  if (typeof object.writeHttpMetadata === 'function') {
+    object.writeHttpMetadata(headers);
+  } else if (object.httpMetadata?.contentType) {
+    headers.set('content-type', object.httpMetadata.contentType);
+  }
   const contentType = String(headers.get('content-type') || '').toLowerCase();
   if (!contentType || contentType.includes('html') || contentType.includes('svg') || contentType.includes('javascript') || contentType.includes('xml')) {
     headers.set('content-type', 'application/octet-stream');
   }
-  headers.set('etag', object.httpEtag);
+  if (object.httpEtag) headers.set('etag', object.httpEtag);
   headers.set('cache-control', headers.get('cache-control') || 'public, max-age=31536000, immutable');
   headers.set('x-content-type-options', 'nosniff');
   headers.set('content-disposition', 'inline');
   headers.set('access-control-allow-origin', '*');
   headers.set('cross-origin-resource-policy', 'cross-origin');
-  return new Response(object.body, { headers });
+  headers.set('accept-ranges', 'bytes');
+
+  const totalSize = Number(object.size);
+  if (rangeHeader && object.range && Number.isFinite(totalSize) && totalSize > 0) {
+    let start = 0;
+    let length = totalSize;
+    if (typeof object.range.suffix === 'number') {
+      length = Math.min(object.range.suffix, totalSize);
+      start = Math.max(0, totalSize - length);
+    } else {
+      start = Number(object.range.offset || 0);
+      length = Number(object.range.length ?? (totalSize - start));
+    }
+    const end = Math.min(totalSize - 1, start + length - 1);
+    const actualLength = Math.max(0, end - start + 1);
+    headers.set('content-range', `bytes ${start}-${end}/${totalSize}`);
+    headers.set('content-length', String(actualLength));
+    return new Response(object.body, { status: 206, headers });
+  }
+
+  if (Number.isFinite(totalSize) && totalSize >= 0) {
+    headers.set('content-length', String(totalSize));
+  }
+  return new Response(object.body, { status: 200, headers });
 }
