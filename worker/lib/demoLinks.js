@@ -136,7 +136,8 @@ export async function deleteR2KeysAndCache(env, keys, slug) {
     } catch {}
   }
 
-  if (env?.MEDIA && keys && keys.size > 0) {
-    await Promise.allSettled([...keys].map((key) => env.MEDIA.delete(key).catch(() => {})));
+  const list = Array.isArray(keys) ? keys : (keys ? [...keys] : []);
+  if (env?.MEDIA && list.length > 0) {
+    await Promise.allSettled(list.map((key) => env.MEDIA.delete(key).catch(() => {})));
   }
 }

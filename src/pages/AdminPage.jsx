@@ -1328,7 +1328,36 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, on
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
   const [extendingOrder, setExtendingOrder] = useState(null);
+  const [downloadingZipCode, setDownloadingZipCode] = useState('');
   const pageSize = 12;
+
+  const downloadCustomerZip = async (order) => {
+    if (!order?.order_code) return;
+    setDownloadingZipCode(order.order_code);
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(order.order_code)}/assets.zip`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        throw new Error(errJson?.message || 'Gagal mengunduh ZIP aset customer.');
+      }
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `aset-${order.order_code}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+      window.showToast?.(`Arsip ZIP aset ${order.order_code} berhasil diunduh.`);
+    } catch (failure) {
+      window.alert(failure?.message || 'Gagal mengunduh ZIP aset customer.');
+    } finally {
+      setDownloadingZipCode('');
+    }
+  };
 
   // Filter only eligible customer orders:
   // Must have editor url or token AND be paid (regular customer) OR admin_free
@@ -1673,6 +1702,19 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, on
                         </svg>
                         Salin link
                       </button>
+                      <button
+                        type="button"
+                        className="editor-copy-url-btn"
+                        data-download-customer-zip={order.order_code}
+                        disabled={downloadingZipCode === order.order_code}
+                        onClick={() => downloadCustomerZip(order)}
+                        title="Unduh seluruh foto, galeri, dan musik editor customer dalam 1 file ZIP"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        {downloadingZipCode === order.order_code ? 'Menyiapkan ZIP...' : 'Unduh ZIP'}
+                      </button>
                     </>
                   ) : (
                     <span className="editor-disabled-note">Link belum tersedia</span>
@@ -1694,11 +1736,11 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, on
                       onClick={() => {
                         if (window.confirm(`Hapus permanen data customer ${order.customer_name} (${order.order_code})?
 
-Data order, undangan, website terbit, serta komisi & catatan order ini di semua data affiliate akan ikut terhapus.`)) {
+Data order, undangan, seluruh foto/galeri/musik di R2, website terbit, serta komisi & catatan order ini di semua data affiliate akan ikut terhapus.`)) {
                           onDeleteOrder(order);
                         }
                       }}
-                      title="Hapus data customer & catatan di affiliate"
+                      title="Hapus data customer, seluruh foto R2, & catatan di affiliate"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="13" height="13" aria-hidden="true">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
@@ -5850,7 +5892,7 @@ export default function AdminPage() {
   if (activeView === 'storage-audit') {
     return <AdminTemplate sidebar={sidebarNavigation}>
       <section className="admin-shell admin-view-storage-audit">
-        <div className="admin-heading"><div><span className="eyebrow">STORAGE CLOUDFLARE R2 · READ-ONLY</span><h1>Audit Storage R2</h1><p>Bandingkan isi bucket <code>daymoment-media</code> dengan seluruh database untuk melihat file mana yang masih dipakai dan mana yang aman dihapus manual.</p></div>{mobileStandaloneMenu}</div>
+        <div className="admin-heading"><div><span className="eyebrow">STORAGE CLOUDFLARE R2</span><h1>Audit &amp; Kelola Storage R2</h1><p>Lihat kepemilikan setiap file di bucket <code>daymoment-media</code>, unduh ZIP aset customer, dan hapus file yatim langsung dari R2.</p></div>{mobileStandaloneMenu}</div>
         <AdminStorageAuditPanel />
       </section>
     </AdminTemplate>;

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { get } from '../lib/api.js';
+import { get, post } from '../lib/api.js';
 
 const PUBLIC_PREVIEW_PREFIXES = [
   'invitations/',
@@ -46,8 +46,11 @@ export default function AdminStorageAuditPanel() {
   const [statusFilter, setStatusFilter] = useState('orphan'); // 'orphan' | 'active' | 'all'
   const [folderFilter, setFolderFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set());
+  const [deletingKey, setDeletingKey] = useState('');
+  const [downloadingZip, setDownloadingZip] = useState('');
+  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', text: string }
   const [copiedKey, setCopiedKey] = useState('');
-  const [copiedBulk, setCopiedBulk] = useState(false);
 
   const runAudit = useCallback(async () => {
     setLoading(true);
@@ -55,6 +58,7 @@ export default function AdminStorageAuditPanel() {
     try {
       const res = await get('/api/admin/storage-audit');
       setAudit(res);
+      setSelectedKeys(new Set());
     } catch (err) {
       setError(err?.message || 'Gagal memindai bucket R2.');
     } finally {
@@ -80,41 +84,131 @@ export default function AdminStorageAuditPanel() {
     });
   }, [audit, statusFilter, folderFilter, search]);
 
-  const filteredOrphanKeys = useMemo(
-    () => filteredItems.filter((item) => item.status === 'orphan').map((item) => item.key),
+  const filteredOrphans = useMemo(
+    () => filteredItems.filter((item) => item.status === 'orphan' && !item.protected),
     [filteredItems],
   );
 
-  const copyText = async (text, onDone) => {
+  const selectedVisibleOrphans = useMemo(
+    () => filteredOrphans.filter((item) => selectedKeys.has(item.key)),
+    [filteredOrphans, selectedKeys],
+  );
+
+  const allVisibleOrphansSelected = filteredOrphans.length > 0 && selectedVisibleOrphans.length === filteredOrphans.length;
+
+  const toggleSelectKey = (key) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSelectAllOrphans = () => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allVisibleOrphansSelected) {
+        filteredOrphans.forEach((item) => next.delete(item.key));
+      } else {
+        filteredOrphans.forEach((item) => next.add(item.key));
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteKeys = async (keys, { allowActive = false, label = '' } = {}) => {
+    if (!keys.length) return;
+    setDeletingKey(label || keys[0]);
+    setFeedback(null);
     try {
-      await navigator.clipboard.writeText(text);
-      onDone?.();
+      const res = await post('/api/admin/storage-audit/delete', { keys, allow_active: allowActive });
+      setFeedback({ type: 'success', text: res.message || `${res.deleted_count || keys.length} file dihapus dari R2.` });
+      await runAudit();
+    } catch (err) {
+      setFeedback({ type: 'error', text: err?.message || 'Gagal menghapus file dari R2.' });
+    } finally {
+      setDeletingKey('');
+    }
+  };
+
+  const confirmAndDeleteSingle = (item) => {
+    if (item.protected) return;
+    const isActive = item.status === 'active';
+    const msg = isActive
+      ? `PERINGATAN: File ini MASIH DIPAKAI (${(item.usages || []).map((u) => u.label).join(', ')}).\n\nYakin tetap hapus permanen dari R2?\n${item.key} (${formatBytes(item.size)})`
+      : `Hapus permanen file yatim ini dari bucket R2?\n\n${item.key}\nUkuran: ${formatBytes(item.size)}`;
+    if (!window.confirm(msg)) return;
+    handleDeleteKeys([item.key], { allowActive: isActive, label: item.key });
+  };
+
+  const confirmAndDeleteSelected = () => {
+    const keys = [...selectedKeys];
+    if (!keys.length) return;
+    const totalSize = (audit?.items || [])
+      .filter((item) => selectedKeys.has(item.key))
+      .reduce((sum, item) => sum + Number(item.size || 0), 0);
+    if (!window.confirm(`Hapus permanen ${keys.length} file yatim terpilih (${formatBytes(totalSize)}) dari bucket R2?\n\nFile aktif di database tetap terlindungi dan tidak akan ikut terhapus.`)) {
+      return;
+    }
+    handleDeleteKeys(keys, { allowActive: false, label: 'bulk-selected' });
+  };
+
+  const confirmAndDeleteAllFilteredOrphans = () => {
+    const keys = filteredOrphans.map((item) => item.key);
+    if (!keys.length) return;
+    const totalSize = filteredOrphans.reduce((sum, item) => sum + Number(item.size || 0), 0);
+    const scopeLabel = folderFilter === 'all' ? 'seluruh folder yang tampil' : `folder ${folderFilter}`;
+    if (!window.confirm(`Hapus permanen SEMUA ${keys.length} file yatim (${formatBytes(totalSize)}) pada ${scopeLabel} di bucket R2?\n\nFile aktif (halaman depan, preview template, undangan aktif, affiliate) TIDAK akan terhapus.`)) {
+      return;
+    }
+    handleDeleteKeys(keys, { allowActive: false, label: 'bulk-filtered' });
+  };
+
+  const handleDownloadCustomerZip = async (orderCode) => {
+    if (!orderCode) return;
+    setDownloadingZip(orderCode);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(orderCode)}/assets.zip`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || 'Gagal membuat arsip ZIP customer.');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aset-${orderCode}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setFeedback({ type: 'success', text: `Arsip ZIP aset ${orderCode} berhasil diunduh.` });
+    } catch (err) {
+      setFeedback({ type: 'error', text: err?.message || 'Gagal mengunduh ZIP aset.' });
+    } finally {
+      setDownloadingZip('');
+    }
+  };
+
+  const handleCopyOne = async (key) => {
+    try {
+      await navigator.clipboard.writeText(key);
     } catch {
       const ta = document.createElement('textarea');
-      ta.value = text;
+      ta.value = key;
       ta.style.position = 'fixed';
       ta.style.opacity = '0';
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       ta.remove();
-      onDone?.();
     }
-  };
-
-  const handleCopyOne = (key) => {
-    copyText(key, () => {
-      setCopiedKey(key);
-      window.setTimeout(() => setCopiedKey((prev) => (prev === key ? '' : prev)), 1800);
-    });
-  };
-
-  const handleCopyAllOrphans = () => {
-    if (!filteredOrphanKeys.length) return;
-    copyText(filteredOrphanKeys.join('\n'), () => {
-      setCopiedBulk(true);
-      window.setTimeout(() => setCopiedBulk(false), 2200);
-    });
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey((prev) => (prev === key ? '' : prev)), 1800);
   };
 
   const summary = audit?.summary || {
@@ -145,6 +239,11 @@ export default function AdminStorageAuditPanel() {
         }
         .r2-audit-refresh:hover:not(:disabled) { background: #0d3629; }
         .r2-audit-refresh:disabled { opacity: 0.6; cursor: wait; }
+        .r2-feedback {
+          padding: 11px 15px; border-radius: 12px; font-size: 0.83rem; font-weight: 700;
+        }
+        .r2-feedback.is-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .r2-feedback.is-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
         .r2-audit-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
         .r2-kpi-card {
           background: #fff; border: 1px solid #dce8e1; border-radius: 14px; padding: 15px 16px;
@@ -177,6 +276,7 @@ export default function AdminStorageAuditPanel() {
           background: #fff; border: 1px solid #dce8e1; border-radius: 14px; padding: 12px 14px;
         }
         .r2-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 240px; }
+        .r2-toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .r2-status-tabs { display: inline-flex; background: #eef4f1; padding: 3px; border-radius: 10px; gap: 3px; }
         .r2-status-tabs button {
           border: 0; background: transparent; padding: 6px 11px; border-radius: 8px;
@@ -187,12 +287,18 @@ export default function AdminStorageAuditPanel() {
           flex: 1; min-width: 190px; padding: 8px 12px; border: 1px solid #cde0d6; border-radius: 9px;
           font-size: 0.82rem; color: #123026; background: #fcfefd;
         }
-        .r2-copy-bulk {
-          padding: 8px 13px; border-radius: 9px; border: 1px solid #f59e0b;
-          background: #fffbeb; color: #92400e; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        .r2-btn-danger-solid {
+          padding: 8px 13px; border-radius: 9px; border: 0;
+          background: #dc2626; color: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer;
         }
-        .r2-copy-bulk:hover:not(:disabled) { background: #fef3c7; }
-        .r2-copy-bulk:disabled { opacity: 0.5; cursor: not-allowed; }
+        .r2-btn-danger-solid:hover:not(:disabled) { background: #b91c1c; }
+        .r2-btn-danger-solid:disabled { opacity: 0.45; cursor: not-allowed; }
+        .r2-btn-danger-soft {
+          padding: 8px 13px; border-radius: 9px; border: 1px solid #fca5a5;
+          background: #fef2f2; color: #b91c1c; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        }
+        .r2-btn-danger-soft:hover:not(:disabled) { background: #fee2e2; }
+        .r2-btn-danger-soft:disabled { opacity: 0.45; cursor: not-allowed; }
         .r2-table-card {
           background: #fff; border: 1px solid #dce8e1; border-radius: 14px; overflow: hidden;
         }
@@ -211,12 +317,25 @@ export default function AdminStorageAuditPanel() {
         }
         .r2-badge.is-orphan { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
         .r2-badge.is-active { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .r2-usage-list { margin: 5px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 0.74rem; color: #4f695e; }
+        .r2-usage-list { margin: 5px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: #4f695e; }
+        .r2-usage-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .r2-zip-inline {
+          padding: 2px 8px; border-radius: 6px; border: 1px solid #a7f3d0;
+          background: #ecfdf5; color: #065f46; font-size: 0.7rem; font-weight: 700; cursor: pointer;
+        }
+        .r2-zip-inline:hover:not(:disabled) { background: #d1fae5; }
+        .r2-row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .r2-copy-btn {
-          padding: 5px 10px; border-radius: 7px; border: 1px solid #cfe0d7; background: #fff;
+          padding: 5px 9px; border-radius: 7px; border: 1px solid #cfe0d7; background: #fff;
           color: #123026; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap;
         }
         .r2-copy-btn:hover { background: #eff7f3; border-color: #165643; }
+        .r2-del-btn {
+          padding: 5px 10px; border-radius: 7px; border: 1px solid #fca5a5; background: #fef2f2;
+          color: #b91c1c; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .r2-del-btn:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; color: #fff; }
+        .r2-del-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .r2-empty { padding: 34px 18px; text-align: center; color: #587266; font-size: 0.86rem; }
         .r2-error { padding: 14px 16px; border-radius: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.84rem; font-weight: 600; }
         @media (max-width: 780px) {
@@ -226,15 +345,21 @@ export default function AdminStorageAuditPanel() {
 
       <div className="r2-audit-notice">
         <div>
-          <strong>Mode Baca Saja (Read-Only) — Aman 100%</strong>
+          <strong>Audit &amp; Bersih-Bersih Bucket R2 <code>daymoment-media</code></strong>
           <p>
-            Halaman ini hanya mencocokkan isi bucket R2 <code>daymoment-media</code> dengan seluruh database (katalog template, preview demo, undangan aktif, KTP/sosmed affiliate, &amp; bukti pencairan). Tidak ada file yang dihapus otomatis.
+            Setiap file dicocokkan otomatis dengan database (halaman depan, preview template, undangan customer, affiliate, &amp; pencairan). File <b>Aman Dihapus (Yatim)</b> bisa langsung dihapus dari R2 lewat tombol di bawah — file aktif tetap dilindungi.
           </p>
         </div>
-        <button type="button" className="r2-audit-refresh" onClick={runAudit} disabled={loading}>
+        <button type="button" className="r2-audit-refresh" onClick={runAudit} disabled={loading || Boolean(deletingKey)}>
           {loading ? 'Memindai...' : '↻ Scan Ulang R2'}
         </button>
       </div>
+
+      {feedback && (
+        <div className={`r2-feedback ${feedback.type === 'error' ? 'is-error' : 'is-success'}`} role={feedback.type === 'error' ? 'alert' : 'status'}>
+          {feedback.text}
+        </div>
+      )}
 
       {error && <div className="r2-error" role="alert">{error}</div>}
 
@@ -319,20 +444,34 @@ export default function AdminStorageAuditPanel() {
               <input
                 type="search"
                 className="r2-search-input"
-                placeholder="Cari nama file, folder, atau keterangan..."
+                placeholder="Cari nama file, customer, kode order, atau folder..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <button
-              type="button"
-              className="r2-copy-bulk"
-              disabled={!filteredOrphanKeys.length}
-              onClick={handleCopyAllOrphans}
-            >
-              {copiedBulk ? '✓ Daftar Tersalin!' : `Salin ${filteredOrphanKeys.length} Key Aman Dihapus`}
-            </button>
+            <div className="r2-toolbar-actions">
+              {selectedKeys.size > 0 && (
+                <button
+                  type="button"
+                  className="r2-btn-danger-solid"
+                  disabled={Boolean(deletingKey)}
+                  onClick={confirmAndDeleteSelected}
+                >
+                  {deletingKey === 'bulk-selected' ? 'Menghapus...' : `Hapus ${selectedKeys.size} Terpilih di R2`}
+                </button>
+              )}
+              <button
+                type="button"
+                className="r2-btn-danger-soft"
+                disabled={!filteredOrphans.length || Boolean(deletingKey)}
+                onClick={confirmAndDeleteAllFilteredOrphans}
+              >
+                {deletingKey === 'bulk-filtered'
+                  ? 'Menghapus...'
+                  : `Hapus Semua Yatim di Filter (${filteredOrphans.length})`}
+              </button>
+            </div>
           </div>
 
           <div className="r2-table-card">
@@ -341,6 +480,15 @@ export default function AdminStorageAuditPanel() {
                 <table className="r2-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '36px' }}>
+                        <input
+                          type="checkbox"
+                          aria-label="Pilih semua file yatim di filter ini"
+                          checked={allVisibleOrphansSelected}
+                          disabled={!filteredOrphans.length}
+                          onChange={toggleSelectAllOrphans}
+                        />
+                      </th>
                       <th>Key / Nama File R2</th>
                       <th>Ukuran</th>
                       <th>Status &amp; Pemakaian</th>
@@ -349,49 +497,85 @@ export default function AdminStorageAuditPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredItems.map((item) => (
-                      <tr key={item.key}>
-                        <td className="r2-key-cell">
-                          <div>{item.key}</div>
-                          {isPreviewableMedia(item.key) && (
-                            <a
-                              className="r2-key-link"
-                              href={`/media/${item.key}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Lihat / dengar file ↗
-                            </a>
-                          )}
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{formatBytes(item.size)}</td>
-                        <td>
-                          {item.status === 'orphan' ? (
-                            <>
-                              <span className="r2-badge is-orphan">Aman Dihapus (Yatim)</span>
-                              <ul className="r2-usage-list">
-                                <li>Tidak direferensikan di tabel database mana pun.</li>
-                              </ul>
-                            </>
-                          ) : (
-                            <>
-                              <span className="r2-badge is-active">Aktif · Jangan Dihapus</span>
-                              <ul className="r2-usage-list">
-                                {(item.usages || []).map((u, idx) => (
-                                  <li key={`${item.key}-u-${idx}`}>• {u.label}</li>
-                                ))}
-                              </ul>
-                            </>
-                          )}
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(item.uploaded)}</td>
-                        <td>
-                          <button type="button" className="r2-copy-btn" onClick={() => handleCopyOne(item.key)}>
-                            {copiedKey === item.key ? '✓ Tersalin' : 'Salin Key'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredItems.map((item) => {
+                      const canSelect = item.status === 'orphan' && !item.protected;
+                      const isDeletingThis = deletingKey === item.key;
+                      return (
+                        <tr key={item.key}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              aria-label={`Pilih ${item.key}`}
+                              disabled={!canSelect}
+                              checked={selectedKeys.has(item.key)}
+                              onChange={() => toggleSelectKey(item.key)}
+                            />
+                          </td>
+                          <td className="r2-key-cell">
+                            <div>{item.key}</div>
+                            {isPreviewableMedia(item.key) && (
+                              <a
+                                className="r2-key-link"
+                                href={`/media/${item.key}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Lihat / dengar file ↗
+                              </a>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{formatBytes(item.size)}</td>
+                          <td>
+                            {item.status === 'orphan' ? (
+                              <>
+                                <span className="r2-badge is-orphan">Aman Dihapus (Yatim)</span>
+                                <ul className="r2-usage-list">
+                                  <li>Tidak direferensikan di tabel database mana pun.</li>
+                                </ul>
+                              </>
+                            ) : (
+                              <>
+                                <span className="r2-badge is-active">Aktif · Dipakai</span>
+                                <ul className="r2-usage-list">
+                                  {(item.usages || []).map((u, idx) => (
+                                    <li key={`${item.key}-u-${idx}`} className="r2-usage-item">
+                                      <span>• {u.label}</span>
+                                      {u.order_code && (
+                                        <button
+                                          type="button"
+                                          className="r2-zip-inline"
+                                          disabled={downloadingZip === u.order_code}
+                                          onClick={() => handleDownloadCustomerZip(u.order_code)}
+                                        >
+                                          {downloadingZip === u.order_code ? 'Menyiapkan ZIP...' : `⬇ Unduh ZIP ${u.order_code}`}
+                                        </button>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(item.uploaded)}</td>
+                          <td>
+                            <div className="r2-row-actions">
+                              <button type="button" className="r2-copy-btn" onClick={() => handleCopyOne(item.key)}>
+                                {copiedKey === item.key ? '✓ Tersalin' : 'Salin'}
+                              </button>
+                              <button
+                                type="button"
+                                className="r2-del-btn"
+                                disabled={item.protected || Boolean(deletingKey)}
+                                title={item.protected ? 'Backup JSON template dilindungi' : 'Hapus file ini dari bucket R2'}
+                                onClick={() => confirmAndDeleteSingle(item)}
+                              >
+                                {item.protected ? 'Dilindungi' : isDeletingThis ? 'Menghapus...' : 'Hapus R2'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (

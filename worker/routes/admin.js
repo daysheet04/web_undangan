@@ -37,6 +37,7 @@ import {
   saveAffiliateCustomCommissions,
 } from '../lib/affiliateCommissions.js';
 import { summarizeAffiliateFirstOrderStatus } from '../lib/affiliateFirstOrderBonus.js';
+import { buildZipArchive } from '../lib/zipBuilder.js';
 
 const admin = new Hono();
 const DEMO_STATE = globalThis.__daymoment_demo_state__ || { orders: new Map() };
@@ -3152,26 +3153,11 @@ admin.delete('/admin/orders/:code', async (c) => {
     .maybeSingle();
   if (invReadError) throw invReadError;
 
-  const isR2Key = (val) => {
-    const s = String(val || '').trim();
-    return Boolean(s && !s.startsWith('/') && !/^https?:\/\//i.test(s) && !s.startsWith('data:'));
-  };
-  const r2Keys = new Set();
+  const r2Keys = invitation?.id
+    ? await collectInvitationR2Keys(c.env, db, invitation)
+    : new Set();
 
   if (invitation?.id) {
-    [invitation.cover_image, invitation.groom_photo, invitation.bride_photo, invitation.music_file]
-      .filter(isR2Key)
-      .forEach((key) => r2Keys.add(key.trim()));
-
-    try {
-      const { data: mediaRows } = await db.from('invitation_media')
-        .select('file_path')
-        .eq('invitation_id', invitation.id);
-      (mediaRows || []).forEach((row) => {
-        if (isR2Key(row?.file_path)) r2Keys.add(row.file_path.trim());
-      });
-    } catch {}
-
     try {
       await db.from('site_settings').delete().eq('key', `inv_theme_${invitation.id}`);
     } catch {}
@@ -3180,24 +3166,162 @@ admin.delete('/admin/orders/:code', async (c) => {
   const { error: deleteOrderError } = await db.from('orders').delete().eq('id', order.id);
   if (deleteOrderError) throw deleteOrderError;
 
-  if (invitation?.slug) {
-    try {
-      const edgeCache = globalThis.caches?.default;
-      if (edgeCache) {
-        await edgeCache.delete(new Request(`https://daymoment-cache.local/invitations/${encodeURIComponent(invitation.slug)}`));
-      }
-    } catch {}
-  }
-
-  if (c.env.MEDIA && r2Keys.size > 0) {
-    await Promise.allSettled([...r2Keys].map((key) => c.env.MEDIA.delete(key).catch(() => {})));
-  }
+  await deleteR2KeysAndCache(c.env, r2Keys, invitation?.slug || null);
 
   return c.json({
     ok: true,
     deleted_order_code: order.order_code,
+    deleted_r2_count: r2Keys.size,
     had_affiliate: Boolean(order.affiliate_id || order.referral_name || Number(order.affiliate_commission_amount || 0) > 0),
-    message: `Data customer ${order.customer_name} (${order.order_code}) dan seluruh catatan terkait di data affiliate berhasil dihapus permanen.`,
+    message: `Data customer ${order.customer_name} (${order.order_code}), ${r2Keys.size} file media di R2, dan seluruh catatan terkait di data affiliate berhasil dihapus permanen.`,
+  });
+});
+
+admin.get('/admin/orders/:code/assets.zip', async (c) => {
+  const code = cleanText(c.req.param('code'), 64);
+  if (!code) return c.json({ ok: false, message: 'Kode order tidak valid.' }, 400);
+  if (!c.env?.MEDIA) return c.json({ ok: false, message: 'Bucket R2 MEDIA belum terhubung.' }, 503);
+
+  let orderInfo = null;
+  let invitation = null;
+  let mediaRows = [];
+
+  if (!hasRealSupabaseConfig(c.env)) {
+    const demoOrd = DEMO_STATE.orders.get(code);
+    if (!demoOrd) return c.json({ ok: false, message: 'Data customer / order tidak ditemukan.' }, 404);
+    orderInfo = {
+      order_code: demoOrd.order_code,
+      customer_name: demoOrd.customer_name || '-',
+      customer_email: demoOrd.customer_email || '-',
+      template_name: demoOrd.template_name || '-',
+      package_name: demoOrd.package_name || '-',
+    };
+    invitation = demoOrd.invitation || demoOrd;
+    mediaRows = Array.isArray(demoOrd.media) ? demoOrd.media : [];
+  } else {
+    const db = database(c.env);
+    const { data: order, error: orderError } = await db.from('orders')
+      .select('id,order_code,customer_name,customer_email,status,template_id,package_id')
+      .eq('order_code', code)
+      .maybeSingle();
+    if (orderError) throw orderError;
+    if (!order) return c.json({ ok: false, message: 'Data customer / order tidak ditemukan.' }, 404);
+    orderInfo = order;
+
+    const { data: inv, error: invError } = await db.from('invitations')
+      .select('id,slug,cover_image,groom_photo,bride_photo,music_file')
+      .eq('order_id', order.id)
+      .maybeSingle();
+    if (invError) throw invError;
+    invitation = inv || null;
+
+    if (invitation?.id) {
+      const { data: mRows } = await db.from('invitation_media')
+        .select('id,file_path')
+        .eq('invitation_id', invitation.id)
+        .order('id');
+      mediaRows = Array.isArray(mRows) ? mRows : [];
+    }
+  }
+
+  const extOf = (key, fallback = 'bin') => {
+    const clean = String(key || '').split('?')[0];
+    const dot = clean.lastIndexOf('.');
+    if (dot > clean.lastIndexOf('/')) {
+      const ext = clean.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (ext) return ext;
+    }
+    return fallback;
+  };
+  const baseNameOf = (key) => String(key || '').split('/').pop() || 'file';
+
+  const plannedFiles = [];
+  const seenKeys = new Set();
+  const pushKey = (rawVal, zipName) => {
+    const key = extractR2Key(rawVal);
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    plannedFiles.push({ key, zipName });
+  };
+
+  if (invitation) {
+    pushKey(invitation.cover_image, `01-cover.${extOf(invitation.cover_image, 'jpg')}`);
+    pushKey(invitation.groom_photo, `02-foto-pria.${extOf(invitation.groom_photo, 'jpg')}`);
+    pushKey(invitation.bride_photo, `03-foto-wanita.${extOf(invitation.bride_photo, 'jpg')}`);
+    pushKey(invitation.music_file, `04-musik.${extOf(invitation.music_file, 'mp3')}`);
+    mediaRows.forEach((row, idx) => {
+      const k = extractR2Key(row?.file_path);
+      if (k) pushKey(k, `galeri/${String(idx + 1).padStart(2, '0')}-${baseNameOf(k)}`);
+    });
+
+    if (invitation.id && typeof c.env.MEDIA.list === 'function') {
+      try {
+        let cursor;
+        let guard = 0;
+        do {
+          const listed = await c.env.MEDIA.list({ prefix: `invitations/${invitation.id}/`, cursor, limit: 1000 });
+          for (const obj of listed.objects || []) {
+            if (obj?.key && !seenKeys.has(obj.key)) {
+              pushKey(obj.key, `lainnya/${baseNameOf(obj.key)}`);
+            }
+          }
+          cursor = listed.truncated ? listed.cursor : undefined;
+          guard += 1;
+        } while (cursor && guard < 10);
+      } catch {}
+    }
+  }
+
+  const entries = [];
+  const fetchedList = [];
+  const missingList = [];
+  for (const item of plannedFiles) {
+    try {
+      const obj = await c.env.MEDIA.get(item.key);
+      if (!obj) {
+        missingList.push(item.key);
+        continue;
+      }
+      const buf = await obj.arrayBuffer();
+      entries.push({
+        name: item.zipName,
+        data: new Uint8Array(buf),
+        date: obj.uploaded ? new Date(obj.uploaded) : new Date(),
+      });
+      fetchedList.push(`${item.zipName}  <--  ${item.key}`);
+    } catch {
+      missingList.push(item.key);
+    }
+  }
+
+  const infoLines = [
+    `Daymoment — Arsip Aset Editor Customer`,
+    `======================================`,
+    `Kode Order : ${orderInfo.order_code}`,
+    `Customer   : ${orderInfo.customer_name || '-'}`,
+    `Email      : ${orderInfo.customer_email || '-'}`,
+    `Slug       : ${invitation?.slug ? `/${invitation.slug}` : '(belum terbit)'}`,
+    `Diunduh    : ${new Date().toISOString()}`,
+    `Total File : ${fetchedList.length}`,
+    '',
+    'Daftar File:',
+    ...(fetchedList.length ? fetchedList.map((line, i) => `${i + 1}. ${line}`) : ['(Belum ada file foto atau musik yang diunggah di bucket R2 untuk undangan ini.)']),
+    ...(missingList.length ? ['', 'File tidak ditemukan di R2:', ...missingList.map((k) => `- ${k}`)] : []),
+  ];
+  entries.unshift({ name: 'INFO-CUSTOMER.txt', data: infoLines.join('\r\n') });
+
+  const zipBytes = buildZipArchive(entries);
+  const safeFilename = `aset-${String(orderInfo.order_code || code).replace(/[^a-zA-Z0-9_-]/g, '')}.zip`;
+
+  return new Response(zipBytes, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      'Content-Length': String(zipBytes.byteLength),
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'X-Archive-File-Count': String(fetchedList.length),
+    },
   });
 });
 
@@ -3531,30 +3655,34 @@ admin.get('/admin/notifications', async (c) => {
   });
 });
 
-admin.get('/admin/storage-audit', async (c) => {
-  if (!c.env?.MEDIA || typeof c.env.MEDIA.list !== 'function') {
-    return c.json({ ok: false, message: 'Bucket R2 MEDIA belum terhubung pada Worker ini.' }, 503);
-  }
+const PROTECTED_DEMO_JSON_KEYS = new Set([
+  'template-demo-data/java_vibes.json',
+  'template-demo-data/lunara_azure.json',
+  'template-demo-data/aurelia_grande.json',
+  'template-demo-data/verdant_vow.json',
+  'template-demo-data/vintage_classic.json',
+]);
 
+async function collectActiveR2Refs(env) {
   const activeRefs = new Map();
-  const addRef = (rawPath, source, label) => {
+  const addRef = (rawPath, source, label, meta = {}) => {
     const key = extractR2Key(rawPath);
     if (!key) return;
     if (!activeRefs.has(key)) activeRefs.set(key, []);
     const list = activeRefs.get(key);
     if (!list.some((item) => item.source === source && item.label === label)) {
-      list.push({ source, label });
+      list.push({ source, label, ...meta });
     }
   };
 
-  // Canonical JSON backup files in template-demo-data/ are always kept
-  for (const code of ['java_vibes', 'lunara_azure', 'aurelia_grande', 'verdant_vow', 'vintage_classic']) {
-    addRef(`template-demo-data/${code}.json`, 'template_demo_backup', `Backup demo template (${code})`);
+  for (const protectedKey of PROTECTED_DEMO_JSON_KEYS) {
+    const code = protectedKey.replace(/^template-demo-data\/|\.json$/g, '');
+    addRef(protectedKey, 'template_demo_backup', `Backup demo template (${code})`, { protected: true });
   }
 
-  const isRealDb = hasRealSupabaseConfig(c.env);
+  const isRealDb = hasRealSupabaseConfig(env);
   if (isRealDb) {
-    const db = database(c.env);
+    const db = database(env);
     const fetchAllRows = async (table, selectClause) => {
       const rows = [];
       const pageSize = 1000;
@@ -3631,18 +3759,28 @@ admin.get('/admin/storage-audit', async (c) => {
 
     for (const inv of invitations) {
       const ord = orderById.get(String(inv.order_id));
-      const tag = [ord?.order_code, inv.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${inv.id}`;
-      addRef(inv.cover_image, 'invitation', `Undangan · ${tag} (Cover)`);
-      addRef(inv.groom_photo, 'invitation', `Undangan · ${tag} (Foto Pria)`);
-      addRef(inv.bride_photo, 'invitation', `Undangan · ${tag} (Foto Wanita)`);
-      addRef(inv.music_file, 'invitation', `Undangan · ${tag} (Musik)`);
+      const tag = [ord?.order_code, ord?.customer_name, inv.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${inv.id}`;
+      const meta = {
+        order_code: ord?.order_code || null,
+        customer_name: ord?.customer_name || null,
+        slug: inv.slug || null,
+      };
+      addRef(inv.cover_image, 'invitation', `Undangan · ${tag} (Cover)`, meta);
+      addRef(inv.groom_photo, 'invitation', `Undangan · ${tag} (Foto Pria)`, meta);
+      addRef(inv.bride_photo, 'invitation', `Undangan · ${tag} (Foto Wanita)`, meta);
+      addRef(inv.music_file, 'invitation', `Undangan · ${tag} (Musik)`, meta);
     }
 
     for (const m of invitationMedia) {
       const inv = invById.get(String(m.invitation_id));
       const ord = inv ? orderById.get(String(inv.order_id)) : null;
-      const tag = [ord?.order_code, inv?.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${m.invitation_id}`;
-      addRef(m.file_path, 'invitation_gallery', `Galeri Undangan · ${tag}`);
+      const tag = [ord?.order_code, ord?.customer_name, inv?.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${m.invitation_id}`;
+      const meta = {
+        order_code: ord?.order_code || null,
+        customer_name: ord?.customer_name || null,
+        slug: inv?.slug || null,
+      };
+      addRef(m.file_path, 'invitation_gallery', `Galeri Undangan · ${tag}`, meta);
     }
 
     for (const aff of affiliates) {
@@ -3656,7 +3794,16 @@ admin.get('/admin/storage-audit', async (c) => {
     }
   }
 
-  // Paginate all objects in R2 bucket (strictly read-only)
+  return { activeRefs, isRealDb };
+}
+
+admin.get('/admin/storage-audit', async (c) => {
+  if (!c.env?.MEDIA || typeof c.env.MEDIA.list !== 'function') {
+    return c.json({ ok: false, message: 'Bucket R2 MEDIA belum terhubung pada Worker ini.' }, 503);
+  }
+
+  const { activeRefs, isRealDb } = await collectActiveR2Refs(c.env);
+
   const r2Objects = [];
   let cursor;
   let guard = 0;
@@ -3723,6 +3870,7 @@ admin.get('/admin/storage-audit', async (c) => {
       size: obj.size,
       uploaded: obj.uploaded,
       status,
+      protected: PROTECTED_DEMO_JSON_KEYS.has(obj.key),
       usages,
     };
   });
@@ -3737,7 +3885,6 @@ admin.get('/admin/storage-audit', async (c) => {
   c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
   return c.json({
     ok: true,
-    read_only: true,
     db_connected: isRealDb,
     audited_at: new Date().toISOString(),
     summary: {
@@ -3750,6 +3897,57 @@ admin.get('/admin/storage-audit', async (c) => {
     },
     folders,
     items,
+  });
+});
+
+admin.post('/admin/storage-audit/delete', async (c) => {
+  if (!c.env?.MEDIA) {
+    return c.json({ ok: false, message: 'Bucket R2 MEDIA belum terhubung pada Worker ini.' }, 503);
+  }
+  const input = await c.req.json().catch(() => ({}));
+  const rawKeys = Array.isArray(input.keys) ? input.keys : [];
+  const allowActive = input.allow_active === true;
+
+  const cleanKeys = [...new Set(
+    rawKeys
+      .map((k) => String(k || '').trim().replace(/^\/+/, ''))
+      .filter((k) => k && !k.includes('\0') && !k.includes('\\') && !k.split('/').some((seg) => !seg || seg === '.' || seg === '..'))
+  )].slice(0, 200);
+
+  if (!cleanKeys.length) {
+    return c.json({ ok: false, message: 'Pilih minimal 1 file R2 yang valid untuk dihapus.' }, 422);
+  }
+
+  const { activeRefs } = await collectActiveR2Refs(c.env);
+  const toDelete = [];
+  const skippedProtected = [];
+  const skippedActive = [];
+
+  for (const key of cleanKeys) {
+    if (PROTECTED_DEMO_JSON_KEYS.has(key)) {
+      skippedProtected.push(key);
+      continue;
+    }
+    if (!allowActive && activeRefs.has(key)) {
+      skippedActive.push(key);
+      continue;
+    }
+    toDelete.push(key);
+  }
+
+  if (toDelete.length) {
+    await deleteR2KeysAndCache(c.env, toDelete, null);
+  }
+
+  return c.json({
+    ok: true,
+    deleted: toDelete,
+    deleted_count: toDelete.length,
+    skipped_active: skippedActive,
+    skipped_protected: skippedProtected,
+    message: toDelete.length
+      ? `${toDelete.length} file berhasil dihapus permanen dari bucket R2.`
+      : 'Tidak ada file yang dihapus (file terpilih masih aktif atau dilindungi).',
   });
 });
 
