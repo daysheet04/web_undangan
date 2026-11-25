@@ -10,6 +10,7 @@ import {
   DEMO_PLACEHOLDER_EMAIL,
   deleteR2KeysAndCache,
   demoActiveUntilIso,
+  extractR2Key,
   hasRealDemoRecipientEmail,
   isAdminDemoOrder,
 } from '../lib/demoLinks.js';
@@ -3527,6 +3528,228 @@ admin.get('/admin/notifications', async (c) => {
       withdrawals: recentWithdrawals,
       affiliates: recentAffiliates,
     }
+  });
+});
+
+admin.get('/admin/storage-audit', async (c) => {
+  if (!c.env?.MEDIA || typeof c.env.MEDIA.list !== 'function') {
+    return c.json({ ok: false, message: 'Bucket R2 MEDIA belum terhubung pada Worker ini.' }, 503);
+  }
+
+  const activeRefs = new Map();
+  const addRef = (rawPath, source, label) => {
+    const key = extractR2Key(rawPath);
+    if (!key) return;
+    if (!activeRefs.has(key)) activeRefs.set(key, []);
+    const list = activeRefs.get(key);
+    if (!list.some((item) => item.source === source && item.label === label)) {
+      list.push({ source, label });
+    }
+  };
+
+  // Canonical JSON backup files in template-demo-data/ are always kept
+  for (const code of ['java_vibes', 'lunara_azure', 'aurelia_grande', 'verdant_vow', 'vintage_classic']) {
+    addRef(`template-demo-data/${code}.json`, 'template_demo_backup', `Backup demo template (${code})`);
+  }
+
+  const isRealDb = hasRealSupabaseConfig(c.env);
+  if (isRealDb) {
+    const db = database(c.env);
+    const fetchAllRows = async (table, selectClause) => {
+      const rows = [];
+      const pageSize = 1000;
+      for (let from = 0; from < 20000; from += pageSize) {
+        const { data, error } = await db.from(table).select(selectClause).range(from, from + pageSize - 1);
+        if (error) {
+          console.warn(`Storage audit query failed on ${table}:`, error.message || error);
+          break;
+        }
+        if (!Array.isArray(data) || !data.length) break;
+        rows.push(...data);
+        if (data.length < pageSize) break;
+      }
+      return rows;
+    };
+
+    const [templates, settings, orders, invitations, invitationMedia, affiliates, withdrawals] = await Promise.all([
+      fetchAllRows('templates', 'id,code,name,thumbnail,phone_cover'),
+      fetchAllRows('site_settings', 'key,value'),
+      fetchAllRows('orders', 'id,order_code,status,customer_name'),
+      fetchAllRows('invitations', 'id,order_id,slug,cover_image,groom_photo,bride_photo,music_file'),
+      fetchAllRows('invitation_media', 'id,invitation_id,file_path'),
+      fetchAllRows('affiliate_accounts', 'id,full_name,status,ktp_object_key,social_proof_object_key'),
+      fetchAllRows('affiliate_withdrawals', 'id,status,account_name,transfer_proof_object_key'),
+    ]);
+
+    for (const tpl of templates) {
+      const label = `Katalog Template · ${tpl.name || tpl.code}`;
+      addRef(tpl.thumbnail, 'template_cover', `${label} (Thumbnail)`);
+      addRef(tpl.phone_cover, 'template_phone_cover', `${label} (Cover HP)`);
+    }
+
+    for (const setting of settings) {
+      const key = String(setting.key || '');
+      const rawVal = setting.value;
+      if (key === 'homepage_hero_image') {
+        addRef(rawVal, 'homepage', 'Halaman Depan · Gambar Hero');
+        continue;
+      }
+      if (key.startsWith('template_demo_')) {
+        let parsed = rawVal;
+        if (typeof rawVal === 'string') {
+          try { parsed = JSON.parse(rawVal); } catch { parsed = null; }
+        }
+        if (parsed && typeof parsed === 'object') {
+          const tplLabel = `Preview Demo · ${key.replace(/^template_demo_/, '')}`;
+          const inv = parsed.invitation || {};
+          const gal = parsed.gallery || {};
+          addRef(inv.cover_image, 'template_demo', `${tplLabel} (Cover)`);
+          addRef(inv.stage_photo, 'template_demo', `${tplLabel} (Stage)`);
+          addRef(inv.custom_couple_image, 'template_demo', `${tplLabel} (Stage)`);
+          addRef(inv.bride_photo, 'template_demo', `${tplLabel} (Foto Wanita)`);
+          addRef(inv.groom_photo, 'template_demo', `${tplLabel} (Foto Pria)`);
+          addRef(inv.music_file, 'template_demo_music', `${tplLabel} (Musik)`);
+          for (const pkg of ['essential', 'signature', 'prestige']) {
+            addRef(inv[`cover_image_${pkg}`], 'template_demo', `${tplLabel} (Cover ${pkg})`);
+            addRef(inv[`stage_photo_${pkg}`], 'template_demo', `${tplLabel} (Stage ${pkg})`);
+            addRef(inv.covers?.[pkg], 'template_demo', `${tplLabel} (Cover ${pkg})`);
+            addRef(inv.stage_photos?.[pkg], 'template_demo', `${tplLabel} (Stage ${pkg})`);
+            if (Array.isArray(gal[pkg])) {
+              gal[pkg].forEach((slot, idx) => {
+                addRef(slot?.file_path, 'template_demo_gallery', `${tplLabel} (Galeri ${pkg} #${idx + 1})`);
+              });
+            }
+          }
+        }
+      } else if (typeof rawVal === 'string' && /^(homepage\/|template-|invitations\/|affiliate-|withdrawal-)/.test(rawVal.trim())) {
+        addRef(rawVal.trim(), 'site_settings', `Pengaturan Situs · ${key}`);
+      }
+    }
+
+    const orderById = new Map(orders.map((o) => [String(o.id), o]));
+    const invById = new Map(invitations.map((inv) => [String(inv.id), inv]));
+
+    for (const inv of invitations) {
+      const ord = orderById.get(String(inv.order_id));
+      const tag = [ord?.order_code, inv.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${inv.id}`;
+      addRef(inv.cover_image, 'invitation', `Undangan · ${tag} (Cover)`);
+      addRef(inv.groom_photo, 'invitation', `Undangan · ${tag} (Foto Pria)`);
+      addRef(inv.bride_photo, 'invitation', `Undangan · ${tag} (Foto Wanita)`);
+      addRef(inv.music_file, 'invitation', `Undangan · ${tag} (Musik)`);
+    }
+
+    for (const m of invitationMedia) {
+      const inv = invById.get(String(m.invitation_id));
+      const ord = inv ? orderById.get(String(inv.order_id)) : null;
+      const tag = [ord?.order_code, inv?.slug ? `/${inv.slug}` : null].filter(Boolean).join(' · ') || `Invitation #${m.invitation_id}`;
+      addRef(m.file_path, 'invitation_gallery', `Galeri Undangan · ${tag}`);
+    }
+
+    for (const aff of affiliates) {
+      const affLabel = `Affiliate (${aff.status || '-'}) · ${aff.full_name || aff.id}`;
+      addRef(aff.ktp_object_key, 'affiliate_ktp', `${affLabel} (KTP)`);
+      addRef(aff.social_proof_object_key, 'affiliate_social', `${affLabel} (Bukti Sosmed)`);
+    }
+
+    for (const wd of withdrawals) {
+      addRef(wd.transfer_proof_object_key, 'withdrawal_proof', `Bukti Pencairan (${wd.status || '-'}) · ${wd.account_name || wd.id}`);
+    }
+  }
+
+  // Paginate all objects in R2 bucket (strictly read-only)
+  const r2Objects = [];
+  let cursor;
+  let guard = 0;
+  do {
+    const listed = await c.env.MEDIA.list({ cursor, limit: 1000 });
+    for (const obj of listed.objects || []) {
+      r2Objects.push({
+        key: obj.key,
+        size: Number(obj.size || 0),
+        uploaded: obj.uploaded ? new Date(obj.uploaded).toISOString() : null,
+      });
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+    guard += 1;
+  } while (cursor && guard < 25);
+
+  const folderMap = new Map();
+  let totalBytes = 0;
+  let activeCount = 0;
+  let activeBytes = 0;
+  let orphanCount = 0;
+  let orphanBytes = 0;
+
+  const items = r2Objects.map((obj) => {
+    const slashIdx = obj.key.indexOf('/');
+    const folder = slashIdx > 0 ? `${obj.key.slice(0, slashIdx)}/` : '(root)';
+    const usages = activeRefs.get(obj.key) || [];
+    const status = usages.length > 0 ? 'active' : 'orphan';
+
+    totalBytes += obj.size;
+    if (status === 'active') {
+      activeCount += 1;
+      activeBytes += obj.size;
+    } else {
+      orphanCount += 1;
+      orphanBytes += obj.size;
+    }
+
+    if (!folderMap.has(folder)) {
+      folderMap.set(folder, {
+        folder,
+        total_count: 0,
+        total_bytes: 0,
+        active_count: 0,
+        active_bytes: 0,
+        orphan_count: 0,
+        orphan_bytes: 0,
+      });
+    }
+    const f = folderMap.get(folder);
+    f.total_count += 1;
+    f.total_bytes += obj.size;
+    if (status === 'active') {
+      f.active_count += 1;
+      f.active_bytes += obj.size;
+    } else {
+      f.orphan_count += 1;
+      f.orphan_bytes += obj.size;
+    }
+
+    return {
+      key: obj.key,
+      folder,
+      size: obj.size,
+      uploaded: obj.uploaded,
+      status,
+      usages,
+    };
+  });
+
+  items.sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'orphan' ? -1 : 1;
+    return b.size - a.size;
+  });
+
+  const folders = [...folderMap.values()].sort((a, b) => b.orphan_bytes - a.orphan_bytes || b.total_bytes - a.total_bytes);
+
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+  return c.json({
+    ok: true,
+    read_only: true,
+    db_connected: isRealDb,
+    audited_at: new Date().toISOString(),
+    summary: {
+      total_objects: r2Objects.length,
+      total_bytes: totalBytes,
+      active_objects: activeCount,
+      active_bytes: activeBytes,
+      orphan_objects: orphanCount,
+      orphan_bytes: orphanBytes,
+    },
+    folders,
+    items,
   });
 });
 

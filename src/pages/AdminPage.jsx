@@ -12,6 +12,7 @@ import { CardDetailModal, ViewItemDetailModal, EditItemModal } from '../componen
 import AdminBottomTables from '../components/AdminBottomTables.jsx';
 import AdminCustomDropdown from '../components/AdminCustomDropdown.jsx';
 import AdminTemplateEditorModal from '../components/AdminTemplateEditorModal.jsx';
+import AdminStorageAuditPanel from '../components/AdminStorageAuditPanel.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
@@ -5742,6 +5743,7 @@ export default function AdminPage() {
         <button className={activeView === 'order-history' ? 'is-active' : ''} type="button" onClick={() => setActiveView('order-history')}>Riwayat pesanan</button>
         <button className={`admin-nav-free-orders ${activeView === 'complimentary-orders' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('complimentary-orders')}>Order gratis</button>
         <button className={`admin-nav-demo-links ${activeView === 'demo-links' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('demo-links')}>Link demo</button>
+        <button className={activeView === 'storage-audit' ? 'is-active' : ''} type="button" onClick={() => setActiveView('storage-audit')}>Audit R2</button>
         <button className={activeView === 'feedback' ? 'is-active' : ''} type="button" onClick={() => setActiveView('feedback')}>Feedback saran</button>
         <button className="admin-sidebar-logout" type="button" onClick={logout}>Keluar</button>
       </nav>
@@ -5841,6 +5843,15 @@ export default function AdminPage() {
       <section className="admin-shell admin-view-demo-links">
         <div className="admin-heading"><div><span className="eyebrow">PRATINJAU &amp; DEMO TEMPLATE</span><h1>Link demo</h1><p>Buat link demo undangan per template dan kategori secara instan. Otomatis publish, slug terkunci, dan bebas diedit lewat editor.</p></div>{mobileStandaloneMenu}</div>
         <DemoLinksPanel demoLinks={demoLinks} templates={templateCatalog} working={working} onCreate={createDemoLink} onUpdate={updateDemoLink} onResendEmail={resendDemoLinkEmail} onDelete={deleteDemoLink} onReload={reload}/>
+      </section>
+    </AdminTemplate>;
+  }
+
+  if (activeView === 'storage-audit') {
+    return <AdminTemplate sidebar={sidebarNavigation}>
+      <section className="admin-shell admin-view-storage-audit">
+        <div className="admin-heading"><div><span className="eyebrow">STORAGE CLOUDFLARE R2 · READ-ONLY</span><h1>Audit Storage R2</h1><p>Bandingkan isi bucket <code>daymoment-media</code> dengan seluruh database untuk melihat file mana yang masih dipakai dan mana yang aman dihapus manual.</p></div>{mobileStandaloneMenu}</div>
+        <AdminStorageAuditPanel />
       </section>
     </AdminTemplate>;
   }
