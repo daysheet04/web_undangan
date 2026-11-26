@@ -1,0 +1,1045 @@
+/* ==========================================================================
+   Daymoment Affiliate Landing Page — Editorial Stationery & 60 FPS Edition
+   Zero backdrop-filter, zero SVG filters, zero infinite paint animations.
+   ========================================================================== */
+
+body.affx-page {
+  --affx-ivory: #f9f6ef;
+  --affx-ivory-card: #ffffff;
+  --affx-ivory-soft: #f4efe4;
+  --affx-emerald: #0e3228;
+  --affx-emerald-deep: #09241d;
+  --affx-emerald-mid: #164c3d;
+  --affx-gold: #b88f46;
+  --affx-gold-light: #d7b774;
+  --affx-gold-soft: #f6eedc;
+  --affx-ink: #112a24;
+  --affx-muted: #586c64;
+  --affx-border: #e5dfd1;
+  background-color: var(--affx-ivory);
+  color: var(--affx-ink);
+}
+
+.affx-wrapper {
+  width: 100%;
+  overflow-x: clip;
+}
+
+.affx-container {
+  width: min(1160px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+/* Shared Editorial Corner Ornaments */
+.affx-corner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  color: rgba(215, 183, 116, 0.58);
+  pointer-events: none;
+}
+
+.affx-corner.is-tl { top: 12px; left: 12px; }
+.affx-corner.is-tr { top: 12px; right: 12px; transform: scaleX(-1); }
+.affx-corner.is-bl { bottom: 12px; left: 12px; transform: scaleY(-1); }
+.affx-corner.is-br { bottom: 12px; right: 12px; transform: scale(-1); }
+
+/* Shared Section Header + Botanical Diamond Divider */
+.affx-section-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 44px;
+}
+
+.affx-section-eyebrow {
+  display: inline-block;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--affx-gold);
+  margin-bottom: 12px;
+}
+
+.affx-section-head h2 {
+  margin: 0;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: clamp(1.75rem, 3.2vw, 2.55rem);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: var(--affx-ink);
+}
+
+.affx-section-head p {
+  margin: 14px auto 0;
+  max-width: 500px;
+  font-size: 0.96rem;
+  line-height: 1.65;
+  color: var(--affx-muted);
+}
+
+.affx-section-head.is-light .affx-section-eyebrow {
+  color: var(--affx-gold-light);
+}
+
+.affx-section-head.is-light h2 {
+  color: #f8f5ee;
+}
+
+.affx-section-head.is-light p {
+  color: rgba(236, 243, 239, 0.78);
+}
+
+.affx-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  color: var(--affx-gold);
+}
+
+.affx-divider-line {
+  width: 56px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184, 143, 70, 0.55), transparent);
+}
+
+/* ==========================================================================
+   SECTION 1: HERO BAND (Tactile Ivory Cotton Paper Texture)
+   ========================================================================== */
+.affx-hero-band {
+  position: relative;
+  padding: 54px 0 76px;
+  background-color: var(--affx-ivory);
+  background-image:
+    linear-gradient(180deg, rgba(249, 246, 239, 0.42) 0%, rgba(249, 246, 239, 0.72) 72%, #f9f6ef 100%),
+    url('/assets/images/brand/affiliate-ivory-paper.webp');
+  background-size: cover;
+  background-position: center;
+  border-bottom: 1px solid var(--affx-border);
+}
+
+.affx-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  align-items: center;
+  gap: 56px;
+}
+
+.affx-eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(184, 143, 70, 0.38);
+  background: rgba(255, 253, 248, 0.88);
+  color: #7c5c22;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+
+.affx-eyebrow-diamond {
+  color: var(--affx-gold);
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.affx-hero-copy h1 {
+  margin: 0;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: clamp(2.45rem, 4.6vw, 4.05rem);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  color: var(--affx-emerald-deep);
+}
+
+.affx-hero-copy h1 em {
+  font-style: italic;
+  color: var(--affx-emerald-mid);
+  font-weight: 500;
+}
+
+.affx-hero-lead {
+  margin: 22px 0 0;
+  max-width: 510px;
+  font-size: 1.03rem;
+  line-height: 1.7;
+  color: var(--affx-muted);
+}
+
+.affx-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.affx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.affx-btn:hover {
+  transform: translateY(-2px);
+}
+
+.affx-btn-primary {
+  background: var(--affx-emerald);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(14, 50, 40, 0.2);
+}
+
+.affx-btn-primary:hover {
+  background: var(--affx-emerald-mid);
+  color: #ffffff;
+}
+
+.affx-btn-secondary {
+  background: #ffffff;
+  color: var(--affx-emerald);
+  border-color: #d6cebe;
+}
+
+.affx-btn-secondary:hover {
+  background: #fcfaf5;
+  border-color: var(--affx-emerald);
+  color: var(--affx-emerald-deep);
+}
+
+.affx-btn-gold {
+  background: linear-gradient(135deg, #d7b774 0%, #bf9649 100%);
+  color: #0e2820;
+  font-weight: 750;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+
+.affx-btn-gold:hover {
+  background: linear-gradient(135deg, #e1c485 0%, #c9a154 100%);
+  color: #091d17;
+}
+
+.affx-session-note {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  color: var(--affx-emerald-mid);
+}
+
+.affx-assurances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid rgba(184, 143, 70, 0.24);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--affx-muted);
+}
+
+.affx-assurances li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.affx-assurances i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--affx-gold-soft);
+  color: #8c6825;
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+/* Hero Right: Tactile Emerald Stationery Pass Card + Detached Floating Cards */
+.affx-hero-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 16px;
+  width: 100%;
+  max-width: 440px;
+  margin-inline: auto;
+}
+
+.affx-stage-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid rgba(184, 143, 70, 0.22);
+  pointer-events: none;
+}
+
+.affx-orbit-outer {
+  width: 420px;
+  height: 420px;
+}
+
+.affx-orbit-inner {
+  width: 326px;
+  height: 326px;
+  border-style: dashed;
+  border-color: rgba(14, 50, 40, 0.14);
+}
+
+.affx-float-row {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  width: 100%;
+}
+
+.affx-float-row.is-top {
+  justify-content: flex-end;
+}
+
+.affx-float-row.is-bottom {
+  justify-content: flex-start;
+}
+
+.affx-pass-card {
+  position: relative;
+  z-index: 2;
+  width: min(344px, 100%);
+  padding: 12px;
+  border-radius: 26px;
+  background-color: var(--affx-emerald-deep);
+  background-image:
+    linear-gradient(155deg, rgba(16, 56, 44, 0.86) 0%, rgba(9, 34, 27, 0.94) 100%),
+    url('/assets/images/brand/affiliate-emerald-texture.webp');
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 24px 52px rgba(10, 34, 27, 0.24), 0 4px 14px rgba(10, 34, 27, 0.12);
+  border: 1px solid rgba(215, 183, 116, 0.34);
+  transform: rotate(1.1deg);
+  contain: layout style;
+}
+
+.affx-pass-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 376px;
+  padding: 28px 24px 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(215, 183, 116, 0.3);
+}
+
+.affx-pass-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.affx-pass-kicker {
+  font-size: 0.67rem;
+  font-weight: 750;
+  letter-spacing: 0.18em;
+  color: var(--affx-gold-light);
+}
+
+.affx-pass-seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(215, 183, 116, 0.6);
+  background: rgba(215, 183, 116, 0.12);
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #e8cfa0;
+}
+
+.affx-pass-center {
+  margin: 22px 0;
+}
+
+.affx-pass-rule {
+  display: block;
+  width: 38px;
+  height: 1.5px;
+  background: var(--affx-gold-light);
+  margin-bottom: 16px;
+}
+
+.affx-pass-center strong {
+  display: block;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.12;
+  color: #faf7f1;
+}
+
+.affx-pass-center strong em {
+  font-style: italic;
+  color: #e4c687;
+  font-weight: 500;
+}
+
+.affx-pass-center p {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(235, 242, 238, 0.74);
+}
+
+.affx-pass-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.affx-pass-linkbox {
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(6, 22, 17, 0.56);
+  border: 1px solid rgba(215, 183, 116, 0.24);
+}
+
+.affx-pass-linkbox small {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(215, 183, 116, 0.85);
+  margin-bottom: 3px;
+}
+
+.affx-pass-linkbox b {
+  font-size: 0.84rem;
+  font-weight: 650;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.affx-pass-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(226, 236, 231, 0.68);
+}
+
+/* Crisp Detached Floating Badges (Guaranteed Zero Overlap, Zero Blur) */
+.affx-float-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e7dfd0;
+  box-shadow: 0 10px 24px rgba(14, 42, 34, 0.1);
+  contain: layout style;
+}
+
+.affx-float-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.affx-float-icon.is-gold {
+  background: #f5ebd4;
+  color: #8c6520;
+  border: 1px solid rgba(184, 143, 70, 0.35);
+}
+
+.affx-float-icon.is-emerald {
+  background: #e6f3ed;
+  color: var(--affx-emerald);
+  border: 1px solid rgba(14, 50, 40, 0.16);
+}
+
+.affx-float-badge strong {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--affx-ink);
+  line-height: 1.2;
+}
+
+.affx-float-badge small {
+  display: block;
+  font-size: 0.69rem;
+  color: var(--affx-muted);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   SECTION 2: ARCHITECTURAL HIGHLIGHTS STRIP
+   ========================================================================== */
+.affx-highlights-band {
+  background: #ffffff;
+  border-bottom: 1px solid var(--affx-border);
+}
+
+.affx-highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.affx-highlight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 28px 26px;
+  border-right: 1px solid var(--affx-border);
+  contain: layout style;
+}
+
+.affx-highlight-item:first-child {
+  padding-left: 0;
+}
+
+.affx-highlight-item:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.affx-highlight-num {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--affx-gold);
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+
+.affx-highlight-item h3 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--affx-ink);
+}
+
+.affx-highlight-item p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--affx-muted);
+}
+
+/* ==========================================================================
+   SECTION 3: BENEFITS CARDS
+   ========================================================================== */
+.affx-benefits-band {
+  padding: 84px 0;
+  background: var(--affx-ivory);
+}
+
+.affx-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.affx-benefit-card {
+  position: relative;
+  padding: 28px 26px 30px;
+  border-radius: 20px;
+  background: var(--affx-ivory-card);
+  border: 1px solid var(--affx-border);
+  box-shadow: 0 6px 20px rgba(17, 42, 36, 0.04);
+  contain: layout style;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.affx-benefit-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 2.5px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, rgba(184, 143, 70, 0.15), var(--affx-gold), rgba(184, 143, 70, 0.15));
+}
+
+.affx-benefit-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(184, 143, 70, 0.55);
+}
+
+.affx-benefit-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.affx-benefit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--affx-ivory-soft);
+  border: 1px solid rgba(184, 143, 70, 0.28);
+  color: var(--affx-emerald);
+}
+
+.affx-benefit-num {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(184, 143, 70, 0.78);
+}
+
+.affx-benefit-card h3 {
+  margin: 0 0 10px;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 1.28rem;
+  font-weight: 600;
+  color: var(--affx-ink);
+}
+
+.affx-benefit-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--affx-muted);
+}
+
+/* ==========================================================================
+   SECTION 4: DEEP EMERALD TEXTURED FLOW BAND
+   ========================================================================== */
+.affx-flow-band {
+  padding: 12px 0 84px;
+  background: var(--affx-ivory);
+}
+
+.affx-flow-shell {
+  position: relative;
+  padding: 64px 48px;
+  border-radius: 28px;
+  background-color: var(--affx-emerald-deep);
+  background-image:
+    linear-gradient(150deg, rgba(12, 46, 36, 0.88) 0%, rgba(8, 30, 24, 0.94) 100%),
+    url('/assets/images/brand/affiliate-emerald-texture.webp');
+  background-size: cover;
+  background-position: center;
+  border: 1px solid rgba(215, 183, 116, 0.3);
+  box-shadow: 0 24px 54px rgba(10, 34, 27, 0.18);
+  overflow: hidden;
+}
+
+.affx-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.affx-step-card {
+  padding: 26px 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(215, 183, 116, 0.24);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  contain: layout style;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.22s ease;
+}
+
+.affx-step-card:hover,
+.affx-step-card:focus-visible,
+.affx-step-card.is-floated {
+  transform: translateY(-7px);
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(215, 183, 116, 0.72);
+  box-shadow: 0 18px 36px rgba(4, 16, 12, 0.38);
+  outline: none;
+}
+
+.affx-step-card:hover .affx-step-num,
+.affx-step-card.is-floated .affx-step-num {
+  background: #d7b774;
+  border-color: #d7b774;
+  color: #0b261f;
+}
+
+.affx-step-card:hover .affx-step-arrow,
+.affx-step-card.is-floated .affx-step-arrow {
+  transform: translateX(3px);
+  color: #ebd094;
+}
+
+.affx-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.affx-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(215, 183, 116, 0.16);
+  border: 1px solid rgba(215, 183, 116, 0.45);
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ebd094;
+}
+
+.affx-step-arrow {
+  font-size: 1.15rem;
+  color: rgba(215, 183, 116, 0.65);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.affx-step-card h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 1.24rem;
+  font-weight: 600;
+  color: #faf7f0;
+}
+
+.affx-step-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: rgba(232, 240, 236, 0.78);
+}
+
+/* ==========================================================================
+   SECTION 5: AUDIENCE SECTION
+   ========================================================================== */
+.affx-audience-band {
+  padding: 16px 0 84px;
+  background: var(--affx-ivory);
+}
+
+.affx-audience-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.affx-audience-card {
+  padding: 24px 22px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid var(--affx-border);
+  contain: layout style;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.affx-audience-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 50, 40, 0.35);
+}
+
+.affx-audience-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--affx-ivory-soft);
+  color: #7c5c22;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.affx-audience-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--affx-ink);
+}
+
+.affx-audience-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--affx-muted);
+}
+
+/* ==========================================================================
+   SECTION 6: FRAMED INVITATION CLOSING CTA
+   ========================================================================== */
+.affx-cta-band {
+  padding: 0 0 88px;
+  background: var(--affx-ivory);
+}
+
+.affx-cta-card {
+  padding: 14px;
+  border-radius: 28px;
+  background-color: var(--affx-emerald-deep);
+  background-image:
+    linear-gradient(145deg, rgba(14, 52, 41, 0.88) 0%, rgba(8, 30, 24, 0.95) 100%),
+    url('/assets/images/brand/affiliate-emerald-texture.webp');
+  background-size: cover;
+  background-position: center;
+  border: 1px solid rgba(215, 183, 116, 0.34);
+  box-shadow: 0 24px 52px rgba(10, 34, 27, 0.2);
+}
+
+.affx-cta-frame {
+  position: relative;
+  text-align: center;
+  padding: 60px 32px;
+  border-radius: 20px;
+  border: 1px solid rgba(215, 183, 116, 0.28);
+}
+
+.affx-cta-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--affx-gold-light);
+  margin-bottom: 14px;
+}
+
+.affx-cta-frame h2 {
+  margin: 0 auto;
+  max-width: 560px;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: clamp(1.85rem, 3.4vw, 2.7rem);
+  font-weight: 600;
+  line-height: 1.15;
+  color: #faf7f0;
+}
+
+.affx-cta-frame > p {
+  margin: 14px auto 0;
+  max-width: 480px;
+  font-size: 0.96rem;
+  line-height: 1.65;
+  color: rgba(232, 240, 236, 0.78);
+}
+
+.affx-cta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.affx-cta-note {
+  margin: 0;
+  font-size: 0.86rem;
+  color: rgba(232, 240, 236, 0.78);
+}
+
+.affx-cta-note a {
+  color: #ebd094;
+  font-weight: 650;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(235, 208, 148, 0.45);
+  padding-bottom: 1px;
+}
+
+.affx-cta-note a:hover {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS (Tablet & Mobile — Zero Overflow)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .affx-hero {
+    grid-template-columns: 1fr;
+    gap: 44px;
+  }
+
+  .affx-hero-copy {
+    text-align: center;
+    max-width: 620px;
+    margin-inline: auto;
+  }
+
+  .affx-hero-lead {
+    margin-inline: auto;
+  }
+
+  .affx-hero-actions,
+  .affx-assurances {
+    justify-content: center;
+  }
+
+  .affx-highlights-grid,
+  .affx-benefits-grid,
+  .affx-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .affx-highlight-item {
+    padding: 20px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--affx-border);
+  }
+
+  .affx-highlight-item:last-child {
+    border-bottom: 0;
+  }
+
+  .affx-audience-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .affx-step-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .affx-container {
+    width: calc(100% - 28px);
+  }
+
+  .affx-hero-band {
+    padding: 32px 0 54px;
+  }
+
+  .affx-hero-copy h1 {
+    font-size: 2.15rem;
+  }
+
+  .affx-hero-lead {
+    font-size: 0.94rem;
+  }
+
+  .affx-hero-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .affx-hero-actions .affx-btn {
+    width: 100%;
+  }
+
+  .affx-hero-stage {
+    gap: 12px;
+    padding: 8px 0 4px;
+  }
+
+  .affx-orbit-outer {
+    width: 300px;
+    height: 300px;
+  }
+
+  .affx-orbit-inner {
+    width: 240px;
+    height: 240px;
+  }
+
+  .affx-pass-card {
+    width: min(326px, 100%);
+    transform: none;
+  }
+
+  .affx-pass-frame {
+    min-height: 320px;
+    padding: 22px 18px 18px;
+  }
+
+  .affx-pass-center strong {
+    font-size: 1.65rem;
+  }
+
+  .affx-float-badge {
+    padding: 8px 12px;
+    border-radius: 12px;
+  }
+
+  .affx-benefits-band {
+    padding: 56px 0;
+  }
+
+  .affx-flow-band {
+    padding: 8px 0 56px;
+  }
+
+  .affx-flow-shell {
+    padding: 40px 20px;
+    border-radius: 22px;
+  }
+
+  .affx-audience-band {
+    padding: 8px 0 56px;
+  }
+
+  .affx-audience-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .affx-cta-band {
+    padding: 0 0 60px;
+  }
+
+  .affx-cta-frame {
+    padding: 40px 20px;
+  }
+
+  .affx-cta-actions .affx-btn {
+    width: 100%;
+  }
+}
