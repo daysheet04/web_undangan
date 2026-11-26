@@ -49,21 +49,35 @@ function PasswordField({ label, required, ...props }) {
 }
 
 function AuthShell({ children, asideTitle, asideCopy, variant = 'default' }) {
-  return <main className={`affiliate-auth-shell${variant === 'login' ? ' is-login-shell' : ''}`}>
+  const isLogin = variant === 'login';
+  return <main className={`affiliate-auth-shell${isLogin ? ' is-login-shell' : ''}`}>
     <section className="affiliate-auth-panel">
-      <header><Brand/><a href={`${MAIN_APP_URL}/affiliate`}>Tentang program</a></header>
+      <header>
+        <Brand/>
+        <a className="affiliate-header-program-link" href={`${MAIN_APP_URL}/affiliate`}>Tentang program</a>
+      </header>
       <div className="affiliate-auth-mobile-hero" aria-hidden="true">
-        <span className="affiliate-aside-kicker">DAYMOMENT PARTNER</span>
-        <h2>{asideTitle}</h2>
-        <p>{asideCopy}</p>
+        <div className="affiliate-hero-copy-wrap">
+          <span className="affiliate-aside-kicker">DAYMOMENT PARTNER</span>
+          <h2>{asideTitle}</h2>
+          <p>{asideCopy}</p>
+        </div>
       </div>
       <div className="affiliate-auth-content">{children}</div>
       <footer>© {new Date().getFullYear()} Daymoment.</footer>
     </section>
     <aside className="affiliate-auth-aside">
-      <span className="affiliate-aside-kicker">DAYMOMENT PARTNER</span>
-      <h2>{asideTitle}</h2><p>{asideCopy}</p>
-      <div className="affiliate-aside-card"><small>ALUR PARTNER</small><div><span>01</span><b>Daftar</b></div><div><span>02</span><b>Bagikan</b></div><div><span>03</span><b>Dapatkan komisi</b></div></div>
+      <div className="affiliate-aside-inner">
+        <span className="affiliate-aside-pill">✦ DAYMOMENT PARTNER</span>
+        <h2>{asideTitle}</h2>
+        <p>{asideCopy}</p>
+        <div className="affiliate-aside-card">
+          <small>ALUR PARTNER</small>
+          <div><span>01</span><b>Daftar akun & verifikasi</b></div>
+          <div><span>02</span><b>Bagikan link referral personal</b></div>
+          <div><span>03</span><b>Dapatkan komisi setiap order</b></div>
+        </div>
+      </div>
     </aside>
   </main>;
 }
