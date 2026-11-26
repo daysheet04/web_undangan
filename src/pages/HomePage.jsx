@@ -7,9 +7,11 @@ import HeroPhoneSlideshow from '../components/HeroPhoneSlideshow.jsx';
 import FeedbackSection from '../components/FeedbackSection.jsx';
 import { templatePreviewPath, templateSlug } from '../lib/templateSlug.js';
 
+const GMAIL_COMPOSE_URL = 'https://mail.google.com/mail/?view=cm&fs=1&to=daymoment7%40gmail.com&su=Tanya%20%2F%20Order%20Undangan%20Digital%20Daymoment&body=Halo%20Tim%20Daymoment%2C%0A%0ASaya%20ingin%20bertanya%20atau%20memesan%20undangan%20digital%20Daymoment.%20Mohon%20informasinya%20ya.%20Terima%20kasih!';
+
 const steps = [
   ['01', 'Pilih Template', 'Temukan template yang paling mewakili karakter dan momen hari bahagiamu.'],
-  ['02', 'Lengkapi Undanganmu', 'Isi informasi Pasangan, Tempat Acara, Lokasi Acara, dan Unggah Foto sesuai momen indahmu'],
+  ['02', 'Lengkapi Undanganmu', 'Isi detail pengantin, jadwal acara, galeri cerita, hingga daftar tamu dan amplop digital sesuai momen spesialmu.'],
   ['03', 'Saatnya Berbagi', 'Bagikan undangan pernikahanmu kepada orang tersayang dan ajak mereka hadir dimomen yang paling berarti bagimu'],
 ];
 
@@ -241,7 +243,7 @@ export default function HomePage() {
         <img className="brand-logo brand-logo-wordmark" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" width="136" height="48" loading="lazy" decoding="async" />
       </a>
       <div className="footer-socials" aria-label="Media sosial Daymoment">
-        <a className="footer-social-link" href="https://instagram.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment">
+        <a className="footer-social-link" href="https://www.instagram.com/daymoment_id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
@@ -261,7 +263,7 @@ export default function HomePage() {
           </svg>
           <span>WhatsApp</span>
         </a>
-        <a className="footer-social-link" href="mailto:daymoment7@gmail.com" aria-label="Email Daymoment">
+        <a className="footer-social-link" href={GMAIL_COMPOSE_URL} target="_blank" rel="noopener noreferrer" aria-label="Email Daymoment via Gmail">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
             <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" />
           </svg>

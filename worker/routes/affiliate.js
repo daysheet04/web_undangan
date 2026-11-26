@@ -98,9 +98,10 @@ function readCookie(request, name) {
   return part ? decodeURIComponent(part.slice(name.length + 1)) : '';
 }
 
-function sessionCookie(request, value, maxAge) {
+function sessionCookie(request, value, maxAge = null) {
   const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
-  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}; Priority=High${secure}`;
+  const maxAgePart = maxAge === null ? '' : `; Max-Age=${maxAge}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${maxAgePart}; Priority=High${secure}`;
 }
 
 function affiliateAppUrl(c, path = '/') {
@@ -595,7 +596,8 @@ affiliate.post('/affiliate/login', async (c) => {
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false });
   if (activeSessionsError) throw activeSessionsError;
-  const expiredSessionIds = (activeSessions || []).slice(MAX_ACTIVE_SESSIONS).map((session) => session.id);
+  // Single active session per affiliate: revoke all older sessions immediately on login
+  const expiredSessionIds = (activeSessions || []).slice(1).map((session) => session.id);
   if (expiredSessionIds.length) {
     const { error: revokeError } = await db.from('affiliate_sessions')
       .update({ revoked_at: new Date().toISOString() })
@@ -605,7 +607,8 @@ affiliate.post('/affiliate/login', async (c) => {
   await recordLogin(db, c, { affiliateId: account.id, email, success: true });
 
   const response = c.json({ ok: true, affiliate: account });
-  response.headers.set('Set-Cookie', sessionCookie(c.req.raw, sessionToken, Math.floor(SESSION_TTL_MS / 1000)));
+  // Browser session cookie (no Max-Age): automatically cleared when the browser closes
+  response.headers.set('Set-Cookie', sessionCookie(c.req.raw, sessionToken, null));
   return response;
 });
 

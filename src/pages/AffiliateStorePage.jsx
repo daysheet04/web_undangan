@@ -164,11 +164,11 @@ export default function AffiliateStorePage({ referralCode }) {
       <a className="brand brand-light brand-wordmark-footer" href={referralPath} aria-label="Daymoment, kembali ke beranda etalase partner"><img className="brand-logo brand-logo-wordmark" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" width="175" height="42" loading="lazy" decoding="async"/></a>
       <p>Undangan digital yang dibuat untuk merayakan setiap cerita.</p>
       <div className="footer-socials" aria-label="Media sosial Daymoment">
-        <a className="footer-social-link" href="https://instagram.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment"><SocialIcon type="instagram"/><span>Instagram</span></a>
+        <a className="footer-social-link" href="https://www.instagram.com/daymoment_id" target="_blank" rel="noopener noreferrer" aria-label="Instagram Daymoment"><SocialIcon type="instagram"/><span>Instagram</span></a>
         <a className="footer-social-link" href="https://tiktok.com/@daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="TikTok Daymoment"><SocialIcon type="tiktok"/><span>TikTok</span></a>
         <a className="footer-social-link" href="https://facebook.com/daymoment.id" target="_blank" rel="noopener noreferrer" aria-label="Facebook Daymoment"><SocialIcon type="facebook"/><span>Facebook</span></a>
         <a className="footer-social-link" href="https://wa.me/6285111451135" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Daymoment"><SocialIcon type="whatsapp"/><span>WhatsApp</span></a>
-        <a className="footer-social-link" href="mailto:daymoment7@gmail.com" aria-label="Email Daymoment"><SocialIcon type="email"/><span>Email</span></a>
+        <a className="footer-social-link" href="https://mail.google.com/mail/?view=cm&fs=1&to=daymoment7%40gmail.com&su=Tanya%20%2F%20Order%20Undangan%20Digital%20Daymoment&body=Halo%20Tim%20Daymoment%2C%0A%0ASaya%20ingin%20bertanya%20atau%20memesan%20undangan%20digital%20Daymoment.%20Mohon%20informasinya%20ya.%20Terima%20kasih!" target="_blank" rel="noopener noreferrer" aria-label="Email Daymoment via Gmail"><SocialIcon type="email"/><span>Email</span></a>
       </div>
       <small>© {new Date().getFullYear()} Daymoment. Semua hak dilindungi.</small>
     </footer>

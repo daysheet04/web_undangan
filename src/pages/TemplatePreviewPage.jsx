@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Loading, ErrorState } from '../components/Layout.jsx';
+import TemplateSwitcherDropdown from '../components/TemplateSwitcherDropdown.jsx';
 import { money } from '../lib/api.js';
 import { trackAffiliateClick, trackAffiliateView } from '../lib/affiliateTraffic.js';
 import { useRemote } from '../lib/hooks.js';
@@ -11,7 +12,7 @@ function PreviewPhone({ template, active }) {
     <div className="phone-mockup preview-phone">
       <div className="phone-speaker" />
       <iframe
-        key={active.code}
+        key={`${template.code}-${active.code}`}
         className="preview-iframe"
         title={`Preview ${template.name} paket ${active.name}`}
         src={`${templatePreviewPath(template)}?embed=1&package=${active.code}`}
@@ -27,7 +28,17 @@ export default function TemplatePreviewPage({ code }) {
   const referralHomeHref = referralNav?.homeHref || '/';
   const requestedPackage = pageQuery.get('package') || '';
   const referralQuery = referralCode ? `?ref=${encodeURIComponent(referralCode)}` : '';
-  const { data, loading, error } = useRemote(`/api/templates/${code}${referralQuery}`, [code, referralCode]);
+  const [selectedCode, setSelectedCode] = useState(code);
+
+  useEffect(() => {
+    setSelectedCode(code);
+  }, [code]);
+
+  const { data, loading, error } = useRemote(`/api/templates/${selectedCode}${referralQuery}`, [selectedCode, referralCode]);
+  const catalogPath = referralCode ? `/api/affiliate-catalog/${encodeURIComponent(referralCode)}` : '/api/templates';
+  const catalogState = useRemote(catalogPath, [catalogPath]);
+  const availableTemplates = catalogState.data?.templates || [];
+
   const [selected, setSelected] = useState(requestedPackage || 'signature');
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (
@@ -82,15 +93,26 @@ export default function TemplatePreviewPage({ code }) {
     }
   }, [verifiedReferralCode, loadedTemplateCode, loadedTemplateName, hasLoadedPackages]);
 
-  if (loading) return <Layout className="preview-page" navigation={referralNav}><Loading fullscreen /></Layout>;
+  if (loading && !data?.template) return <Layout className="preview-page" navigation={referralNav}><Loading fullscreen /></Layout>;
   if (error) return <Layout className="preview-page" navigation={referralNav}><ErrorState error={error} homeHref={referralHomeHref} /></Layout>;
 
   const template = data.template;
-  if (requestedPackage && !template.packages.some((item) => item.code === requestedPackage)) {
+  const activeRequestedPackage = selectedCode === code ? requestedPackage : '';
+  if (activeRequestedPackage && !template.packages.some((item) => item.code === activeRequestedPackage)) {
     return <Layout className="preview-page" navigation={referralNav}><ErrorState error={new Error('Paket template ini sedang maintenance dan belum tersedia untuk dipilih.')} homeHref={referralHomeHref} /></Layout>;
   }
   if (!template.packages.length) return <Layout className="preview-page" navigation={referralNav}><ErrorState error={new Error(referralCode ? 'Affiliate ini belum menampilkan paket untuk template tersebut.' : 'Seluruh paket template ini sedang maintenance dan belum tersedia.')} homeHref={referralHomeHref} /></Layout>;
   const active = template.packages.find((item) => item.code === selected) || template.packages[0];
+
+  const handleTemplateSwitch = (nextTemplate) => {
+    const nextCode = nextTemplate?.code;
+    if (!nextCode || nextCode === template.code) return;
+    setSelectedCode(nextCode);
+    setMobilePreviewOpen(false);
+    try {
+      window.history.replaceState({}, '', `${templatePreviewPath(nextTemplate)}${referralQuery}`);
+    } catch {}
+  };
 
   const viewPackage = (item) => {
     const packageCode = typeof item === 'string' ? item : item.code;
@@ -123,6 +145,13 @@ export default function TemplatePreviewPage({ code }) {
           </div>
           <h1>{template.name}</h1>
           <p>{template.description}</p>
+
+          <TemplateSwitcherDropdown
+            className="preview-template-switcher"
+            templates={availableTemplates}
+            currentTemplate={template}
+            onSelect={handleTemplateSwitch}
+          />
 
           <div className="preview-package-heading">
             <span>Pilih paket undangan</span>

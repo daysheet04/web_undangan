@@ -3149,10 +3149,25 @@ export default function AffiliateApp() {
   const [session, setSession] = useState(undefined);
   useEffect(() => {
     document.title = 'Daymoment Affiliate';
+    const currentPath = cleanPath();
+    const isAuthEntryPath = currentPath === '/login' || currentPath === '/register';
+
+    if (isAuthEntryPath) {
+      // Explicitly visiting Login / Register clears any prior session so sessions never double up
+      affiliateApi('/logout', { method: 'POST' })
+        .catch(() => {})
+        .finally(() => setSession(null));
+      return;
+    }
+
     affiliateApi('/session')
       .then((result) => setSession(result.authenticated ? result.affiliate : null))
       .catch(() => setSession(null));
   }, []);
+
+  const handleLogin = (affiliate) => {
+    setSession(affiliate);
+  };
 
   const logout = async () => {
     try { await affiliateApi('/logout', { method: 'POST' }); } catch {}
@@ -3166,7 +3181,7 @@ export default function AffiliateApp() {
   if (path === '/update-registration') return <ReviewCorrectionPage/>;
   if (session) return <AffiliateDashboard affiliate={session} onLogout={logout} onAffiliateUpdate={(profile) => setSession((current) => ({ ...current, ...profile }))}/>;
   if (path === '/register') return <RegisterPage/>;
-  if (path === '/login') return <LoginPage onLogin={setSession}/>;
+  if (path === '/login') return <LoginPage onLogin={handleLogin}/>;
   if (path === '/forgot-password') return <ForgotPasswordPage/>;
   if (path === '/verify-email') return <VerifyEmailPage/>;
   window.location.replace('/login');

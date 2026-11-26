@@ -147,9 +147,11 @@ export default function FeedbackSection() {
             </a>
 
             <a
-              href="mailto:daymoment7@gmail.com"
+              href="https://mail.google.com/mail/?view=cm&fs=1&to=daymoment7%40gmail.com&su=Tanya%20%2F%20Order%20Undangan%20Digital%20Daymoment&body=Halo%20Tim%20Daymoment%2C%0A%0ASaya%20ingin%20bertanya%20atau%20memesan%20undangan%20digital%20Daymoment.%20Mohon%20informasinya%20ya.%20Terima%20kasih!"
+              target="_blank"
+              rel="noopener noreferrer"
               className="feedback-contact-card email"
-              aria-label="Kirim Email ke daymoment7@gmail.com"
+              aria-label="Kirim Email ke daymoment7@gmail.com via Gmail"
             >
               <div className="feedback-contact-left">
                 <span className="feedback-contact-icon email" aria-hidden="true">

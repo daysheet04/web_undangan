@@ -28,10 +28,22 @@ const allowedAffiliateOrigins = new Set([
   'https://affiliate.daymoment.id',
 ]);
 
+const allowedSessionReadOrigins = new Set([
+  ...allowedAffiliateOrigins,
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'https://daymoment.id',
+  'https://www.daymoment.id',
+]);
+
 app.use('/api/*', cors({
   origin: (origin, c) => {
     if (!origin) return undefined;
-    return origin === new URL(c.req.url).origin || allowedAffiliateOrigins.has(origin) ? origin : undefined;
+    if (origin === new URL(c.req.url).origin || allowedAffiliateOrigins.has(origin)) return origin;
+    if (c.req.path === '/api/affiliate/session' && ['GET', 'OPTIONS'].includes(c.req.method.toUpperCase()) && allowedSessionReadOrigins.has(origin)) {
+      return origin;
+    }
+    return undefined;
   },
   allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Accept'],
