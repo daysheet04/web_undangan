@@ -192,6 +192,8 @@ export default function HomePage() {
     };
   }, [loading]);
 
+  const [activeStep, setActiveStep] = useState(null);
+
   const scrollToSection = (e, id) => {
     e.preventDefault();
     const target = document.getElementById(id);
@@ -233,7 +235,28 @@ export default function HomePage() {
 
     <section className="steps-section" id="cara-kerja">
       <div className="section-heading"><span className="eyebrow">Langkah Pemesanan</span><h2>Pesan Undanganmu Dalam 3 Langkah</h2></div>
-      <div className="steps-grid">{steps.map((step) => <article key={step[0]}><span className="step-number">{step[0]}</span><div><h3>{step[1]}</h3><p>{step[2]}</p></div></article>)}</div>
+      <div className="steps-grid">
+        {steps.map((step) => {
+          const isActive = activeStep === step[0];
+          return (
+            <article
+              key={step[0]}
+              className={isActive ? 'is-active' : ''}
+              tabIndex={0}
+              onClick={() => setActiveStep((prev) => (prev === step[0] ? null : step[0]))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveStep((prev) => (prev === step[0] ? null : step[0]));
+                }
+              }}
+            >
+              <span className="step-number">{step[0]}</span>
+              <div><h3>{step[1]}</h3><p>{step[2]}</p></div>
+            </article>
+          );
+        })}
+      </div>
     </section>
 
     <FeedbackSection />

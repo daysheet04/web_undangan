@@ -1927,3 +1927,331 @@ a { color: inherit; }
     align-self: flex-start;
   }
 }
+
+
+/* ==========================================================================
+   CLEAN NATURAL LOGIN & STRUCTURED AFFILIATE PRODUCT LIST REDESIGN
+   ========================================================================== */
+
+/* 1. Natural Auth Shell — remove AI concentric rings & geometric pattern */
+.affiliate-auth-aside {
+  background: linear-gradient(155deg, #12362c 0%, #0b241d 100%);
+}
+
+.affiliate-auth-aside::after,
+.affiliate-aside-pattern {
+  display: none !important;
+}
+
+.affiliate-auth-mobile-hero {
+  display: none;
+}
+
+.affiliate-input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.affiliate-input-leading-icon {
+  position: absolute;
+  left: 15px;
+  color: #7d8d87;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.affiliate-field-with-icon .affiliate-input-icon-wrap input {
+  padding-left: 44px;
+}
+
+.affiliate-login-options a {
+  color: #b17d39;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.affiliate-auth-shell.is-login-shell .affiliate-submit {
+  background: #0f3127;
+  border-radius: 12px;
+  min-height: 52px;
+  font-size: 0.94rem;
+}
+
+.affiliate-auth-shell.is-login-shell .affiliate-submit:hover:not(:disabled) {
+  background: #143f33;
+}
+
+@media (max-width: 900px) {
+  .affiliate-auth-shell.is-login-shell {
+    grid-template-columns: 1fr;
+    background: #f7f5ef;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-aside {
+    display: none;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-panel {
+    padding: 0;
+    background: #f7f5ef;
+    grid-template-rows: auto auto 1fr auto;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-panel > header {
+    padding: 18px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid #ebe8df;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-panel > header > a {
+    display: inline-flex;
+    color: #2c443d;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-mobile-hero {
+    display: block;
+    padding: 36px 22px 76px;
+    background: linear-gradient(155deg, #103329 0%, #0b251e 100%);
+    color: #f7f2e8;
+  }
+
+  .affiliate-auth-mobile-hero .affiliate-aside-kicker {
+    display: block;
+    color: #d6b26f;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  .affiliate-auth-mobile-hero h2 {
+    margin: 12px 0 12px;
+    font-family: Georgia, serif;
+    font-size: clamp(2.1rem, 8.5vw, 2.8rem);
+    font-weight: 400;
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    color: #ffffff;
+  }
+
+  .affiliate-auth-mobile-hero p {
+    margin: 0;
+    color: rgba(235, 243, 239, 0.86);
+    font-size: 0.92rem;
+    line-height: 1.58;
+    max-width: 36ch;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-content {
+    width: calc(100% - 32px);
+    max-width: 460px;
+    margin: -44px auto 24px;
+    padding: 28px 22px 26px;
+    background: #ffffff;
+    border: 1px solid #eae7de;
+    border-radius: 22px;
+    box-shadow: 0 22px 50px -24px rgba(11, 37, 30, 0.24);
+    align-self: start;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-heading h1 {
+    font-size: clamp(1.85rem, 7vw, 2.3rem);
+    margin: 8px 0 8px;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-heading p {
+    font-size: 0.85rem;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+
+  .affiliate-auth-shell.is-login-shell .affiliate-auth-panel > footer {
+    padding: 6px 20px 26px;
+    text-align: center;
+    color: #8c9792;
+    font-size: 0.72rem;
+  }
+}
+
+/* 2. Structured 3-column Affiliate Product List (matching reference card layout) */
+.affiliate-product-catalog {
+  background: #ffffff;
+  border: 1px solid #e6ece7;
+  border-radius: 20px;
+  box-shadow: 0 12px 32px -22px rgba(17, 54, 47, 0.16);
+}
+
+.affiliate-product-table {
+  padding: 6px 28px;
+}
+
+.affiliate-product-row.affiliate-product-card-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.45fr) minmax(210px, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 108px;
+  padding: 22px 0;
+  border-bottom: 1px solid #edf1ee;
+}
+
+.affiliate-product-row.affiliate-product-card-row:last-child {
+  border-bottom: 0;
+}
+
+.affiliate-product-card-row .affiliate-product-identity {
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+
+.affiliate-product-card-row .affiliate-product-mini-glyph {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  font-size: 1.15rem;
+  background: linear-gradient(145deg, #a78349 0%, #245746 65%, #163d32 100%);
+  box-shadow: 0 6px 14px -6px rgba(22, 61, 50, 0.35);
+  margin-top: 2px;
+}
+
+.affiliate-product-card-row .affiliate-product-identity > span {
+  gap: 5px;
+}
+
+.affiliate-product-template-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: #f7f0e2;
+  color: #a37435 !important;
+  font-size: 0.66rem !important;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.affiliate-product-card-row .affiliate-product-identity > span > b {
+  font-size: 1.04rem;
+  font-weight: 700;
+  color: #132d28;
+  line-height: 1.25;
+}
+
+.affiliate-product-card-row .affiliate-product-identity > span > em {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 0.8rem;
+  color: #5d6e68;
+  line-height: 1.48;
+  max-width: 34ch;
+}
+
+.affiliate-product-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.affiliate-product-pricing > strong {
+  font-size: 1.1rem;
+  font-weight: 750;
+  color: #132d28;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.affiliate-product-commission-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: #f7f0e2;
+  color: #9b6b2d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.affiliate-product-card-row .affiliate-switch {
+  grid-template-columns: 48px;
+  gap: 6px;
+}
+
+.affiliate-product-card-row .affiliate-switch > span {
+  width: 48px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.affiliate-product-card-row .affiliate-switch > span::after {
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+}
+
+.affiliate-product-card-row .affiliate-switch input:checked + span {
+  background: #1b6d58;
+}
+
+.affiliate-product-card-row .affiliate-switch input:checked + span::after {
+  transform: translateX(22px);
+}
+
+.affiliate-product-card-row .affiliate-switch small {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5c6d67;
+}
+
+@media (max-width: 880px) {
+  .affiliate-product-table {
+    overflow-x: visible;
+    padding: 6px 20px;
+  }
+
+  .affiliate-product-row.affiliate-product-card-row {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 650px) {
+  .affiliate-product-table {
+    padding: 4px 16px;
+  }
+
+  .affiliate-product-row.affiliate-product-card-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 16px;
+    padding: 18px 0;
+    min-height: 0;
+  }
+
+  .affiliate-product-card-row .affiliate-product-identity {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .affiliate-product-card-row .affiliate-product-pricing {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .affiliate-product-card-row .affiliate-switch {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    justify-self: end;
+  }
+}

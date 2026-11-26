@@ -48,15 +48,19 @@ function PasswordField({ label, required, ...props }) {
   </div>;
 }
 
-function AuthShell({ children, asideTitle, asideCopy }) {
-  return <main className="affiliate-auth-shell">
+function AuthShell({ children, asideTitle, asideCopy, variant = 'default' }) {
+  return <main className={`affiliate-auth-shell${variant === 'login' ? ' is-login-shell' : ''}`}>
     <section className="affiliate-auth-panel">
       <header><Brand/><a href={`${MAIN_APP_URL}/affiliate`}>Tentang program</a></header>
+      <div className="affiliate-auth-mobile-hero" aria-hidden="true">
+        <span className="affiliate-aside-kicker">DAYMOMENT PARTNER</span>
+        <h2>{asideTitle}</h2>
+        <p>{asideCopy}</p>
+      </div>
       <div className="affiliate-auth-content">{children}</div>
-      <footer>© {new Date().getFullYear()} Daymoment</footer>
+      <footer>© {new Date().getFullYear()} Daymoment.</footer>
     </section>
     <aside className="affiliate-auth-aside">
-      <div className="affiliate-aside-pattern" aria-hidden="true"/>
       <span className="affiliate-aside-kicker">DAYMOMENT PARTNER</span>
       <h2>{asideTitle}</h2><p>{asideCopy}</p>
       <div className="affiliate-aside-card"><small>ALUR PARTNER</small><div><span>01</span><b>Daftar</b></div><div><span>02</span><b>Bagikan</b></div><div><span>03</span><b>Dapatkan komisi</b></div></div>
@@ -397,6 +401,7 @@ function LoginPage({ onLogin }) {
     () => new URLSearchParams(window.location.search).get('verified') === '1',
   );
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState({ loading: false, error: '' });
 
   useEffect(() => {
@@ -420,12 +425,37 @@ function LoginPage({ onLogin }) {
       setState({ loading: false, error: friendlyAffiliateError(error) });
     }
   };
-  return <AuthShell asideTitle="Selamat datang kembali." asideCopy="Masuk untuk melanjutkan perjalananmu sebagai partner dan menyiapkan link referral Daymoment.">
+  return <AuthShell variant="login" asideTitle="Selamat datang kembali." asideCopy="Masuk untuk melanjutkan perjalananmu sebagai partner Daymoment.">
     <div className="affiliate-auth-heading"><span>AREA PARTNER</span><h1>Login Affiliate</h1><p>Gunakan akun yang emailnya sudah diverifikasi dan disetujui admin Daymoment.</p></div>
     {state.error && <div className="affiliate-form-alert error" role="alert">{state.error}</div>}
     <form className="affiliate-auth-form" onSubmit={submit}>
-      <Field label="Email" type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="nama@email.com"/>
-      <PasswordField label="Password" autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Masukkan password"/>
+      <label className="affiliate-field affiliate-field-with-icon">
+        <span>Email <em className="affiliate-required">*</em></span>
+        <div className="affiliate-input-icon-wrap">
+          <svg className="affiliate-input-leading-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="3" />
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+          </svg>
+          <input type="email" autoComplete="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="nama@email.com"/>
+        </div>
+      </label>
+      <div className="affiliate-field affiliate-field-with-icon">
+        <label htmlFor="affiliate-login-password">Password <em className="affiliate-required">*</em></label>
+        <div className="affiliate-password-control affiliate-input-icon-wrap">
+          <svg className="affiliate-input-leading-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="2.5" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+          <input id="affiliate-login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Masukkan password"/>
+          <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'} aria-pressed={showPassword}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Z" />
+              <circle cx="12" cy="12" r="3" />
+              {showPassword && <path className="affiliate-eye-slash" d="M4 20 20 4" />}
+            </svg>
+          </button>
+        </div>
+      </div>
       <div className="affiliate-login-options"><a href="/forgot-password">Lupa password?</a></div>
       <button className="affiliate-submit" type="submit" disabled={state.loading}>{state.loading ? 'Memeriksa akun…' : 'Login'}<span>→</span></button>
     </form>
@@ -1720,13 +1750,38 @@ function ProductSettings({ catalog, setCatalog, onboarding = false }) {
     {notice && <div className="affiliate-dashboard-notice">{notice}</div>}
     <article className="affiliate-template-group affiliate-product-catalog">
       <div className="affiliate-product-table">
-        <div className="affiliate-product-row affiliate-product-labels"><span>Template & produk</span><span>Harga</span><span>Komisi</span><span>Tampilkan di etalase</span></div>
-        {pageItems.map(({ template, product }) => <div className={`affiliate-product-row ${product.is_visible ? '' : 'is-hidden'}`} key={product.id}>
-          <div className="affiliate-product-identity"><i className={`affiliate-product-mini-glyph glyph-${template.code}`}>{template.name.slice(0, 1)}</i><span><small>{template.name}</small><b>{product.name}</b><em>{product.tagline}</em></span></div>
-          <strong>{rupiah(product.price)}</strong>
-          <div className="affiliate-product-commission"><strong>{Number(product.commission_percent || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%</strong><small>Estimasi {rupiah(product.commission_amount || 0)}</small></div>
-          <label className={`affiliate-switch ${saving === String(product.id) ? 'is-saving' : ''}`}><input type="checkbox" checked={product.is_visible} disabled={saving === String(product.id)} onChange={(event) => toggleProduct(template, product, event.target.checked)}/><span/><small>{saving === String(product.id) ? 'Menyimpan…' : product.is_visible ? 'Tampil' : 'Hidden'}</small></label>
-        </div>)}
+        {pageItems.map(({ template, product }) => {
+          const commissionPct = Number(product.commission_percent || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+          const isSaving = saving === String(product.id);
+          return (
+            <div className={`affiliate-product-row affiliate-product-card-row ${product.is_visible ? '' : 'is-hidden'}`} key={product.id}>
+              <div className="affiliate-product-identity">
+                <i className={`affiliate-product-mini-glyph glyph-${template.code}`}>{template.name.slice(0, 1)}</i>
+                <span>
+                  <small className="affiliate-product-template-pill">{template.name}</small>
+                  <b>{product.name}</b>
+                  <em>{product.tagline}</em>
+                </span>
+              </div>
+              <div className="affiliate-product-pricing">
+                <strong>{rupiah(product.price)}</strong>
+                <span className="affiliate-product-commission-pill">
+                  Komisi {commissionPct}% • Est. {rupiah(product.commission_amount || 0)}
+                </span>
+              </div>
+              <label className={`affiliate-switch ${isSaving ? 'is-saving' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={product.is_visible}
+                  disabled={isSaving}
+                  onChange={(event) => toggleProduct(template, product, event.target.checked)}
+                />
+                <span />
+                <small>{isSaving ? 'Menyimpan…' : product.is_visible ? 'Tampil' : 'Hidden'}</small>
+              </label>
+            </div>
+          );
+        })}
       </div>
     </article>
     {pageCount > 1 && <nav className="affiliate-pagination" aria-label="Halaman produk"><button type="button" disabled={page === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>← Sebelumnya</button><div>{Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => <button type="button" className={number === page ? 'active' : ''} aria-current={number === page ? 'page' : undefined} onClick={() => setPage(number)} key={number}>{number}</button>)}</div><button type="button" disabled={page === pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>Berikutnya →</button></nav>}
