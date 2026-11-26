@@ -13,19 +13,39 @@ export default function AffiliateLandingPage() {
 
   useEffect(() => {
     let active = true;
-    fetch(affiliateUrl('/api/affiliate/session'), {
-      credentials: 'include',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (active && data?.authenticated && data?.affiliate) {
-          setLoggedInAffiliate(data.affiliate);
-        }
+    const checkSession = () => {
+      fetch(affiliateUrl('/api/affiliate/session'), {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
       })
-      .catch(() => {});
-    return () => { active = false; };
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!active) return;
+          if (data?.authenticated && data?.affiliate) {
+            setLoggedInAffiliate(data.affiliate);
+          } else {
+            setLoggedInAffiliate(null);
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkSession();
+    const onFocus = () => checkSession();
+    const onPageShow = () => checkSession();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkSession();
+    };
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const isLoggedIn = Boolean(loggedInAffiliate);

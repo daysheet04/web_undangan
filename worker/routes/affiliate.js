@@ -724,7 +724,9 @@ affiliate.get('/affiliate/session', async (c) => {
   const current = await activeSession(c);
   if (!current) {
     const response = c.json({ ok: true, authenticated: false });
-    response.headers.set('Set-Cookie', sessionCookie(c.req.raw, '', 0));
+    if (readCookie(c.req.raw, SESSION_COOKIE)) {
+      response.headers.set('Set-Cookie', sessionCookie(c.req.raw, '', 0));
+    }
     return response;
   }
   return c.json({ ok: true, authenticated: true, affiliate: current.account });
