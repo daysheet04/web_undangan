@@ -84,7 +84,7 @@ export function buildContentSecurityPolicy({ isMedia = false, allowPaymentSnap =
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
     "media-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com https://api.sandbox.midtrans.com https://*.midtrans.com https://*.veritrans.co.id https://static.cloudflareinsights.com https://cloudflareinsights.com",
+    "connect-src 'self' https://affiliate.daymoment.id https://daymoment.id https://*.supabase.co wss://*.supabase.co https://app.midtrans.com https://app.sandbox.midtrans.com https://api.midtrans.com https://api.sandbox.midtrans.com https://*.midtrans.com https://*.veritrans.co.id https://static.cloudflareinsights.com https://cloudflareinsights.com",
     "worker-src 'self' blob:",
     "frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://*.midtrans.com",
     `frame-ancestors ${frameAncestors}`,
