@@ -135,6 +135,17 @@ export default function AffiliateLandingPage() {
             <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
           </svg>
         </a>
+        <a
+          href="https://mail.google.com/mail/?view=cm&fs=1&to=daymoment7%40gmail.com&su=Tanya%20%2F%20Order%20Undangan%20Digital%20Daymoment&body=Halo%20Tim%20Daymoment%2C%0A%0ASaya%20ingin%20bertanya%20atau%20memesan%20undangan%20digital%20Daymoment.%20Mohon%20informasinya%20ya.%20Terima%20kasih!"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Email Daymoment"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="3" />
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+          </svg>
+        </a>
       </div>
       <small>© {new Date().getFullYear()} Daymoment.</small>
     </footer>
