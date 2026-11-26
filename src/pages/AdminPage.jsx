@@ -2283,10 +2283,13 @@ function ProUpgradeHistory({ entries, currentRequestId, open, onToggle, onPrevie
   </div>;
 }
 
-function AffiliateReviewPanel({ data, loading, error, working, platformWorking, onReload, onReview, onResendCorrection, onAddPlatform, onTogglePlatform }) {
+function AffiliateReviewPanel({ data, loading, error, working, platformWorking, onReload, onReview, onResendCorrection, onResendVerification, onUpdateRegistration, onDelete, onAddPlatform, onTogglePlatform }) {
   const [notes, setNotes] = useState({});
   const [preview, setPreview] = useState(null);
   const [openHistories, setOpenHistories] = useState({});
+  const [editingId, setEditingId] = useState('');
+  const [editDraft, setEditDraft] = useState(null);
+  const [cardFeedback, setCardFeedback] = useState({});
   const [platformName, setPlatformName] = useState('');
   const [filters, setFilters] = useState({ query: '', status: 'pending_verified', dateType: 'none', dateFrom: '', dateTo: '' });
   const [page, setPage] = useState(1);
@@ -2333,10 +2336,84 @@ function AffiliateReviewPanel({ data, loading, error, working, platformWorking, 
     const saved = await onAddPlatform(platformName);
     if (saved) setPlatformName('');
   };
+  const startEditData = (affiliate) => {
+    setEditingId(affiliate.id);
+    setEditDraft({
+      full_name: affiliate.full_name || '',
+      nik: affiliate.nik || '',
+      email: affiliate.email || '',
+      phone: affiliate.phone || '',
+      social_platform: affiliate.social_platform || '',
+      social_handle: affiliate.social_handle || '',
+      social_follower_count: affiliate.social_follower_count != null ? String(affiliate.social_follower_count) : '',
+    });
+    setCardFeedback((prev) => ({ ...prev, [affiliate.id]: null }));
+  };
+
+  const cancelEditData = () => {
+    setEditingId('');
+    setEditDraft(null);
+  };
+
+  const submitEditData = async (affiliate, resendVerification = false) => {
+    if (!editDraft) return;
+    const cleanEmail = String(editDraft.email || '').trim();
+    if (String(editDraft.full_name || '').trim().length < 2) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'error', text: 'Nama lengkap minimal 2 karakter.' } }));
+      return;
+    }
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'error', text: 'Masukkan alamat email yang valid.' } }));
+      return;
+    }
+    const cleanNik = String(editDraft.nik || '').replace(/\D/g, '');
+    if (cleanNik && cleanNik.length !== 16) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'error', text: 'NIK harus 16 digit angka.' } }));
+      return;
+    }
+    const res = await onUpdateRegistration?.(affiliate.id, {
+      ...editDraft,
+      email: cleanEmail,
+      nik: cleanNik,
+      resend_verification: resendVerification,
+    });
+    if (res?.ok) {
+      setEditingId('');
+      setEditDraft(null);
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'success', text: res.message || 'Data pendaftar berhasil diperbarui.' } }));
+    } else if (res?.message) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'error', text: res.message } }));
+    }
+  };
+
+  const triggerResendVerification = async (affiliate) => {
+    setCardFeedback((prev) => ({ ...prev, [affiliate.id]: null }));
+    const res = await onResendVerification?.(affiliate.id);
+    if (res?.ok) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'success', text: res.message || 'Email verifikasi dikirim ulang.' } }));
+    } else if (res?.message) {
+      setCardFeedback((prev) => ({ ...prev, [affiliate.id]: { type: 'error', text: res.message } }));
+    }
+  };
+
+  const triggerDeleteAffiliate = async (affiliate) => {
+    if (!window.confirm(`Hapus permanen pendaftaran affiliate ${affiliate.full_name} (${affiliate.email})?\n\nFoto KTP, bukti media sosial di R2, dan seluruh data pendaftar ini akan ikut terhapus permanen.`)) {
+      return;
+    }
+    await onDelete?.(affiliate);
+  };
+
   const card = (affiliate) => {
     const reviewHistory = Array.isArray(affiliate.review_history) ? affiliate.review_history : [];
     const historyOpen = Boolean(openHistories[affiliate.id]);
     const historyLabel = { rejected: 'Pendaftaran ditolak', resubmitted: 'Mengajukan kembali', approved: 'Pendaftaran disetujui' };
+    const isEditing = editingId === affiliate.id && Boolean(editDraft);
+    const isSavingData = working === `registration:${affiliate.id}`;
+    const isResendingVerif = working === `verify-email:${affiliate.id}`;
+    const isDeleting = working === `delete:${affiliate.id}`;
+    const fb = cardFeedback[affiliate.id];
+    const platformOptions = Array.isArray(data?.social_platforms) ? data.social_platforms : [];
+    const emailChanged = isEditing && String(editDraft.email || '').trim().toLowerCase() !== String(affiliate.email || '').trim().toLowerCase();
     return <article className="admin-affiliate-review-card" key={affiliate.id}>
     <div className="admin-affiliate-identity-media">
       <div className="admin-affiliate-ktp">{affiliate.ktp_url ? <button type="button" onClick={() => setPreview({ src: affiliate.ktp_url, name: affiliate.full_name, label: 'Foto KTP' })} aria-label={`Perbesar foto KTP ${affiliate.full_name}`}><img src={affiliate.ktp_url} alt={`KTP ${affiliate.full_name}`} loading="lazy"/><span>Foto KTP · klik untuk memperbesar</span></button> : <span>Foto KTP tidak tersedia</span>}</div>
@@ -2345,6 +2422,121 @@ function AffiliateReviewPanel({ data, loading, error, working, platformWorking, 
     <div className="admin-affiliate-review-info">
       <div className="admin-affiliate-review-title"><div><span className="eyebrow">PENDAFTAR AFFILIATE</span><h2>{affiliate.full_name}</h2></div><span className={`admin-affiliate-status status-${affiliate.status}`}>{affiliate.status === 'pending' ? affiliate.resubmitted_at ? 'Dikirim ulang' : 'Menunggu review' : affiliate.status === 'active' ? 'Disetujui' : affiliate.status === 'rejected' ? 'Ditolak' : affiliate.status}</span></div>
       <dl><div><dt>NIK</dt><dd>{affiliate.nik || '-'}</dd></div><div><dt>Email</dt><dd>{affiliate.email}</dd></div><div><dt>WhatsApp</dt><dd>{affiliate.phone}</dd></div><div><dt>Email terverifikasi</dt><dd>{affiliate.email_verified_at ? dateFormat.format(new Date(affiliate.email_verified_at)) : 'Belum'}</dd></div><div><dt>Media sosial</dt><dd>{affiliate.social_platform || '-'}</dd></div><div><dt>Username</dt><dd>{affiliate.social_handle || '-'}</dd></div><div><dt>Followers</dt><dd>{affiliate.social_follower_count != null ? affiliate.social_follower_count.toLocaleString('id-ID') : '-'}</dd></div><div><dt>Daftar</dt><dd>{affiliate.created_at ? dateFormat.format(new Date(affiliate.created_at)) : '-'}</dd></div>{affiliate.resubmitted_at && <div><dt>Dikirim ulang</dt><dd>{dateFormat.format(new Date(affiliate.resubmitted_at))}</dd></div>}</dl>
+      {isEditing && (
+        <div className="admin-review-email-editor" data-review-data-editor={affiliate.id}>
+          <div className="admin-review-edit-grid">
+            <label>
+              <span>Nama lengkap</span>
+              <input
+                type="text"
+                maxLength="120"
+                value={editDraft.full_name}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, full_name: event.target.value }))}
+                disabled={isSavingData}
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input
+                type="email"
+                maxLength="254"
+                value={editDraft.email}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
+                disabled={isSavingData}
+              />
+            </label>
+            <label>
+              <span>NIK (16 digit)</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength="16"
+                value={editDraft.nik}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, nik: event.target.value.replace(/\D/g, '').slice(0, 16) }))}
+                disabled={isSavingData}
+              />
+            </label>
+            <label>
+              <span>WhatsApp</span>
+              <input
+                type="tel"
+                maxLength="24"
+                value={editDraft.phone}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, phone: event.target.value }))}
+                disabled={isSavingData}
+              />
+            </label>
+            <label>
+              <span>Media sosial</span>
+              <select
+                value={editDraft.social_platform}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, social_platform: event.target.value }))}
+                disabled={isSavingData}
+              >
+                <option value="">-- Pilih platform --</option>
+                {editDraft.social_platform && !platformOptions.some((p) => p.name === editDraft.social_platform) && (
+                  <option value={editDraft.social_platform}>{editDraft.social_platform}</option>
+                )}
+                {platformOptions.map((p) => (
+                  <option key={p.id || p.name} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Username</span>
+              <input
+                type="text"
+                maxLength="80"
+                value={editDraft.social_handle}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, social_handle: event.target.value }))}
+                disabled={isSavingData}
+              />
+            </label>
+            <label>
+              <span>Followers</span>
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={editDraft.social_follower_count}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, social_follower_count: event.target.value }))}
+                disabled={isSavingData}
+              />
+            </label>
+          </div>
+          <div className="admin-review-email-editor-actions">
+            <button type="button" className="is-save" disabled={isSavingData} onClick={() => submitEditData(affiliate, false)}>
+              {isSavingData ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+            {(!affiliate.email_verified_at || emailChanged) && (
+              <button type="button" className="is-save-send" disabled={isSavingData} onClick={() => submitEditData(affiliate, true)}>
+                {isSavingData ? 'Memproses...' : 'Simpan & Kirim Verifikasi'}
+              </button>
+            )}
+            <button type="button" className="is-cancel" disabled={isSavingData} onClick={cancelEditData}>
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+      {fb && (
+        <div className={`admin-review-inline-feedback ${fb.type === 'error' ? 'is-error' : 'is-success'}`} role={fb.type === 'error' ? 'alert' : 'status'}>
+          {fb.text}
+        </div>
+      )}
+      <div className="admin-review-utility-actions">
+        <button type="button" className="is-edit-email" disabled={Boolean(working)} onClick={() => (isEditing ? cancelEditData() : startEditData(affiliate))}>
+          {isEditing ? 'Tutup edit data' : 'Edit data'}
+        </button>
+        {!affiliate.email_verified_at && (
+          <button type="button" className="is-resend-verif" disabled={Boolean(working)} onClick={() => triggerResendVerification(affiliate)}>
+            {isResendingVerif ? 'Mengirim verifikasi...' : 'Kirim ulang verifikasi email'}
+          </button>
+        )}
+        <button type="button" className="is-delete" data-delete-review-affiliate={affiliate.id} disabled={Boolean(working)} onClick={() => triggerDeleteAffiliate(affiliate)}>
+          {isDeleting ? 'Menghapus...' : 'Hapus'}
+        </button>
+      </div>
       <p className="admin-affiliate-match-note"><b>Wajib diperiksa:</b> kesesuaian nama, NIK, foto KTP, username, followers, dan screenshot media sosial.</p>
       {reviewHistory.length > 0 && <div className="admin-affiliate-history">
         <button type="button" className="admin-affiliate-history-toggle" aria-expanded={historyOpen} onClick={() => setOpenHistories((current) => ({ ...current, [affiliate.id]: !current[affiliate.id] }))}><span>Riwayat penolakan & pengajuan</span><small>{reviewHistory.length} aktivitas</small><i aria-hidden="true"/></button>
@@ -2357,6 +2549,63 @@ function AffiliateReviewPanel({ data, loading, error, working, platformWorking, 
   if (loading) return <div className="admin-affiliate-review-state">Memuat pendaftaran affiliate...</div>;
   if (error) return <div className="admin-affiliate-review-state is-error"><span>{error}</span><button type="button" onClick={onReload}>Coba lagi</button></div>;
   return <>
+    <style dangerouslySetInnerHTML={{ __html: `
+      .admin-review-utility-actions {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 4px;
+      }
+      .admin-review-utility-actions button {
+        padding: 7px 13px; border-radius: 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        border: 1px solid #d2dfd8; background: #fff; color: #163a2e; transition: all 0.16s ease;
+      }
+      .admin-review-utility-actions button:hover:not(:disabled) { background: #f2f8f5; border-color: #165643; }
+      .admin-review-utility-actions button.is-resend-verif {
+        background: #ecfdf5; border-color: #a7f3d0; color: #065f46;
+      }
+      .admin-review-utility-actions button.is-resend-verif:hover:not(:disabled) { background: #d1fae5; }
+      .admin-review-utility-actions button.is-delete {
+        background: #fef2f2; border-color: #fecaca; color: #b91c1c;
+      }
+      .admin-review-utility-actions button.is-delete:hover:not(:disabled) {
+        background: #dc2626; border-color: #dc2626; color: #fff;
+      }
+      .admin-review-utility-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .admin-review-email-editor {
+        margin: 4px 0 6px; padding: 14px 15px; border-radius: 12px;
+        background: #f7faf8; border: 1px solid #d5e4dc; display: flex; flex-direction: column; gap: 11px;
+      }
+      .admin-review-edit-grid {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px;
+      }
+      @media (max-width: 680px) {
+        .admin-review-edit-grid { grid-template-columns: 1fr; }
+      }
+      .admin-review-email-editor label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+      .admin-review-email-editor label span { font-size: 0.74rem; font-weight: 700; color: #2d4c40; }
+      .admin-review-email-editor input,
+      .admin-review-email-editor select {
+        width: 100%; box-sizing: border-box; padding: 8px 11px; border-radius: 9px;
+        border: 1.5px solid #c5d9cf; background: #fff; font-size: 0.84rem; color: #123026;
+      }
+      .admin-review-email-editor input:focus,
+      .admin-review-email-editor select:focus { outline: none; border-color: #165643; }
+      .admin-review-email-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .admin-review-email-editor-actions button {
+        padding: 7px 12px; border-radius: 9px; font-size: 0.77rem; font-weight: 700; cursor: pointer;
+        border: 1px solid #cbd9d2; background: #fff; color: #163a2e;
+      }
+      .admin-review-email-editor-actions button.is-save-send {
+        background: #145340; border-color: #145340; color: #fff;
+      }
+      .admin-review-email-editor-actions button.is-save-send:hover:not(:disabled) { background: #0f3f30; }
+      .admin-review-email-editor-actions button.is-save {
+        background: #eef6f2; border-color: #b7d7c8; color: #124938;
+      }
+      .admin-review-inline-feedback {
+        margin: 2px 0 4px; padding: 8px 12px; border-radius: 10px; font-size: 0.79rem; font-weight: 700;
+      }
+      .admin-review-inline-feedback.is-success { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+      .admin-review-inline-feedback.is-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    ` }} />
     <div className="admin-affiliate-review-summary"><article><span>Menunggu review</span><strong>{data?.summary?.pending || 0}</strong></article><article><span>Affiliate aktif</span><strong>{data?.summary?.active || 0}</strong></article><article><span>Ditolak</span><strong>{data?.summary?.rejected || 0}</strong></article></div>
     <section className="admin-social-platform-settings admin-panel">
       <div><span className="eyebrow">PILIHAN REGISTRASI</span><h2>Kelola platform media sosial</h2><p>Tambah platform baru atau klik daftar di bawah untuk mengaktifkan dan menonaktifkannya pada form affiliate.</p></div>
@@ -5021,6 +5270,38 @@ export default function AdminPage() {
     }
   };
 
+  const resendAffiliateVerification = async (affiliateId) => {
+    setAffiliateReviewWorking(`verify-email:${affiliateId}`);
+    try {
+      const result = await post(`/api/admin/affiliates/${encodeURIComponent(affiliateId)}/resend-verification`, {});
+      window.showToast?.(result.message || 'Email verifikasi berhasil dikirim ulang.');
+      await loadAffiliateReviews();
+      return { ok: true, message: result.message };
+    } catch (failure) {
+      const message = failure?.message || 'Gagal mengirim ulang email verifikasi.';
+      window.showToast?.(message, 'error');
+      return { ok: false, message };
+    } finally {
+      setAffiliateReviewWorking('');
+    }
+  };
+
+  const updateAffiliateRegistration = async (affiliateId, payload) => {
+    setAffiliateReviewWorking(`registration:${affiliateId}`);
+    try {
+      const result = await patch(`/api/admin/affiliates/${encodeURIComponent(affiliateId)}/registration`, payload);
+      window.showToast?.(result.message || 'Data pendaftar berhasil diperbarui.');
+      await loadAffiliateReviews();
+      return { ok: true, message: result.message };
+    } catch (failure) {
+      const message = failure?.message || 'Gagal memperbarui data pendaftar.';
+      window.showToast?.(message, 'error');
+      return { ok: false, message };
+    } finally {
+      setAffiliateReviewWorking('');
+    }
+  };
+
   const updateAffiliateStatus = async (affiliateId, status) => {
     setAffiliateReviewWorking(`status:${affiliateId}`);
     try {
@@ -6283,7 +6564,7 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <AffiliateReviewPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} platformWorking={proUpgradeWorking} onReload={loadAffiliateReviews} onReview={reviewAffiliate} onResendCorrection={resendAffiliateCorrection} onAddPlatform={addProPlatform} onTogglePlatform={toggleProPlatform}/>
+        <AffiliateReviewPanel data={affiliateReviews.data} loading={affiliateReviews.loading} error={affiliateReviews.error} working={affiliateReviewWorking} platformWorking={proUpgradeWorking} onReload={loadAffiliateReviews} onReview={reviewAffiliate} onResendCorrection={resendAffiliateCorrection} onResendVerification={resendAffiliateVerification} onUpdateRegistration={updateAffiliateRegistration} onDelete={deleteAffiliateData} onAddPlatform={addProPlatform} onTogglePlatform={toggleProPlatform}/>
       </section>
     </AdminTemplate>;
   }

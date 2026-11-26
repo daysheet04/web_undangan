@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { database } from '../lib/database.js';
-import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail, sendDemoLinkEmail } from '../lib/email.js';
+import { sendAffiliateAccountStatusEmail, sendAffiliateProUpgradeReviewEmail, sendAffiliateReviewEmail, sendAffiliateVerificationEmail, sendAffiliateWithdrawalStatusEmail, sendComplimentaryOrderEmail, sendDemoLinkEmail } from '../lib/email.js';
 import { cleanText, normalizePhone, orderCode, randomHex, RESERVED_SLUGS, validEmail, validPhone } from '../lib/helpers.js';
 import {
   ADMIN_DEMO_NOTE_MARKER,
@@ -2457,6 +2457,225 @@ admin.post('/admin/affiliates/:affiliateId/resend-correction', async (c) => {
     return c.json({ ok: false, message: 'Email perbaikan gagal dikirim. Silakan coba lagi.' }, 502);
   }
   return c.json({ ok: true, message: 'Email berisi alasan dan link perbaikan berhasil dikirim ulang.' });
+});
+
+async function issueAffiliateEmailVerification(c, db, account) {
+  const token = randomToken(32);
+  const tokenHash = await sha256(token);
+  const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)).toISOString();
+
+  await db.from('affiliate_email_verifications')
+    .delete()
+    .eq('affiliate_id', account.id)
+    .is('used_at', null);
+
+  const { data: created, error: insertError } = await db.from('affiliate_email_verifications')
+    .insert({ affiliate_id: account.id, token_hash: tokenHash, expires_at: expiresAt })
+    .select('id')
+    .single();
+  if (insertError) throw insertError;
+
+  const verificationUrl = affiliateAppUrl(c, `/verify-email?token=${encodeURIComponent(token)}`);
+  try {
+    const sent = await sendAffiliateVerificationEmail(c.env, account, verificationUrl);
+    if (sent?.skipped) throw new Error('SMTP affiliate belum dikonfigurasi.');
+  } catch (sendError) {
+    if (created?.id) {
+      await db.from('affiliate_email_verifications').delete().eq('id', created.id).catch(() => {});
+    }
+    throw sendError;
+  }
+  return verificationUrl;
+}
+
+admin.post('/admin/affiliates/:affiliateId/resend-verification', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Fitur ini hanya tersedia pada database utama.' }, 422);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const db = database(c.env);
+  const { data: account, error } = await db.from('affiliate_accounts')
+    .select('id,email,full_name,status,email_verified_at')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!account) return c.json({ ok: false, message: 'Data pendaftar affiliate tidak ditemukan.' }, 404);
+  if (account.email_verified_at) {
+    return c.json({ ok: false, message: 'Email pendaftar ini sudah terverifikasi.' }, 409);
+  }
+
+  try {
+    await issueAffiliateEmailVerification(c, db, account);
+  } catch (sendError) {
+    console.error('Kirim ulang email verifikasi affiliate gagal:', sendError);
+    return c.json({ ok: false, message: 'Email verifikasi gagal dikirim. Periksa konfigurasi SMTP lalu coba lagi.' }, 502);
+  }
+  return c.json({ ok: true, message: `Email verifikasi berhasil dikirim ulang ke ${account.email}.` });
+});
+
+admin.patch('/admin/affiliates/:affiliateId/registration', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Fitur ini hanya tersedia pada database utama.' }, 422);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const input = await c.req.json().catch(() => ({}));
+  const fullName = cleanTemplateField(input.full_name, 120);
+  const email = cleanText(input.email, 254).toLowerCase();
+  const phone = normalizeAffiliatePhone(input.phone);
+  const nik = String(input.nik || '').replace(/\D/g, '').slice(0, 16);
+  const socialPlatform = cleanTemplateField(input.social_platform, 60);
+  const socialHandle = cleanTemplateField(input.social_handle, 80).replace(/^@+/, '');
+  const rawFollowers = input.social_follower_count;
+  const followersNum = rawFollowers === '' || rawFollowers == null ? null : Number(String(rawFollowers).replace(/[^\d]/g, ''));
+  const resendVerification = input.resend_verification === true;
+
+  if (fullName.length < 2) return c.json({ ok: false, message: 'Nama lengkap minimal 2 karakter.' }, 422);
+  if (!validEmail(email)) return c.json({ ok: false, message: 'Format email tidak valid.' }, 422);
+  if (!validPhone(phone)) return c.json({ ok: false, message: 'Nomor WhatsApp tidak valid.' }, 422);
+  if (nik && nik.length !== 16) return c.json({ ok: false, message: 'NIK harus terdiri dari 16 digit angka.' }, 422);
+  if (followersNum !== null && (!Number.isFinite(followersNum) || followersNum < 0)) {
+    return c.json({ ok: false, message: 'Jumlah followers tidak valid.' }, 422);
+  }
+
+  const db = database(c.env);
+  const { data: current, error: readError } = await db.from('affiliate_accounts')
+    .select('id,email,full_name,phone,nik,status,email_verified_at,social_platform,social_handle,social_follower_count')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) return c.json({ ok: false, message: 'Data pendaftar affiliate tidak ditemukan.' }, 404);
+
+  const { data: duplicateEmail, error: dupEmailError } = await db.from('affiliate_accounts')
+    .select('id')
+    .ilike('email', email)
+    .neq('id', current.id)
+    .maybeSingle();
+  if (dupEmailError) throw dupEmailError;
+  if (duplicateEmail) {
+    return c.json({ ok: false, message: 'Email tersebut sudah digunakan oleh akun affiliate lain.' }, 409);
+  }
+
+  if (nik) {
+    const { data: duplicateNik, error: dupNikError } = await db.from('affiliate_accounts')
+      .select('id')
+      .eq('nik', nik)
+      .neq('id', current.id)
+      .maybeSingle();
+    if (dupNikError) throw dupNikError;
+    if (duplicateNik) {
+      return c.json({ ok: false, message: 'NIK tersebut sudah digunakan oleh akun affiliate lain.' }, 409);
+    }
+  }
+
+  const emailChanged = String(current.email || '').trim().toLowerCase() !== email;
+  const updatePayload = {
+    full_name: fullName,
+    email,
+    phone,
+    ...(nik ? { nik } : {}),
+    social_platform: socialPlatform || current.social_platform || null,
+    social_handle: socialHandle || null,
+    social_follower_count: followersNum,
+    ...(emailChanged ? { email_verified_at: null } : {}),
+  };
+
+  const { data: updated, error: updateError } = await db.from('affiliate_accounts')
+    .update(updatePayload)
+    .eq('id', current.id)
+    .select('id,email,full_name,phone,nik,status,email_verified_at,social_platform,social_handle,social_follower_count')
+    .single();
+  if (updateError) throw updateError;
+
+  let verificationSent = false;
+  let verificationError = '';
+  if (resendVerification && !updated.email_verified_at) {
+    try {
+      await issueAffiliateEmailVerification(c, db, updated);
+      verificationSent = true;
+    } catch (sendError) {
+      console.error('Kirim email verifikasi setelah edit data gagal:', sendError);
+      verificationError = 'Data tersimpan, namun pengiriman ulang verifikasi gagal. Coba klik "Kirim ulang verifikasi email".';
+    }
+  }
+
+  const message = verificationSent
+    ? `Data pendaftar ${updated.full_name} berhasil diperbarui dan email verifikasi telah dikirim ke ${updated.email}.`
+    : verificationError || `Data pendaftar ${updated.full_name} berhasil diperbarui.`;
+
+  return c.json({
+    ok: true,
+    affiliate: updated,
+    verification_sent: verificationSent,
+    message,
+  });
+});
+
+admin.patch('/admin/affiliates/:affiliateId/email', async (c) => {
+  if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Fitur ini hanya tersedia pada database utama.' }, 422);
+  const affiliateId = cleanText(c.req.param('affiliateId'), 80);
+  if (!affiliateId) return c.json({ ok: false, message: 'ID affiliate tidak valid.' }, 400);
+
+  const input = await c.req.json().catch(() => ({}));
+  const email = cleanText(input.email, 254).toLowerCase();
+  const resendVerification = input.resend_verification === true;
+  if (!validEmail(email)) {
+    return c.json({ ok: false, message: 'Format email tidak valid.' }, 422);
+  }
+
+  const db = database(c.env);
+  const { data: current, error: readError } = await db.from('affiliate_accounts')
+    .select('id,email,full_name,status,email_verified_at')
+    .eq('id', affiliateId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!current) return c.json({ ok: false, message: 'Data pendaftar affiliate tidak ditemukan.' }, 404);
+
+  const { data: duplicate, error: dupError } = await db.from('affiliate_accounts')
+    .select('id')
+    .ilike('email', email)
+    .neq('id', current.id)
+    .maybeSingle();
+  if (dupError) throw dupError;
+  if (duplicate) {
+    return c.json({ ok: false, message: 'Email tersebut sudah digunakan oleh akun affiliate lain.' }, 409);
+  }
+
+  const emailChanged = String(current.email || '').trim().toLowerCase() !== email;
+  const updatePayload = emailChanged
+    ? { email, email_verified_at: null }
+    : { email };
+
+  const { data: updated, error: updateError } = await db.from('affiliate_accounts')
+    .update(updatePayload)
+    .eq('id', current.id)
+    .select('id,email,full_name,status,email_verified_at')
+    .single();
+  if (updateError) throw updateError;
+
+  let verificationSent = false;
+  let verificationError = '';
+  if (resendVerification && !updated.email_verified_at) {
+    try {
+      await issueAffiliateEmailVerification(c, db, updated);
+      verificationSent = true;
+    } catch (sendError) {
+      console.error('Kirim email verifikasi setelah edit email gagal:', sendError);
+      verificationError = 'Email tersimpan, namun pengiriman ulang verifikasi gagal. Coba klik "Kirim ulang verifikasi".';
+    }
+  }
+
+  const message = verificationSent
+    ? `Email diperbarui ke ${updated.email} dan tautan verifikasi berhasil dikirim.`
+    : verificationError || (emailChanged
+      ? `Email berhasil diperbarui ke ${updated.email}.`
+      : 'Email tidak berubah.');
+
+  return c.json({
+    ok: true,
+    affiliate: updated,
+    verification_sent: verificationSent,
+    message,
+  });
 });
 
 admin.get('/admin/media/*', (c) => servePublicR2Media(c, /^\/api\/admin\/media\//, { notFoundMessage: 'Gambar tidak tersedia.' }));
