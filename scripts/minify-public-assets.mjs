@@ -49,16 +49,51 @@ async function minifyFile(filePath, loader, targets) {
   console.log(`✓ ${relative(ROOT, filePath)}  ${(src.length / 1024).toFixed(1)}KB → ${(result.code.length / 1024).toFixed(1)}KB  (-${pct}%)`);
 }
 
+const ADMIN_BUNDLE_FILES = [
+  'app.css',
+  'admin.css',
+  'admin-withdrawals.css',
+  'admin-commissions.css',
+  'admin-affiliate-commissions.css',
+  'admin-orders.css',
+  'admin-free-orders.css',
+  'admin-demo-links.css',
+  'admin-feedback.css',
+  'admin-notifications.css',
+  'admin-customer-access.css',
+  'admin-cover-adjuster.css',
+  'admin-dashboard-summary.css',
+  'admin-template-editor.css',
+  'vintage-color-customizer.css',
+  'admin-affiliate-traffic.css',
+];
+
+async function buildAdminBundle(CSS_TARGETS) {
+  const parts = [];
+  for (const name of ADMIN_BUNDLE_FILES) {
+    parts.push(await readFile(resolve(PUBLIC_ASSETS, 'css', name), 'utf8'));
+  }
+  const combined = parts.join('\n');
+  const bundled = await transform(combined, { loader: 'css', minify: true, target: CSS_TARGETS });
+  const bundlePath = resolve(PUBLIC_ASSETS, 'css', 'admin-bundle.css');
+  await writeFile(bundlePath, bundled.code, 'utf8');
+  console.log(`✓ ${relative(ROOT, bundlePath)}  (${ADMIN_BUNDLE_FILES.length} files → ${(bundled.code.length / 1024).toFixed(1)}KB single bundle)`);
+}
+
 async function run() {
+  const adminBundleOnly = process.argv.includes('--admin-bundle');
+  const CSS_TARGETS = ['chrome90', 'firefox88', 'safari14'];
+  const JS_TARGETS = ['esnext'];
+
+  if (adminBundleOnly) {
+    await buildAdminBundle(CSS_TARGETS);
+    return;
+  }
+
   console.log('🔧 Minifying public/assets/ CSS and JS files...\n');
 
-  const cssFiles = await getFiles(PUBLIC_ASSETS, '.css');
+  const cssFiles = (await getFiles(PUBLIC_ASSETS, '.css')).filter((f) => !f.endsWith('admin-bundle.css'));
   const jsFiles = await getFiles(PUBLIC_ASSETS, '.js');
-
-  // CSS: target doesn't matter for CSS minification
-  const CSS_TARGETS = ['chrome90', 'firefox88', 'safari14'];
-  // Retain existing targets for the other templates; Lunara is targeted above.
-  const JS_TARGETS = ['esnext'];
 
   let errors = 0;
   for (const f of cssFiles) {
@@ -68,6 +103,13 @@ async function run() {
   for (const f of jsFiles) {
     try { await minifyFile(f, 'js', JS_TARGETS); }
     catch (e) { console.error(`✗ ${relative(ROOT, f)}:`, e.message); errors++; }
+  }
+
+  try {
+    await buildAdminBundle(CSS_TARGETS);
+  } catch (e) {
+    console.error('✗ public/assets/css/admin-bundle.css:', e.message);
+    errors++;
   }
 
   console.log(`\n${errors === 0 ? '✅ All files minified successfully.' : `⚠️  ${errors} file(s) failed.`}`);

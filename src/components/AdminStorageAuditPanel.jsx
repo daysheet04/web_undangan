@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { get, post } from '../lib/api.js';
+import { DashboardPagination } from './DashboardPagination.jsx';
 
 const PUBLIC_PREVIEW_PREFIXES = [
   'invitations/',
@@ -46,6 +47,9 @@ export default function AdminStorageAuditPanel() {
   const [statusFilter, setStatusFilter] = useState('orphan'); // 'orphan' | 'active' | 'all'
   const [folderFilter, setFolderFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
   const [selectedKeys, setSelectedKeys] = useState(() => new Set());
   const [deletingKey, setDeletingKey] = useState('');
   const [downloadingZip, setDownloadingZip] = useState('');
@@ -72,7 +76,7 @@ export default function AdminStorageAuditPanel() {
 
   const filteredItems = useMemo(() => {
     const items = audit?.items || [];
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return items.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (folderFilter !== 'all' && item.folder !== folderFilter) return false;
@@ -82,7 +86,18 @@ export default function AdminStorageAuditPanel() {
       }
       return true;
     });
-  }, [audit, statusFilter, folderFilter, search]);
+  }, [audit, statusFilter, folderFilter, deferredSearch]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedItems = useMemo(
+    () => filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredItems, currentPage],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, folderFilter, deferredSearch]);
 
   const filteredOrphans = useMemo(
     () => filteredItems.filter((item) => item.status === 'orphan' && !item.protected),
@@ -497,7 +512,7 @@ export default function AdminStorageAuditPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredItems.map((item) => {
+                    {pagedItems.map((item) => {
                       const canSelect = item.status === 'orphan' && !item.protected;
                       const isDeletingThis = deletingKey === item.key;
                       return (
@@ -586,6 +601,13 @@ export default function AdminStorageAuditPanel() {
                 </div>
               )}
             </div>
+            <DashboardPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredItems.length}
+              pageSize={pageSize}
+              onPageChange={setPage}
+            />
           </div>
         </>
       )}

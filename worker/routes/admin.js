@@ -318,30 +318,30 @@ async function adminOrders(env) {
 
   const templateIds = [...new Set((orderResult.data || []).map((order) => order.template_id).filter(Boolean))];
   const packageIds = [...new Set((orderResult.data || []).map((order) => order.package_id).filter(Boolean))];
+  const affiliateIds = [...new Set((orderResult.data || []).map((order) => order.affiliate_id).filter(Boolean))];
   const templateMap = new Map();
   const packageMap = new Map();
   const affiliateMap = new Map();
 
-  if (templateIds.length) {
-    const { data: templateData, error: templateError } = await db.from('templates').select('id,code,name,category').in('id', templateIds);
-    if (templateError) throw templateError;
-    (templateData || []).forEach((item) => templateMap.set(item.id, item));
-  }
+  const [templateRes, packageRes, affiliateRes] = await Promise.all([
+    templateIds.length
+      ? db.from('templates').select('id,code,name,category').in('id', templateIds)
+      : Promise.resolve({ data: [], error: null }),
+    packageIds.length
+      ? db.from('template_packages').select('id,code,name,price,gallery_limit,has_music,has_gift,has_wishes').in('id', packageIds)
+      : Promise.resolve({ data: [], error: null }),
+    affiliateIds.length
+      ? db.from('affiliate_accounts').select('id,full_name,email,referral_code,status').in('id', affiliateIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
-  if (packageIds.length) {
-    const { data: packageData, error: packageError } = await db.from('template_packages').select('id,code,name,price,gallery_limit,has_music,has_gift,has_wishes').in('id', packageIds);
-    if (packageError) throw packageError;
-    (packageData || []).forEach((item) => packageMap.set(item.id, item));
-  }
+  if (templateRes.error) throw templateRes.error;
+  if (packageRes.error) throw packageRes.error;
+  if (affiliateRes.error) throw affiliateRes.error;
 
-  const affiliateIds = [...new Set((orderResult.data || []).map((order) => order.affiliate_id).filter(Boolean))];
-  if (affiliateIds.length) {
-    const { data: affiliateData, error: affiliateError } = await db.from('affiliate_accounts')
-      .select('id,full_name,email,referral_code,status')
-      .in('id', affiliateIds);
-    if (affiliateError) throw affiliateError;
-    (affiliateData || []).forEach((item) => affiliateMap.set(item.id, item));
-  }
+  (templateRes.data || []).forEach((item) => templateMap.set(item.id, item));
+  (packageRes.data || []).forEach((item) => packageMap.set(item.id, item));
+  (affiliateRes.data || []).forEach((item) => affiliateMap.set(item.id, item));
 
   const invitations = new Map((invitationResult.data || []).map((item) => [item.order_id, item]));
   const payments = new Map((paymentResult.data || []).map((item) => [item.order_id, item]));
@@ -412,19 +412,55 @@ async function adminAffiliateOptions(env) {
 }
 
 admin.get('/admin/summary', async (c) => {
-  const allOrders = await adminOrders(c.env);
+  const db = hasRealSupabaseConfig(c.env) ? database(c.env) : null;
+  const [
+    allOrders,
+    templates,
+    affiliateOptions,
+    templateCountRes,
+    withdrawalRes,
+    affiliateRes,
+  ] = await Promise.all([
+    adminOrders(c.env),
+    allTemplates(c.env),
+    adminAffiliateOptions(c.env),
+    db
+      ? db.from('templates').select('id', { count: 'exact', head: true })
+      : Promise.resolve({ count: null, error: null }),
+    db
+      ? (async () => {
+          try {
+            return await db.from('affiliate_withdrawals')
+              .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,status,admin_note,requested_at,processed_at,updated_at')
+              .order('requested_at', { ascending: false })
+              .limit(1000);
+          } catch (extraErr) {
+            console.warn('Non-fatal: failed to fetch admin summary withdrawals', extraErr);
+            return { data: [] };
+          }
+        })()
+      : Promise.resolve({ data: [] }),
+    db
+      ? (async () => {
+          try {
+            return await db.from('affiliate_accounts')
+              .select('id,email,full_name,phone,nik,referral_code,status,account_tier,pro_source,created_at,updated_at')
+              .order('created_at', { ascending: false })
+              .limit(1000);
+          } catch (extraErr) {
+            console.warn('Non-fatal: failed to fetch admin summary affiliates', extraErr);
+            return { data: [] };
+          }
+        })()
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  if (templateCountRes?.error) throw templateCountRes.error;
+  const templateCount = db ? (templateCountRes.count || 0) : templates.length;
+
   const demoLinks = allOrders.filter(isAdminDemoOrder);
   const orders = allOrders.filter((order) => !isAdminDemoOrder(order));
   const salesOrders = orders.filter((order) => order.order_source !== 'admin_free');
-  const templates = await allTemplates(c.env);
-  const affiliateOptions = await adminAffiliateOptions(c.env);
-  const db = hasRealSupabaseConfig(c.env) ? database(c.env) : null;
-  let templateCount = templates.length;
-  if (db) {
-    const { count, error } = await db.from('templates').select('id', { count: 'exact', head: true });
-    if (error) throw error;
-    templateCount = count || 0;
-  }
   const paidOrders = salesOrders.filter((order) => order.payment_status === 'paid');
   const summary = {
     total_orders: salesOrders.length,
@@ -449,34 +485,16 @@ admin.get('/admin/summary', async (c) => {
     return items;
   }, {})).sort((a, b) => b.revenue - a.revenue || b.orders - a.orders);
 
-  let withdrawals = [];
-  let affiliates = [];
-  if (db) {
-    try {
-      const [withdrawalRes, affiliateRes] = await Promise.all([
-        db.from('affiliate_withdrawals')
-          .select('id,affiliate_id,amount,fee_percent,fee_amount,net_amount,payout_method,provider,account_name,account_number,status,admin_note,requested_at,processed_at,updated_at')
-          .order('requested_at', { ascending: false })
-          .limit(1000),
-        db.from('affiliate_accounts')
-          .select('id,email,full_name,phone,nik,referral_code,status,account_tier,pro_source,created_at,updated_at')
-          .order('created_at', { ascending: false })
-          .limit(1000),
-      ]);
-      const affMap = new Map((affiliateRes.data || []).map((a) => [a.id, a]));
-      withdrawals = (withdrawalRes.data || []).map((w) => ({
-        ...w,
-        amount: Number(w.amount || 0),
-        fee_percent: Number(w.fee_percent || 0),
-        fee_amount: Number(w.fee_amount || 0),
-        net_amount: Number(w.net_amount || w.amount || 0),
-        affiliate: affMap.get(w.affiliate_id) || null,
-      }));
-      affiliates = affiliateRes.data || [];
-    } catch (extraErr) {
-      console.warn('Non-fatal: failed to fetch admin summary withdrawals/affiliates', extraErr);
-    }
-  }
+  const affiliates = affiliateRes?.data || [];
+  const affMap = new Map(affiliates.map((a) => [a.id, a]));
+  const withdrawals = (withdrawalRes?.data || []).map((w) => ({
+    ...w,
+    amount: Number(w.amount || 0),
+    fee_percent: Number(w.fee_percent || 0),
+    fee_amount: Number(w.fee_amount || 0),
+    net_amount: Number(w.net_amount || w.amount || 0),
+    affiliate: affMap.get(w.affiliate_id) || null,
+  }));
 
   return c.json({
     ok: true,
@@ -1696,12 +1714,13 @@ admin.patch('/admin/withdrawal-settings', async (c) => {
   if (!hasRealSupabaseConfig(c.env)) return c.json({ ok: false, message: 'Pengaturan penarikan hanya tersedia pada database utama.' }, 422);
   const input = await c.req.json().catch(() => ({}));
   const feePercent = Number(input.fee_percent);
-  const minWithdrawalAmount = Number(input.min_withdrawal_amount || 50000);
+  const rawMinWithdrawal = String(input.min_withdrawal_amount ?? '').replace(/\D/g, '');
+  const minWithdrawalAmount = rawMinWithdrawal ? Number(rawMinWithdrawal) : NaN;
   const senderBankName = cleanTemplateField(input.sender_bank_name, 80);
   const senderAccountName = cleanTemplateField(input.sender_account_name, 120);
   const senderAccountNumber = String(input.sender_account_number || '').trim().replace(/\s+/g, '').slice(0, 80);
   if (!Number.isFinite(feePercent) || feePercent < 0 || feePercent > 100) return c.json({ ok: false, message: 'Fee penarikan harus berada di antara 0% sampai 100%.' }, 422);
-  if (!Number.isFinite(minWithdrawalAmount) || minWithdrawalAmount < 10000) return c.json({ ok: false, message: 'Minimal penarikan harus berupa angka minimal Rp10.000.' }, 422);
+  if (!Number.isFinite(minWithdrawalAmount) || minWithdrawalAmount < 10000) return c.json({ ok: false, message: 'Minimal penarikan harus berupa angka minimal Rp 10.000.' }, 422);
   if (!senderBankName || !senderAccountName || senderAccountNumber.length < 5) return c.json({ ok: false, message: 'Lengkapi informasi rekening pengirim Daymoment.' }, 422);
   const { data, error } = await database(c.env).from('affiliate_withdrawal_settings').upsert({
     singleton: true,

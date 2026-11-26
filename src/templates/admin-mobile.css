@@ -332,7 +332,7 @@ body.admin-page #root {
     height: 2px !important;
     background: #fff !important;
     border-radius: 2px !important;
-    transition: all 0.25s ease !important;
+    transition:transform 0.25s ease,opacity 0.25s ease,border-color 0.25s ease,background-color 0.25s ease!important;
   }
 
   .admin-header-hamburger.is-open span:nth-child(1),
@@ -354,8 +354,8 @@ body.admin-page #root {
     position: fixed !important;
     inset: 0 !important;
     background: rgba(7, 18, 30, 0.65) !important;
-    backdrop-filter: blur(4px) !important;
-    -webkit-backdrop-filter: blur(4px) !important;
+    
+    
     z-index: 1999 !important;
     animation: adminFadeIn 0.22s ease-out !important;
   }
@@ -454,7 +454,7 @@ body.admin-page #root {
     text-align: left !important;
     cursor: pointer !important;
     box-sizing: border-box !important;
-    transition: all 0.15s ease !important;
+    transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease!important;
   }
 
   .admin-sidebar-drawer .admin-sidebar-nav button:active {
@@ -620,8 +620,8 @@ body.admin-page #root {
     font-size: 0.7rem !important;
   }
 
-  /* Insight Grid (Revenue Chart + Atribusi) */
-  .admin-insight-grid {
+  /* Insight Grid (Revenue Chart + Atribusi) — scoped to report view only */
+  .admin-view-report .admin-insight-grid {
     display: grid !important;
     grid-template-columns: 1fr !important;
     gap: 14px !important;
@@ -1055,7 +1055,7 @@ body.admin-page #root {
     align-items: center !important;
     justify-content: center !important;
     font: inherit !important;
-    transition: all 0.18s ease !important;
+    transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease!important;
     box-shadow: 0 2px 8px rgba(18, 52, 45, 0.04) !important;
     user-select: none !important;
   }
@@ -1292,7 +1292,7 @@ body.admin-page #root {
     font-weight: 550 !important;
     box-sizing: border-box !important;
     outline: none !important;
-    transition: all 0.2s ease !important;
+    transition:transform 0.2s ease,opacity 0.2s ease,border-color 0.2s ease,background-color 0.2s ease!important;
   }
 
   .admin-social-platform-settings input:focus {
@@ -1318,7 +1318,7 @@ body.admin-page #root {
     justify-content: center !important;
     gap: 8px !important;
     box-shadow: 0 4px 14px rgba(13, 61, 50, 0.22) !important;
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease!important;
     box-sizing: border-box !important;
     white-space: nowrap !important;
   }
@@ -1359,7 +1359,7 @@ body.admin-page #root {
     font-size: 0.76rem !important;
     font-weight: 700 !important;
     cursor: pointer !important;
-    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease!important;
     border: 1.5px solid #d4ded8 !important;
     background: #f8faf9 !important;
     color: #455a52 !important;
@@ -1390,7 +1390,7 @@ body.admin-page #root {
     line-height: 1 !important;
     background: #e4ece7 !important;
     color: #556c63 !important;
-    transition: all 0.18s ease !important;
+    transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease!important;
   }
 
   .admin-social-platform-list button small::before {
@@ -1496,16 +1496,20 @@ body.admin-page #root {
   }
 
   .admin-fee-toolbar-select {
+    flex: 0 0 auto !important;
     width: 100% !important;
     min-width: 0 !important;
+    height: auto !important;
   }
 
   .admin-fee-toolbar-dates {
+    flex: 0 0 auto !important;
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
     width: 100% !important;
     min-width: 0 !important;
+    height: auto !important;
   }
 
   .admin-fee-date-field input {
@@ -1626,7 +1630,7 @@ body.admin-page #root {
   font-size: 0.82rem !important;
   font-weight: 700 !important;
   cursor: pointer !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition:transform 0.2s ease,opacity 0.2s ease,border-color 0.2s ease,background-color 0.2s ease!important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
   text-align: left !important;
   outline: none !important;
@@ -1728,7 +1732,7 @@ body.admin-page #root {
   font-family: inherit !important;
   width: 100% !important;
   box-sizing: border-box !important;
-  transition: all 0.15s ease !important;
+  transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease!important;
   -webkit-appearance: none !important;
   appearance: none !important;
 }
@@ -1802,7 +1806,7 @@ body.admin-page #root {
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(16, 46, 38, 0.04);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:transform 0.2s ease,opacity 0.2s ease,border-color 0.2s ease,background-color 0.2s ease;
   user-select: none;
 }
 
@@ -1900,7 +1904,7 @@ body.admin-page #root {
   font-weight: 750;
   color: #354e44;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .admin-editor-tab-btn:hover {
@@ -1980,7 +1984,7 @@ body.admin-page #root {
   font-size: 0.8rem;
   box-sizing: border-box;
   color: #133328;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .admin-editor-search-box input:focus,
@@ -2018,7 +2022,7 @@ body.admin-page #root {
   font-size: 0.75rem;
   font-weight: 750;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .admin-editor-reset-btn:hover {
@@ -2066,7 +2070,7 @@ body.admin-page #root {
   background: #ffffff;
   border: 1px solid #e1ece5;
   box-shadow: 0 4px 18px rgba(16, 46, 38, 0.04);
-  transition: all 0.2s ease;
+  transition:transform 0.2s ease,opacity 0.2s ease,border-color 0.2s ease,background-color 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -2213,7 +2217,7 @@ body.admin-page #root {
   text-decoration: none;
   border: 1px solid #e3ece6;
   background: #ffffff;
-  transition: all 0.15s ease;
+  transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease;
   max-width: 100%;
 }
 
@@ -2287,7 +2291,7 @@ body.admin-page #root {
   font-weight: 800;
   text-decoration: none;
   box-shadow: 0 4px 12px rgba(20, 75, 60, 0.25);
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .editor-main-btn:hover {
@@ -2310,7 +2314,7 @@ body.admin-page #root {
   font-size: 0.74rem;
   font-weight: 750;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .editor-copy-url-btn:hover {
@@ -2330,7 +2334,7 @@ body.admin-page #root {
   color: #245a49;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .editor-web-btn:hover {
@@ -2387,7 +2391,7 @@ body.admin-page #root {
   font-size: 0.78rem;
   font-weight: 750;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition:transform 0.18s ease,opacity 0.18s ease,border-color 0.18s ease,background-color 0.18s ease;
 }
 
 .admin-editor-empty-state .empty-reset-btn:hover {
@@ -2428,7 +2432,7 @@ body.admin-page #root {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  transition: all 0.16s ease;
+  transition:transform 0.16s ease,opacity 0.16s ease,border-color 0.16s ease,background-color 0.16s ease;
   line-height: 1.2;
 }
 
@@ -2559,8 +2563,8 @@ body.admin-page #root {
   position: fixed !important;
   inset: 0 !important;
   background: rgba(15, 31, 26, 0.6) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+  
+  
   z-index: 9999 !important;
   display: flex !important;
   align-items: center !important;
@@ -2616,7 +2620,7 @@ body.admin-page #root {
   justify-content: center !important;
   cursor: pointer !important;
   color: #556c61 !important;
-  transition: all 0.15s ease !important;
+  transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease!important;
 }
 .admin-extend-modal-card header button.close:hover {
   background: #e5ede8 !important;
@@ -2681,7 +2685,7 @@ body.admin-page #root {
   border: 1px solid #d5e2da !important;
   background: #fbfdfc !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
+  transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease!important;
 }
 .preset-pill strong {
   font-size: 0.78rem !important;
@@ -2767,7 +2771,7 @@ body.admin-page #root {
   font-size: 0.78rem !important;
   font-weight: 750 !important;
   cursor: pointer !important;
-  transition: all 0.15s ease !important;
+  transition:transform 0.15s ease,opacity 0.15s ease,border-color 0.15s ease,background-color 0.15s ease!important;
   border: 1px solid #d5e0da !important;
   background: #ffffff !important;
   color: #354e44 !important;

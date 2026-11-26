@@ -11,7 +11,7 @@
     "dev:affiliate": "vite --config vite.affiliate.config.js",
     "dev:affiliate-worker": "wrangler dev --config wrangler.affiliate.toml --local --port 8791",
     "build": "vite build && node scripts/minify-public-assets.mjs",
-    "build:admin": "vite build --config vite.admin.config.js",
+    "build:admin": "node scripts/minify-public-assets.mjs --admin-bundle && vite build --config vite.admin.config.js",
     "build:affiliate": "vite build --config vite.affiliate.config.js",
     "build:all": "npm run build && npm run build:admin && npm run build:affiliate",
     "deploy": "npm run build && wrangler deploy",

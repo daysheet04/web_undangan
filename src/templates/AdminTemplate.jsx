@@ -1,12 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import { useBodyClass, useDocumentTitle, useHeadLinks } from '../lib/hooks.js';
 import './admin-mobile.css';
 
-export default function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment', sidebar }) {
+const ADMIN_HEAD_LINKS = import.meta.env.DEV
+  ? [
+      '/assets/css/app.css',
+      '/assets/css/admin.css?v=20261127-perf-v1',
+      '/assets/css/admin-withdrawals.css?v=20261127-perf-v1',
+      '/assets/css/admin-commissions.css?v=20261021-mobile-v7',
+      '/assets/css/admin-affiliate-commissions.css?v=20261127-perf-v1',
+      '/assets/css/admin-orders.css?v=20261127-perf-v1',
+      '/assets/css/admin-free-orders.css?v=20261022-1',
+      '/assets/css/admin-demo-links.css?v=20261123-2',
+      '/assets/css/admin-feedback.css?v=20261127-perf-v1',
+      '/assets/css/admin-notifications.css?v=20261127-perf-v1',
+      '/assets/css/admin-customer-access.css?v=20261127-perf-v1',
+      '/assets/css/admin-cover-adjuster.css?v=20261127-perf-v1',
+      '/assets/css/admin-dashboard-summary.css?v=20261127-perf-v1',
+      '/assets/css/admin-template-editor.css?v=20261127-perf-v1',
+      '/assets/css/vintage-color-customizer.css?v=20261120-3',
+      '/assets/css/admin-affiliate-traffic.css?v=20261127-perf-v1',
+    ]
+  : ['/assets/css/admin-bundle.css?v=20261127-perf-v2'];
+
+const AdminTemplate = memo(function AdminTemplate({ children, title = 'Admin Dashboard — Daymoment', sidebar }) {
   useBodyClass('admin-page');
   useDocumentTitle(title);
-  useHeadLinks(['/assets/css/app.css', '/assets/css/admin.css?v=20261120-delete-v1', '/assets/css/admin-withdrawals.css?v=20261022-status-v2', '/assets/css/admin-commissions.css?v=20261021-mobile-v7', '/assets/css/admin-affiliate-commissions.css?v=20261122-1', '/assets/css/admin-orders.css?v=20261022-1', '/assets/css/admin-free-orders.css?v=20261022-1', '/assets/css/admin-demo-links.css?v=20261123-2', '/assets/css/admin-feedback.css?v=20261022-1', '/assets/css/admin-notifications.css?v=20261022-2', '/assets/css/admin-customer-access.css?v=20261120-delete-v1', '/assets/css/admin-cover-adjuster.css?v=20261121-thin-bezel', '/assets/css/admin-dashboard-summary.css?v=20261028-profit-v1', '/assets/css/admin-template-editor.css?v=20261030-select-v6', '/assets/css/vintage-color-customizer.css?v=20261120-3', '/assets/css/admin-affiliate-traffic.css?v=20261111-2']);
+  useHeadLinks(ADMIN_HEAD_LINKS);
   useEffect(() => {
+    if (window.showToast) return;
     window.showToast = (message, type = 'success') => {
       const region = document.getElementById('toastRegion');
       if (!region) return;
@@ -22,7 +44,7 @@ export default function AdminTemplate({ children, title = 'Admin Dashboard — D
     <header className="admin-template-header">
       <a className="admin-template-brand" href="/" aria-label="Daymoment Admin">
         <span className="admin-template-brand-logo" aria-hidden="true">
-          <img className="admin-brand-logo-white" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" />
+          <img className="admin-brand-logo-white" src="/assets/images/brand/daymoment-logo-white.webp" alt="Daymoment" decoding="async" />
         </span>
         <small className="admin-template-brand-label">Admin Panel</small>
       </a>
@@ -32,4 +54,6 @@ export default function AdminTemplate({ children, title = 'Admin Dashboard — D
     <main>{children}</main>
     <div className="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true" />
   </>;
-}
+});
+
+export default AdminTemplate;

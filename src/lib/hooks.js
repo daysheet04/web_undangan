@@ -84,17 +84,26 @@ export function useLegacyScripts(paths, ready = true) {
 
 export function useHeadLinks(links) {
   const signature = links.filter(Boolean).join('|');
-  const [readySignature, setReadySignature] = useState('');
+  const [readySignature, setReadySignature] = useState(() => {
+    if (!signature || typeof document === 'undefined') return signature;
+    const hrefs = [...new Set(links.filter(Boolean))];
+    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')];
+    const allLoaded = hrefs.every((href) => {
+      const node = existing.find((item) => item.getAttribute('href') === href);
+      return Boolean(node && (node.dataset.daymomentLoaded === 'true' || node.sheet));
+    });
+    return allLoaded ? signature : '';
+  });
   useLayoutEffect(() => {
     let disposed = false;
     const createdNodes = [];
     const hrefs = [...new Set(links.filter(Boolean))];
-    const waits = hrefs.map((href) => new Promise((resolve) => {
-      let link = [...document.querySelectorAll('link[rel="stylesheet"]')]
-        .find((node) => node.getAttribute('href') === href);
+    const existing = [...document.querySelectorAll('link[rel="stylesheet"]')];
+    const pendingWaits = [];
+    for (const href of hrefs) {
+      let link = existing.find((node) => node.getAttribute('href') === href);
       if (link?.dataset.daymomentLoaded === 'true' || link?.sheet) {
-        resolve();
-        return;
+        continue;
       }
       if (!link) {
         link = document.createElement('link');
@@ -103,19 +112,25 @@ export function useHeadLinks(links) {
         link.dataset.daymomentStyle = 'true';
         createdNodes.push(link);
       }
-      const complete = () => {
-        link.dataset.daymomentLoaded = 'true';
-        resolve();
-      };
-      link.addEventListener('load', complete, { once: true });
-      link.addEventListener('error', complete, { once: true });
-      if (!link.isConnected) document.head.appendChild(link);
-    }));
+      pendingWaits.push(new Promise((resolve) => {
+        const complete = () => {
+          link.dataset.daymomentLoaded = 'true';
+          resolve();
+        };
+        link.addEventListener('load', complete, { once: true });
+        link.addEventListener('error', complete, { once: true });
+        if (!link.isConnected) document.head.appendChild(link);
+      }));
+    }
+    if (!pendingWaits.length) {
+      setReadySignature((current) => (current === signature ? current : signature));
+      return undefined;
+    }
     const reveal = () => {
       if (!disposed) setReadySignature(signature);
     };
     const fallback = window.setTimeout(reveal, 3500);
-    Promise.all(waits).then(() => {
+    Promise.all(pendingWaits).then(() => {
       window.clearTimeout(fallback);
       reveal();
     });

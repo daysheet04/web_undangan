@@ -1,11 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { money } from '../lib/api.js';
-import { DashboardPagination } from './AdminDashboardModals.jsx';
+import { DashboardPagination } from './DashboardPagination.jsx';
 import AdminCustomDropdown from './AdminCustomDropdown.jsx';
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
-export default function AdminBottomTables({
+const CATEGORY_TO_TABLE = {
+  sales: 'orders',
+  affiliate: 'affiliates',
+  withdrawals: 'withdrawals',
+  websites: 'websites',
+};
+
+const AdminBottomTables = memo(function AdminBottomTables({
+  activeCategory = 'sales',
   orders,
   freeOrders,
   withdrawals,
@@ -17,14 +25,22 @@ export default function AdminBottomTables({
   onView,
   onEdit,
 }) {
+  const [activeTable, setActiveTable] = useState(CATEGORY_TO_TABLE[activeCategory] || 'orders');
+
+  useEffect(() => {
+    if (CATEGORY_TO_TABLE[activeCategory]) {
+      setActiveTable(CATEGORY_TO_TABLE[activeCategory]);
+    }
+  }, [activeCategory]);
   // Sub-table 1: Orders
   const [ordersQuery, setOrdersQuery] = useState('');
+  const deferredOrdersQuery = useDeferredValue(ordersQuery);
   const [ordersStatus, setOrdersStatus] = useState('all');
   const [ordersPage, setOrdersPage] = useState(1);
   const ordersPageSize = 10;
 
   const filteredOrders = useMemo(() => {
-    const q = ordersQuery.toLowerCase().trim();
+    const q = deferredOrdersQuery.toLowerCase().trim();
     return (orders || []).filter((order) => {
       const matchStatus = ordersStatus === 'all' || order.payment_status === ordersStatus;
       if (!matchStatus) return false;
@@ -32,36 +48,38 @@ export default function AdminBottomTables({
       const haystack = `${order.order_code} ${order.customer_name} ${order.customer_email} ${order.template_name} ${order.package_name} ${order.referral_name} ${order.affiliate_name}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [orders, ordersQuery, ordersStatus]);
+  }, [orders, deferredOrdersQuery, ordersStatus]);
 
   const ordersTotalPages = Math.max(1, Math.ceil(filteredOrders.length / ordersPageSize));
   const pagedOrders = filteredOrders.slice((ordersPage - 1) * ordersPageSize, ordersPage * ordersPageSize);
 
   // Sub-table 2: Free Orders
   const [freeQuery, setFreeQuery] = useState('');
+  const deferredFreeQuery = useDeferredValue(freeQuery);
   const [freePage, setFreePage] = useState(1);
   const freePageSize = 8;
 
   const filteredFree = useMemo(() => {
-    const q = freeQuery.toLowerCase().trim();
+    const q = deferredFreeQuery.toLowerCase().trim();
     return (freeOrders || []).filter((order) => {
       if (!q) return true;
       const haystack = `${order.order_code} ${order.customer_name} ${order.customer_email} ${order.customer_phone} ${order.template_name} ${order.complimentary_note}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [freeOrders, freeQuery]);
+  }, [freeOrders, deferredFreeQuery]);
 
   const freeTotalPages = Math.max(1, Math.ceil(filteredFree.length / freePageSize));
   const pagedFree = filteredFree.slice((freePage - 1) * freePageSize, freePage * freePageSize);
 
   // Sub-table 3: Withdrawals
   const [withdrawalsQuery, setWithdrawalsQuery] = useState('');
+  const deferredWithdrawalsQuery = useDeferredValue(withdrawalsQuery);
   const [withdrawalsStatus, setWithdrawalsStatus] = useState('all');
   const [withdrawalsPage, setWithdrawalsPage] = useState(1);
   const withdrawalsPageSize = 8;
 
   const filteredWithdrawals = useMemo(() => {
-    const q = withdrawalsQuery.toLowerCase().trim();
+    const q = deferredWithdrawalsQuery.toLowerCase().trim();
     return (withdrawals || []).filter((w) => {
       const matchStatus = withdrawalsStatus === 'all'
         || (withdrawalsStatus === 'pending' && ['pending', 'processing'].includes(w.status))
@@ -72,19 +90,20 @@ export default function AdminBottomTables({
       const haystack = `${w.affiliate?.full_name || ''} ${w.affiliate?.email || ''} ${w.account_name || ''} ${w.account_number || ''} ${w.provider || ''} ${w.admin_note || ''}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [withdrawals, withdrawalsQuery, withdrawalsStatus]);
+  }, [withdrawals, deferredWithdrawalsQuery, withdrawalsStatus]);
 
   const withdrawalsTotalPages = Math.max(1, Math.ceil(filteredWithdrawals.length / withdrawalsPageSize));
   const pagedWithdrawals = filteredWithdrawals.slice((withdrawalsPage - 1) * withdrawalsPageSize, withdrawalsPage * withdrawalsPageSize);
 
   // Sub-table 4: Affiliates
   const [affiliatesQuery, setAffiliatesQuery] = useState('');
+  const deferredAffiliatesQuery = useDeferredValue(affiliatesQuery);
   const [affiliatesStatus, setAffiliatesStatus] = useState('all');
   const [affiliatesPage, setAffiliatesPage] = useState(1);
   const affiliatesPageSize = 8;
 
   const filteredAffiliates = useMemo(() => {
-    const q = affiliatesQuery.toLowerCase().trim();
+    const q = deferredAffiliatesQuery.toLowerCase().trim();
     return (affiliates || []).filter((a) => {
       const matchStatus = affiliatesStatus === 'all' || a.status === affiliatesStatus;
       if (!matchStatus) return false;
@@ -92,19 +111,20 @@ export default function AdminBottomTables({
       const haystack = `${a.full_name || ''} ${a.email || ''} ${a.phone || ''} ${a.nik || ''} ${a.referral_code || ''}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [affiliates, affiliatesQuery, affiliatesStatus]);
+  }, [affiliates, deferredAffiliatesQuery, affiliatesStatus]);
 
   const affiliatesTotalPages = Math.max(1, Math.ceil(filteredAffiliates.length / affiliatesPageSize));
   const pagedAffiliates = filteredAffiliates.slice((affiliatesPage - 1) * affiliatesPageSize, affiliatesPage * affiliatesPageSize);
 
   // Sub-table 5: Active Websites
   const [websitesQuery, setWebsitesQuery] = useState('');
+  const deferredWebsitesQuery = useDeferredValue(websitesQuery);
   const [websitesSource, setWebsitesSource] = useState('all');
   const [websitesPage, setWebsitesPage] = useState(1);
   const websitesPageSize = 8;
 
   const filteredWebsites = useMemo(() => {
-    const q = websitesQuery.toLowerCase().trim();
+    const q = deferredWebsitesQuery.toLowerCase().trim();
     return (activeWebsites || []).filter((order) => {
       const isAff = isAffiliateOrder(order);
       const isFree = order.order_source === 'admin_free';
@@ -117,7 +137,7 @@ export default function AdminBottomTables({
       const haystack = `${order.order_code} ${order.slug || ''} ${order.customer_name} ${order.customer_email} ${order.template_name}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [activeWebsites, websitesQuery, websitesSource, isAffiliateOrder]);
+  }, [activeWebsites, deferredWebsitesQuery, websitesSource, isAffiliateOrder]);
 
   const websitesTotalPages = Math.max(1, Math.ceil(filteredWebsites.length / websitesPageSize));
   const pagedWebsites = filteredWebsites.slice((websitesPage - 1) * websitesPageSize, websitesPage * websitesPageSize);
@@ -126,22 +146,66 @@ export default function AdminBottomTables({
     <div className="admin-bottom-tables-section" id="admin-bottom-hub">
       <div className="admin-bottom-section-head">
         <div>
-          <span className="admin-summary-kicker">DATABASE &amp; OPERASIONAL LENGKAP</span>
+          <span className="admin-summary-kicker">DATABASE &amp; OPERASIONAL</span>
           <h2>Tabel Data Terintegrasi</h2>
-          <p>Seluruh riwayat pesanan, komisi, payout, database mitra, dan monitoring website aktif dapat diakses dan diedit langsung.</p>
+          <p>Pilih jenis tabel untuk melihat, mencari, atau mengedit data secara langsung tanpa scroll panjang.</p>
         </div>
-        <div className="bottom-jump-nav">
-          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#587164', textTransform: 'uppercase' }}>Lompat:</span>
-          <a href="#subtable-orders" className="bottom-jump-btn">🛒 Order Masuk</a>
-          <a href="#subtable-free" className="bottom-jump-btn">🎁 Order Gratis</a>
-          <a href="#subtable-withdrawals" className="bottom-jump-btn">💸 Penarikan Saldo</a>
-          <a href="#subtable-affiliates" className="bottom-jump-btn">👥 Mitra Affiliate</a>
-          <a href="#subtable-websites" className="bottom-jump-btn">🌐 Website Aktif</a>
+        <div className="bottom-table-tabs" role="tablist" aria-label="Pilih tabel data">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTable === 'orders'}
+            className={`bottom-table-tab ${activeTable === 'orders' ? 'is-active' : ''}`}
+            onClick={() => setActiveTable('orders')}
+          >
+            <span>Order Masuk</span>
+            <em>{filteredOrders.length}</em>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTable === 'free'}
+            className={`bottom-table-tab ${activeTable === 'free' ? 'is-active' : ''}`}
+            onClick={() => setActiveTable('free')}
+          >
+            <span>Order Gratis</span>
+            <em>{filteredFree.length}</em>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTable === 'withdrawals'}
+            className={`bottom-table-tab ${activeTable === 'withdrawals' ? 'is-active' : ''}`}
+            onClick={() => setActiveTable('withdrawals')}
+          >
+            <span>Penarikan</span>
+            <em>{filteredWithdrawals.length}</em>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTable === 'affiliates'}
+            className={`bottom-table-tab ${activeTable === 'affiliates' ? 'is-active' : ''}`}
+            onClick={() => setActiveTable('affiliates')}
+          >
+            <span>Mitra Affiliate</span>
+            <em>{filteredAffiliates.length}</em>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTable === 'websites'}
+            className={`bottom-table-tab ${activeTable === 'websites' ? 'is-active' : ''}`}
+            onClick={() => setActiveTable('websites')}
+          >
+            <span>Website Aktif</span>
+            <em>{filteredWebsites.length}</em>
+          </button>
         </div>
       </div>
 
       {/* Sub-Table 1: Order Masuk */}
-      <section className="admin-subtable-card" id="subtable-orders">
+      {activeTable === 'orders' && <section className="admin-subtable-card" id="subtable-orders">
         <div className="admin-subtable-head">
           <div className="subtable-head-left">
             <h3>Riwayat Order Masuk &amp; Penjualan</h3>
@@ -304,10 +368,10 @@ export default function AdminBottomTables({
           pageSize={ordersPageSize}
           onPageChange={setOrdersPage}
         />
-      </section>
+      </section>}
 
       {/* Sub-Table 2: Order Gratis */}
-      <section className="admin-subtable-card" id="subtable-free">
+      {activeTable === 'free' && <section className="admin-subtable-card" id="subtable-free">
         <div className="admin-subtable-head">
           <div className="subtable-head-left">
             <h3>Data Order Gratis (Complimentary)</h3>
@@ -430,10 +494,10 @@ export default function AdminBottomTables({
           pageSize={freePageSize}
           onPageChange={setFreePage}
         />
-      </section>
+      </section>}
 
       {/* Sub-Table 3: Penarikan Saldo Affiliate */}
-      <section className="admin-subtable-card" id="subtable-withdrawals">
+      {activeTable === 'withdrawals' && <section className="admin-subtable-card" id="subtable-withdrawals">
         <div className="admin-subtable-head">
           <div className="subtable-head-left">
             <h3>Penarikan Saldo Affiliate (Payout)</h3>
@@ -579,10 +643,10 @@ export default function AdminBottomTables({
           pageSize={withdrawalsPageSize}
           onPageChange={setWithdrawalsPage}
         />
-      </section>
+      </section>}
 
       {/* Sub-Table 4: Mitra Affiliate */}
-      <section className="admin-subtable-card" id="subtable-affiliates">
+      {activeTable === 'affiliates' && <section className="admin-subtable-card" id="subtable-affiliates">
         <div className="admin-subtable-head">
           <div className="subtable-head-left">
             <h3>Database Mitra Affiliate &amp; Review Pendaftaran</h3>
@@ -721,10 +785,10 @@ export default function AdminBottomTables({
           pageSize={affiliatesPageSize}
           onPageChange={setAffiliatesPage}
         />
-      </section>
+      </section>}
 
       {/* Sub-Table 5: Website Undangan Aktif */}
-      <section className="admin-subtable-card" id="subtable-websites">
+      {activeTable === 'websites' && <section className="admin-subtable-card" id="subtable-websites">
         <div className="admin-subtable-head">
           <div className="subtable-head-left">
             <h3>Monitoring Website Undangan Aktif</h3>
@@ -882,7 +946,9 @@ export default function AdminBottomTables({
           pageSize={websitesPageSize}
           onPageChange={setWebsitesPage}
         />
-      </section>
+      </section>}
     </div>
   );
-}
+});
+
+export default AdminBottomTables;

@@ -43,7 +43,9 @@ export const put = (path, data) => api(path, { method: 'PUT', body: data instanc
 export const del = (path, data) => api(path, { method: 'DELETE', ...(data ? { body: data instanceof FormData ? data : JSON.stringify(data) } : {}) });
 
 export function money(value) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
+  const num = Math.round(Number(value || 0));
+  const safe = Number.isFinite(num) ? num : 0;
+  return `${safe < 0 ? '-' : ''}Rp ${Math.abs(safe).toLocaleString('id-ID')}`;
 }
 
 export function mediaUrl(path) {

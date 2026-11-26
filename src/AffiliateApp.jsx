@@ -877,9 +877,16 @@ const dashboardMenus = [
   { path: '/profile', label: 'Profil', icon: <NavIconProfile /> },
 ];
 
-const rupiah = (value) => new Intl.NumberFormat('id-ID', {
-  style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
-}).format(Number(value || 0));
+const rupiah = (value) => {
+  const num = Math.round(Number(value || 0));
+  const safe = Number.isFinite(num) ? num : 0;
+  return `${safe < 0 ? '-' : ''}Rp ${Math.abs(safe).toLocaleString('id-ID')}`;
+};
+
+const formatRupiahDigits = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? Number(digits).toLocaleString('id-ID') : '';
+};
 
 async function copyText(value) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
@@ -2806,7 +2813,7 @@ function WithdrawalsPage({ data, error, reload, affiliateId }) {
         <div><span>AJUKAN PENARIKAN</span><h2>Informasi tujuan payout</h2><p>Minimal penarikan {rupiah(data.minimum_withdrawal)}. Fee {Number(settings.fee_percent || 0).toLocaleString('id-ID')}% dihitung saat permintaan disimpan dan tidak akan berubah untuk transaksi tersebut.</p></div>
         {notice.message && <div className={`affiliate-form-alert ${notice.type}`}>{notice.message}</div>}
         <form onSubmit={submit}>
-          <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="number" min={data.minimum_withdrawal} max={data.summary.available} step="1000" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder={String(data.minimum_withdrawal || 50000)} required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
+          <label><span>Nominal penarikan</span><div className="affiliate-money-input"><i>Rp</i><input type="text" inputMode="numeric" value={formatRupiahDigits(form.amount)} onChange={(event) => setForm({ ...form, amount: event.target.value.replace(/\D/g, '') })} placeholder={formatRupiahDigits(data.minimum_withdrawal || 50000)} required/></div><small>Maksimal {rupiah(data.summary.available)}</small></label>
           <div className="affiliate-withdrawal-fields">
             <OrderFilterDropdown
               className="affiliate-withdrawal-method-dropdown"

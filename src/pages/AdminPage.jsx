@@ -1,18 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { jsPDF } from 'jspdf';
+import React, { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Loading, ErrorState } from '../components/Layout.jsx';
 import { get, money, patch, post, put, del } from '../lib/api.js';
 import { useRemote } from '../lib/hooks.js';
 import AdminLogin from '../components/AdminLogin.jsx';
 import AdminTemplate from '../templates/AdminTemplate.jsx';
 import TemplateCover, { templateCoverUrl, templatePhoneCoverUrl } from '../components/TemplateCover.jsx';
-import AdminCoverAdjusterModal from '../components/AdminCoverAdjusterModal.jsx';
-import FeedbackManagementPanel from '../components/FeedbackManagementPanel.jsx';
-import { CardDetailModal, ViewItemDetailModal, EditItemModal } from '../components/AdminDashboardModals.jsx';
 import AdminBottomTables from '../components/AdminBottomTables.jsx';
 import AdminCustomDropdown from '../components/AdminCustomDropdown.jsx';
-import AdminTemplateEditorModal from '../components/AdminTemplateEditorModal.jsx';
-import AdminStorageAuditPanel from '../components/AdminStorageAuditPanel.jsx';
+
+const AdminCoverAdjusterModal = lazy(() => import('../components/AdminCoverAdjusterModal.jsx'));
+const FeedbackManagementPanel = lazy(() => import('../components/FeedbackManagementPanel.jsx'));
+const AdminTemplateEditorModal = lazy(() => import('../components/AdminTemplateEditorModal.jsx'));
+const AdminStorageAuditPanel = lazy(() => import('../components/AdminStorageAuditPanel.jsx'));
+const CardDetailModal = lazy(() => import('../components/AdminDashboardModals.jsx').then((m) => ({ default: m.CardDetailModal })));
+const ViewItemDetailModal = lazy(() => import('../components/AdminDashboardModals.jsx').then((m) => ({ default: m.ViewItemDetailModal })));
+const EditItemModal = lazy(() => import('../components/AdminDashboardModals.jsx').then((m) => ({ default: m.EditItemModal })));
 
 const dateFormat = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 const dayFormat = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
@@ -112,12 +114,14 @@ function WebsiteAccessEditor({ order, working, onSave }) {
   </div>;
 }
 
-function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissionDrafts, setCommissionDrafts, working, onSavePackage, onReload, onOpenEditorDemo }) {
+const TemplateCatalogEditor = memo(function TemplateCatalogEditor({ template, eagerCover = false, working, onSavePackage, onReload, onOpenEditorDemo }) {
   const [draft, setDraft] = useState({ name: template.name || '', category: template.category || '', description: template.description || '' });
   const [cover, setCover] = useState({ thumbnail: template.thumbnail, thumbnail_url: template.thumbnail_url });
   const [phoneCover, setPhoneCover] = useState({ phone_cover: template.phone_cover, phone_cover_url: template.phone_cover_url });
   const [templateVisible, setTemplateVisible] = useState(template.is_active !== false);
   const [packageVisibility, setPackageVisibility] = useState(() => Object.fromEntries((template.packages || []).map((item) => [item.code, item.is_active !== false])));
+  const [localPrices, setLocalPrices] = useState(() => Object.fromEntries((template.packages || []).map((item) => [item.code, String(item.price || 0)])));
+  const [localCommissions, setLocalCommissions] = useState(() => Object.fromEntries((template.packages || []).map((item) => [item.code, String(item.affiliate_commission_default_percent ?? 0)])));
   const [catalogWorking, setCatalogWorking] = useState('');
   const [adjusterOpen, setAdjusterOpen] = useState(false);
   const [adjusterImage, setAdjusterImage] = useState('');
@@ -139,6 +143,8 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
   useEffect(() => {
     setTemplateVisible(template.is_active !== false);
     setPackageVisibility(Object.fromEntries((template.packages || []).map((item) => [item.code, item.is_active !== false])));
+    setLocalPrices(Object.fromEntries((template.packages || []).map((item) => [item.code, String(item.price || 0)])));
+    setLocalCommissions(Object.fromEntries((template.packages || []).map((item) => [item.code, String(item.affiliate_commission_default_percent ?? 0)])));
   }, [template.is_active, template.packages]);
 
   const saveDetails = async (event) => {
@@ -278,7 +284,7 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
       <button type="button" disabled={Boolean(catalogWorking)} aria-pressed={templateVisible} onClick={toggleTemplateVisibility}>{catalogWorking === 'template-visibility' ? 'Menyimpan...' : templateVisible ? 'Sembunyikan' : 'Tampilkan'}</button>
     </div>
     <div className="admin-template-cover-editor">
-      <TemplateCover template={{ ...template, ...cover }} eager />
+      <TemplateCover template={{ ...template, ...cover }} eager={eagerCover} />
       <div>
         <span className="eyebrow">Gambar sampul katalog</span>
         <p>JPG, PNG, atau WEBP. Maksimal 4 MB. Frame kartu homepage rasio 4:3.</p>
@@ -299,19 +305,25 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
         </div>
       </div>
     </div>
-    <AdminCoverAdjusterModal
-      isOpen={adjusterOpen}
-      onClose={() => setAdjusterOpen(false)}
-      template={template}
-      initialImageUrl={adjusterImage}
-      onSaveCover={handleSaveCroppedCover}
-    />
+    {adjusterOpen && (
+      <Suspense fallback={null}>
+        <AdminCoverAdjusterModal
+          isOpen={adjusterOpen}
+          onClose={() => setAdjusterOpen(false)}
+          template={template}
+          initialImageUrl={adjusterImage}
+          onSaveCover={handleSaveCroppedCover}
+        />
+      </Suspense>
+    )}
     <div className="admin-template-cover-editor admin-template-phone-cover-editor">
       <div className="admin-phone-cover-preview-box">
         <img
           src={templatePhoneCoverUrl({ ...template, ...cover, ...phoneCover })}
           alt={`Sampul Layar HP ${template.name}`}
           className="admin-phone-cover-preview-img"
+          loading={eagerCover ? 'eager' : 'lazy'}
+          decoding="async"
         />
         <div className="admin-phone-cover-frame-notch" aria-hidden="true" />
       </div>
@@ -358,17 +370,21 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
         </div>
       </div>
     </div>
-    <AdminCoverAdjusterModal
-      isOpen={phoneAdjusterOpen}
-      onClose={() => setPhoneAdjusterOpen(false)}
-      template={template}
-      initialImageUrl={phoneAdjusterImage}
-      onSaveCover={handleSaveCroppedPhoneCover}
-      aspectRatio="phone"
-      title={`Atur Sampul Layar HP — ${template.name}`}
-      subtitle="Geser dan atur zoom foto agar pas dengan frame layar mockup HP di beranda (rasio 1:2 vertikal)."
-      hint="📱 Frame Layar Mockup HP (Rasio 1:2)"
-    />
+    {phoneAdjusterOpen && (
+      <Suspense fallback={null}>
+        <AdminCoverAdjusterModal
+          isOpen={phoneAdjusterOpen}
+          onClose={() => setPhoneAdjusterOpen(false)}
+          template={template}
+          initialImageUrl={phoneAdjusterImage}
+          onSaveCover={handleSaveCroppedPhoneCover}
+          aspectRatio="phone"
+          title={`Atur Sampul Layar HP — ${template.name}`}
+          subtitle="Geser dan atur zoom foto agar pas dengan frame layar mockup HP di beranda (rasio 1:2 vertikal)."
+          hint="📱 Frame Layar Mockup HP (Rasio 1:2)"
+        />
+      </Suspense>
+    )}
     <form className="admin-template-meta-form" onSubmit={saveDetails}>
       <label><span>Nama template</span><input maxLength="100" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} required /></label>
       <label><span>Kategori</span><input maxLength="50" value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} required /></label>
@@ -376,10 +392,10 @@ function TemplateCatalogEditor({ template, priceDrafts, setPriceDrafts, commissi
       <button className="admin-save-template" type="submit" disabled={Boolean(catalogWorking)}>{catalogWorking === 'details' ? 'Menyimpan...' : 'Simpan informasi'}</button>
     </form>
     <div className="admin-template-pricing-header"><div><strong>Harga dan komisi affiliate</strong><small>Persentase berlaku global untuk order baru · {template.name}</small></div><span className="admin-pill active">{template.package_count || template.packages?.length || 0} paket</span></div>
-    <div className="admin-template-price-list">{(template.packages || []).map((packageItem) => { const key = `${template.code}:${packageItem.code}`; const currentValue = priceDrafts[key] ?? packageItem.price ?? 0; const currentCommission = commissionDrafts[key] ?? packageItem.affiliate_commission_default_percent ?? 0; const packageVisible = packageVisibility[packageItem.code] !== false; const visibilityWorking = catalogWorking === `package-visibility:${packageItem.code}`; return <div className={`admin-template-price-row admin-template-package-settings ${packageVisible ? '' : 'is-package-hidden'}`.trim()} key={key}><div className="admin-package-meta"><strong>{packageItem.name}</strong><small>{packageItem.tagline}</small><em>{packageVisible ? 'Tampil di katalog' : 'Sedang maintenance'}</em></div><label className="admin-package-setting-field"><small>Harga</small><div className="admin-price-editor"><span>Rp</span><input type="text" inputMode="numeric" value={formatRupiahInput(currentValue)} onChange={(event) => setPriceDrafts((current) => ({ ...current, [key]: event.target.value.replace(/\D/g, '') }))}/></div></label><label className="admin-package-setting-field"><small>Komisi affiliate</small><div className="admin-commission-editor"><input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={currentCommission} onChange={(event) => setCommissionDrafts((current) => ({ ...current, [key]: event.target.value }))}/><span>%</span></div></label><div className="admin-package-actions"><button className={`admin-package-visibility ${packageVisible ? 'is-visible' : 'is-hidden'}`} type="button" disabled={Boolean(catalogWorking)} onClick={() => togglePackageVisibility(packageItem)}>{visibilityWorking ? 'Menyimpan...' : packageVisible ? 'Hide' : 'Show'}</button><button className="admin-save-price" type="button" disabled={working === `package:${key}`} onClick={() => onSavePackage(template.code, packageItem.code)}>{working === `package:${key}` ? 'Menyimpan...' : 'Simpan'}</button></div></div>; })}</div>
+    <div className="admin-template-price-list">{(template.packages || []).map((packageItem) => { const key = `${template.code}:${packageItem.code}`; const currentValue = localPrices[packageItem.code] ?? packageItem.price ?? 0; const currentCommission = localCommissions[packageItem.code] ?? packageItem.affiliate_commission_default_percent ?? 0; const packageVisible = packageVisibility[packageItem.code] !== false; const visibilityWorking = catalogWorking === `package-visibility:${packageItem.code}`; return <div className={`admin-template-price-row admin-template-package-settings ${packageVisible ? '' : 'is-package-hidden'}`.trim()} key={key}><div className="admin-package-meta"><strong>{packageItem.name}</strong><small>{packageItem.tagline}</small><em>{packageVisible ? 'Tampil di katalog' : 'Sedang maintenance'}</em></div><label className="admin-package-setting-field"><small>Harga</small><div className="admin-price-editor"><span>Rp</span><input type="text" inputMode="numeric" value={formatRupiahInput(currentValue)} onChange={(event) => setLocalPrices((current) => ({ ...current, [packageItem.code]: event.target.value.replace(/\D/g, '') }))}/></div></label><label className="admin-package-setting-field"><small>Komisi affiliate</small><div className="admin-commission-editor"><input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={currentCommission} onChange={(event) => setLocalCommissions((current) => ({ ...current, [packageItem.code]: event.target.value }))}/><span>%</span></div></label><div className="admin-package-actions"><button className={`admin-package-visibility ${packageVisible ? 'is-visible' : 'is-hidden'}`} type="button" disabled={Boolean(catalogWorking)} onClick={() => togglePackageVisibility(packageItem)}>{visibilityWorking ? 'Menyimpan...' : packageVisible ? 'Hide' : 'Show'}</button><button className="admin-save-price" type="button" disabled={working === `package:${key}`} onClick={() => onSavePackage(template.code, packageItem.code, currentValue, currentCommission)}>{working === `package:${key}` ? 'Menyimpan...' : 'Simpan'}</button></div></div>; })}</div>
     <button type="button" className="admin-btn-manage-editor" onClick={() => onOpenEditorDemo?.(template)} title={`Kelola editor dan galeri foto untuk preview ${template.name}`}>🎨 Kelola Editor &amp; Galeri Demo</button>
   </article>;
-}
+});
 
 function ReferralManagementPanel({ orders, working, onSave }) {
   const [selectedCode, setSelectedCode] = useState(orders[0]?.order_code || '');
@@ -1321,8 +1337,9 @@ function DemoLinksPanel({ demoLinks, templates, working, onCreate, onUpdate, onR
   </>;
 }
 
-function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, onReload }) {
+const CustomerEditorPanel = memo(function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, onReload }) {
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all' | 'paid' | 'free'
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -1377,7 +1394,7 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, on
   const freeCount = freeOrders.length;
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return eligibleOrders.filter((order) => {
       if (sourceFilter === 'paid' && order.order_source === 'admin_free') return false;
       if (sourceFilter === 'free' && order.order_source !== 'admin_free') return false;
@@ -1388,7 +1405,7 @@ function CustomerEditorPanel({ orders, working, onSaveWebsite, onDeleteOrder, on
       const haystack = `${order.customer_name || ''} ${order.customer_email || ''} ${order.customer_phone || ''} ${order.order_code || ''} ${order.template_name || ''} ${order.template_code || ''} ${order.package_name || ''} ${order.complimentary_note || ''}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [eligibleOrders, query, sourceFilter, startDate, endDate]);
+  }, [eligibleOrders, deferredQuery, sourceFilter, startDate, endDate]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -1789,7 +1806,7 @@ Data order, undangan, seluruh foto/galeri/musik di R2, website terbit, serta kom
       )}
     </section>
   );
-}
+});
 
 function AffiliateCommissionBreakdownModal({
   open,
@@ -2008,8 +2025,9 @@ function AffiliateCommissionBreakdownModal({
   );
 }
 
-function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSave, onSaveWebsite, onReload }) {
+const OrderHistoryPanel = memo(function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSave, onSaveWebsite, onReload }) {
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [status, setStatus] = useState('all');
   const [affiliate, setAffiliate] = useState('all');
   const [template, setTemplate] = useState('all');
@@ -2032,7 +2050,7 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
   }, [affiliateOptions, orders]);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = deferredQuery.trim().toLowerCase();
     return orders.filter((order) => {
       const date = orderDateValue(order);
       const statusMatch = status === 'all' || (status.startsWith('payment:') ? order.payment_status === status.slice(8) : order.status === status.slice(6));
@@ -2048,13 +2066,16 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
       const haystack = `${order.order_code} ${order.customer_name} ${order.customer_email} ${order.customer_phone} ${order.template_name} ${order.template_code} ${order.package_name} ${order.affiliate_name} ${order.affiliate_email} ${order.affiliate_referral_code} ${order.transaction_id}`.toLowerCase();
       return statusMatch && affiliateMatch && templateMatch && dateMatch && (!needle || haystack.includes(needle));
     });
-  }, [orders, query, status, affiliate, template, startDate, endDate]);
+  }, [orders, deferredQuery, status, affiliate, template, startDate, endDate]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const paginationItems = affiliatePaginationItems(currentPage, pageCount);
-  const paidTotal = filtered.filter((order) => order.payment_status === 'paid').reduce((sum, order) => sum + Number(order.payment_amount ?? order.package_price ?? 0), 0);
+  const paidTotal = useMemo(
+    () => filtered.filter((order) => order.payment_status === 'paid').reduce((sum, order) => sum + Number(order.payment_amount ?? order.package_price ?? 0), 0),
+    [filtered],
+  );
 
   const affiliatePaidOrders = useMemo(() => {
     return filtered.filter((order) => order.payment_status === 'paid' && (order.affiliate_id || Number(order.affiliate_commission_amount || 0) > 0));
@@ -2176,36 +2197,19 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
     }
   };
 
+  const statusBreakdown = useMemo(() => {
+    const counts = [
+      { key: 'paid', label: 'Lunas', count: filtered.filter((item) => item.payment_status === 'paid').length, tone: 'paid' },
+      { key: 'pending', label: 'Menunggu', count: filtered.filter((item) => item.payment_status === 'pending').length, tone: 'pending' },
+      { key: 'failed', label: 'Gagal', count: filtered.filter((item) => item.payment_status === 'failed').length, tone: 'failed' },
+      { key: 'expired', label: 'Kedaluwarsa', count: filtered.filter((item) => item.payment_status === 'expired').length, tone: 'expired' },
+      { key: 'refunded', label: 'Dikembalikan', count: filtered.filter((item) => item.payment_status === 'refunded').length, tone: 'refunded' },
+      { key: 'cancelled', label: 'Dibatalkan', count: filtered.filter((item) => item.status === 'cancelled').length, tone: 'cancelled' },
+    ];
+    return counts.filter((item) => item.count > 0);
+  }, [filtered]);
+
   return <>
-    <section className="admin-order-history-summary">
-      <div><span>Pesanan ditemukan</span><strong>{filtered.length}</strong><small>dari {orders.length} seluruh data</small></div>
-      <div><span>Pesanan lunas</span><strong>{filtered.filter((item) => item.payment_status === 'paid').length}</strong><small>sesuai filter aktif</small></div>
-      <div><span>Nilai pembayaran</span><strong>{money(paidTotal)}</strong><small>total status lunas</small></div>
-      <div
-        className="is-clickable"
-        role="button"
-        tabIndex={0}
-        onClick={() => setShowCommissionModal(true)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setShowCommissionModal(true);
-          }
-        }}
-        title="Klik untuk melihat rincian total komisi per affiliate"
-      >
-        <div className="summary-title-row">
-          <span>Total komisi affiliate</span>
-          <span className="summary-badge-action">Rincian ↗</span>
-        </div>
-        <strong>{money(affiliateCommissionTotal)}</strong>
-        <small>
-          {activeAffiliatesCount > 0
-            ? `${activeAffiliatesCount} affiliate · ${affiliatePaidOrders.length} order referral lunas`
-            : 'Klik untuk rincian affiliate'}
-        </small>
-      </div>
-    </section>
     <section className="admin-order-history-filter">
       <label className="admin-order-search"><span>Cari pesanan</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, customer, email, HP, atau ID transaksi"/></label>
       <AdminFilterDropdown label="Status pesanan" value={status} options={statusOptions} onChange={setStatus}/>
@@ -2213,7 +2217,21 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
       <AdminFilterDropdown label="Template" value={template} options={templateFilterOptions} onChange={setTemplate}/>
       <label><span>Dari tanggal</span><input type="date" value={startDate} max={endDate || undefined} onChange={(event) => setStartDate(event.target.value)}/></label>
       <label><span>Sampai tanggal</span><input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)}/></label>
-      <div className="admin-order-filter-footer"><small>{filtered.length} data ditampilkan tanpa request baru</small><div><button type="button" className="reset" onClick={resetFilters}>Reset filter</button><button type="button" className="reload" onClick={onReload}>Muat ulang</button></div></div>
+      <div className="admin-order-filter-footer">
+        <div className="admin-order-filter-status-bar">
+          <strong>{filtered.length} pesanan ditemukan</strong>
+          {statusBreakdown.length > 0 && (
+            <div className="admin-order-filter-status-chips">
+              {statusBreakdown.map((item) => (
+                <span key={item.key} className={`admin-pill ${item.tone}`}>
+                  {item.label}: {item.count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div><button type="button" className="reset" onClick={resetFilters}>Reset filter</button><button type="button" className="reload" onClick={onReload}>Muat ulang</button></div>
+      </div>
     </section>
     <section className="admin-order-history-list">
       <div className="admin-section-heading"><div><span className="eyebrow">ARSIP TRANSAKSI</span><h2>Riwayat pesanan</h2></div><span className="admin-count">Maksimal 10 data per halaman</span></div>
@@ -2247,7 +2265,7 @@ function OrderHistoryPanel({ orders, templates, affiliateOptions, working, onSav
       onViewOrder={setDetail}
     />
   </>;
-}
+});
 
 const proUpgradeStatusLabel = (status) => ({
   pending: 'Menunggu review',
@@ -2718,13 +2736,15 @@ function ProUpgradeReviewPanel({ data, loading, error, working, onReload, onRevi
   </>;
 }
 
-function WithdrawalManagementPanel({ data, loading, error, working, onReload, onSaveSettings, onProcess }) {
+const WithdrawalManagementPanel = memo(function WithdrawalManagementPanel({ data, loading, error, working, onReload, onSaveSettings, onProcess }) {
   const [filters, setFilters] = useState({ query: '', status: 'all', dateFrom: '', dateTo: '' });
   const [page, setPage] = useState(1);
+  const [expandedIds, setExpandedIds] = useState({});
   const [settings, setSettings] = useState({ min_withdrawal_amount: '50000', fee_percent: '', sender_bank_name: '', sender_account_name: '', sender_account_number: '' });
   const [drafts, setDrafts] = useState({});
   const [preview, setPreview] = useState(null);
   const withdrawals = data?.withdrawals || [];
+  const toggleExpanded = (id) => setExpandedIds((current) => ({ ...current, [id]: !current[id] }));
 
   useEffect(() => {
     if (!data?.settings) return;
@@ -2762,15 +2782,16 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   }), [scopedWithdrawals]);
 
   const filtered = useMemo(() => scopedWithdrawals.filter((item) => {
-    if (filters.status === 'all') return true;
+    if (filters.status === 'all') return item.status !== 'paid';
     if (filters.status === 'rejected_cancelled') return ['rejected', 'cancelled'].includes(item.status);
     return item.status === filters.status;
   }), [scopedWithdrawals, filters.status]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / 10));
-  const pageItems = filtered.slice((page - 1) * 10, page * 10);
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   const paginationItems = affiliatePaginationItems(page, pageCount);
-  useEffect(() => { setPage(1); }, [filters.query, filters.status, filters.dateFrom, filters.dateTo]);
+  useEffect(() => { setPage(1); setExpandedIds({}); }, [filters.query, filters.status, filters.dateFrom, filters.dateTo]);
   useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
 
   const toggleStatusCard = (targetStatus) => {
@@ -2787,7 +2808,15 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
   const updateDraft = (id, values) => setDrafts((current) => ({ ...current, [id]: { ...(current[id] || {}), ...values } }));
   const submitSettings = async (event) => {
     event.preventDefault();
-    await onSaveSettings(settings);
+    const numericMin = Number(String(settings.min_withdrawal_amount ?? '').replace(/\D/g, ''));
+    if (!Number.isFinite(numericMin) || numericMin < 10000) {
+      window.showToast?.('Minimal penarikan harus berupa angka minimal Rp 10.000.', 'error');
+      return;
+    }
+    await onSaveSettings({
+      ...settings,
+      min_withdrawal_amount: numericMin,
+    });
   };
   const submitWithdrawal = async (item) => {
     const draft = draftFor(item);
@@ -2801,7 +2830,7 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
     <section className="admin-withdrawal-settings admin-panel">
       <div className="admin-panel-heading"><div><span className="eyebrow">PENGATURAN PAYOUT</span><h2>Fee, batas minimal, dan rekening pengirim</h2></div><span className="admin-panel-note">Ditampilkan kepada affiliate pada halaman penarikan</span></div>
       <form onSubmit={submitSettings}>
-        <label><span>Minimal penarikan (Rp)</span><input type="number" min="10000" step="1000" required value={settings.min_withdrawal_amount} onChange={(event) => setSettings({ ...settings, min_withdrawal_amount: event.target.value })} placeholder="50000"/></label>
+        <label><span>Minimal penarikan (Rp)</span><input type="text" inputMode="numeric" required value={formatRupiahInput(settings.min_withdrawal_amount)} onChange={(event) => setSettings({ ...settings, min_withdrawal_amount: event.target.value.replace(/\D/g, '') })} placeholder="50.000"/></label>
         <label><span>Fee penarikan (%)</span><input type="number" min="0" max="100" step="0.01" required value={settings.fee_percent} onChange={(event) => setSettings({ ...settings, fee_percent: event.target.value })}/></label>
         <label><span>Bank pengirim</span><input required maxLength="80" value={settings.sender_bank_name} onChange={(event) => setSettings({ ...settings, sender_bank_name: event.target.value })} placeholder="Contoh: BCA"/></label>
         <label><span>Nama pemilik rekening</span><input required maxLength="120" value={settings.sender_account_name} onChange={(event) => setSettings({ ...settings, sender_account_name: event.target.value })} placeholder="Daymoment"/></label>
@@ -2862,10 +2891,10 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
         value={filters.status}
         onChange={(status) => setFilters({ ...filters, status })}
         options={[
-          { value: 'all', label: 'Semua status' },
+          { value: 'all', label: 'Permintaan aktif (non-arsip)' },
           { value: 'pending', label: 'Menunggu' },
           { value: 'processing', label: 'Sedang diproses' },
-          { value: 'paid', label: 'Selesai' },
+          { value: 'paid', label: 'Selesai (Arsip)' },
           { value: 'rejected_cancelled', label: 'Ditolak / dibatalkan' },
           { value: 'rejected', label: 'Ditolak saja' },
           { value: 'cancelled', label: 'Dibatalkan saja' },
@@ -2888,14 +2917,93 @@ function WithdrawalManagementPanel({ data, loading, error, working, onReload, on
         />
       </label>
       <div className="admin-affiliate-filter-footer">
-        <span>{filtered.length} dari {scopedWithdrawals.length} penarikan ditampilkan{scopedWithdrawals.length !== withdrawals.length ? ` (${withdrawals.length} total)` : ''}</span>
+        <span>{filtered.length} {filters.status === 'paid' ? 'arsip selesai' : 'permintaan penarikan'} ditampilkan{summary.paid > 0 && filters.status !== 'paid' ? ` · ${summary.paid} transaksi selesai di arsip` : ''}</span>
         <button type="button" onClick={() => setFilters({ query: '', status: 'all', dateFrom: '', dateTo: '' })}>Reset filter</button>
       </div>
     </section>
-    <section className="admin-withdrawal-list"><div className="admin-section-heading"><div><span className="eyebrow">PROSES MANUAL</span><h2>Permintaan penarikan</h2></div><button className="button button-secondary" type="button" onClick={onReload}>Muat ulang</button></div>{pageItems.length ? pageItems.map((item) => { const draft = draftFor(item); return <article className="admin-withdrawal-card" key={item.id}><header><div><span className="eyebrow">{item.affiliate?.referral_code || 'AFFILIATE'}</span><h3>{item.affiliate?.full_name || 'Affiliate'}</h3><small>{item.affiliate?.email || '-'}</small></div><span className={`admin-withdrawal-status status-${item.status}`}>{item.status === 'pending' ? 'Menunggu' : item.status === 'processing' ? 'Diproses' : item.status === 'paid' ? 'Selesai' : item.status === 'rejected' ? 'Ditolak' : 'Dibatalkan'}</span></header><div className="admin-withdrawal-detail"><dl><div><dt>Diajukan</dt><dd>{money(item.amount)}</dd></div><div><dt>Fee ({item.fee_percent.toLocaleString('id-ID')}%)</dt><dd>{money(item.fee_amount)}</dd></div><div><dt>Transfer bersih</dt><dd><strong>{money(item.net_amount)}</strong></dd></div><div><dt>Tujuan</dt><dd>{item.provider} · {item.account_number}</dd></div><div><dt>Pemilik</dt><dd>{item.account_name}</dd></div><div><dt>Tanggal</dt><dd>{item.requested_at ? dateFormat.format(new Date(item.requested_at)) : '-'}</dd></div></dl></div><div className="admin-withdrawal-process"><label className="admin-withdrawal-status-field"><span>Status</span><AdminStatusDropdown value={draft.status ?? item.status} onChange={(status) => updateDraft(item.id, { status })} disabled={working === item.id}/></label><label className="wide"><span>Catatan admin</span><textarea rows="2" maxLength="500" value={draft.adminNote ?? item.admin_note ?? ''} onChange={(event) => updateDraft(item.id, { adminNote: event.target.value })} placeholder="Keterangan proses atau alasan penolakan"/></label><label className="admin-withdrawal-proof"><span>Bukti transfer (internal)</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => updateDraft(item.id, { proof: event.target.files?.[0] || null })}/><em>{draft.proof?.name || (item.has_transfer_proof ? 'Bukti sudah tersimpan · pilih untuk mengganti' : 'Pilih gambar bukti transfer')}</em></label><div className="admin-withdrawal-actions">{item.transfer_proof_url && <button type="button" className="view" onClick={() => setPreview({ src: item.transfer_proof_url, name: item.affiliate?.full_name || 'Affiliate' })}>Lihat bukti internal</button>}<button type="button" className="save" disabled={working === item.id} onClick={() => submitWithdrawal(item)}>{working === item.id ? 'Menyimpan...' : 'Simpan status'}</button></div></div></article>; }) : <div className="admin-affiliate-review-state">Tidak ada penarikan yang cocok dengan filter.</div>}{filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(page - 1) * 10 + 1}–{Math.min(page * 10, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman penarikan"><button type="button" className="direction" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === page ? 'is-active' : ''} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>›</button></nav></div>}</section>
+    <section className="admin-withdrawal-list">
+      <div className="admin-section-heading">
+        <div>
+          <span className="eyebrow">{filters.status === 'paid' ? 'ARSIP PENARIKAN' : 'PROSES MANUAL'}</span>
+          <h2>{filters.status === 'paid' ? 'Arsip penarikan selesai' : 'Permintaan penarikan'}</h2>
+          {filters.status !== 'paid' && summary.paid > 0 && (
+            <small className="admin-withdrawal-archive-hint">Transaksi berstatus Selesai otomatis dipindahkan ke arsip. Klik kartu “Selesai” di atas untuk membukanya.</small>
+          )}
+        </div>
+        <div className="admin-withdrawal-list-tools">
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => setFilters((current) => ({ ...current, status: current.status === 'paid' ? 'all' : 'paid' }))}
+          >
+            {filters.status === 'paid' ? '← Permintaan aktif' : `Arsip selesai (${summary.paid})`}
+          </button>
+          <button className="button button-secondary" type="button" onClick={onReload}>Muat ulang</button>
+        </div>
+      </div>
+      {pageItems.length ? pageItems.map((item) => {
+        const draft = draftFor(item);
+        const isExpanded = Boolean(expandedIds[item.id]);
+        const statusText = item.status === 'pending' ? 'Menunggu' : item.status === 'processing' ? 'Diproses' : item.status === 'paid' ? 'Selesai' : item.status === 'rejected' ? 'Ditolak' : 'Dibatalkan';
+        return (
+          <article className={`admin-withdrawal-card ${isExpanded ? 'is-expanded' : 'is-collapsed'}`} key={item.id}>
+            <header className="admin-withdrawal-compact-header">
+              <div className="admin-withdrawal-identity">
+                <span className="eyebrow">{item.affiliate?.referral_code || 'AFFILIATE'}</span>
+                <h3>{item.affiliate?.full_name || 'Affiliate'}</h3>
+                <small>{item.affiliate?.email || '-'}</small>
+              </div>
+              <div className="admin-withdrawal-summary-meta">
+                <strong>{money(item.net_amount)}</strong>
+                <small>{item.provider} · {item.account_number}</small>
+                <small>{item.requested_at ? dateFormat.format(new Date(item.requested_at)) : '-'}</small>
+              </div>
+              <div className="admin-withdrawal-header-right">
+                <span className={`admin-withdrawal-status status-${item.status}`}>{statusText}</span>
+                <button
+                  type="button"
+                  className={`admin-withdrawal-expand-btn ${isExpanded ? 'is-open' : ''}`}
+                  aria-expanded={isExpanded}
+                  onClick={() => toggleExpanded(item.id)}
+                >
+                  <span>{isExpanded ? 'Tutup detail' : 'Lihat selengkapnya'}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+            {isExpanded && (
+              <>
+                <div className="admin-withdrawal-detail">
+                  <dl>
+                    <div><dt>Diajukan</dt><dd>{money(item.amount)}</dd></div>
+                    <div><dt>Fee ({item.fee_percent.toLocaleString('id-ID')}%)</dt><dd>{money(item.fee_amount)}</dd></div>
+                    <div><dt>Transfer bersih</dt><dd><strong>{money(item.net_amount)}</strong></dd></div>
+                    <div><dt>Tujuan</dt><dd>{item.provider} · {item.account_number}</dd></div>
+                    <div><dt>Pemilik</dt><dd>{item.account_name}</dd></div>
+                    <div><dt>Tanggal</dt><dd>{item.requested_at ? dateFormat.format(new Date(item.requested_at)) : '-'}</dd></div>
+                  </dl>
+                </div>
+                <div className="admin-withdrawal-process">
+                  <label className="admin-withdrawal-status-field"><span>Status</span><AdminStatusDropdown value={draft.status ?? item.status} onChange={(status) => updateDraft(item.id, { status })} disabled={working === item.id}/></label>
+                  <label className="wide"><span>Catatan admin</span><textarea rows="2" maxLength="500" value={draft.adminNote ?? item.admin_note ?? ''} onChange={(event) => updateDraft(item.id, { adminNote: event.target.value })} placeholder="Keterangan proses atau alasan penolakan"/></label>
+                  <label className="admin-withdrawal-proof"><span>Bukti transfer (internal)</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => updateDraft(item.id, { proof: event.target.files?.[0] || null })}/><em>{draft.proof?.name || (item.has_transfer_proof ? 'Bukti sudah tersimpan · pilih untuk mengganti' : 'Pilih gambar bukti transfer')}</em></label>
+                  <div className="admin-withdrawal-actions">
+                    {item.transfer_proof_url && <button type="button" className="view" onClick={() => setPreview({ src: item.transfer_proof_url, name: item.affiliate?.full_name || 'Affiliate' })}>Lihat bukti internal</button>}
+                    <button type="button" className="save" disabled={working === item.id} onClick={() => submitWithdrawal(item)}>{working === item.id ? 'Menyimpan...' : 'Simpan status'}</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </article>
+        );
+      }) : <div className="admin-affiliate-review-state">{filters.status === 'paid' ? 'Belum ada arsip penarikan selesai yang cocok dengan filter.' : 'Tidak ada permintaan penarikan aktif yang cocok dengan filter.'}</div>}
+      {filtered.length > 0 && <div className="admin-affiliate-pagination"><span>Menampilkan {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} dari {filtered.length} data</span><nav aria-label="Halaman penarikan"><button type="button" className="direction" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>{paginationItems.map((item) => typeof item === 'number' ? <button type="button" className={item === page ? 'is-active' : ''} key={item} onClick={() => setPage(item)}>{item}</button> : <span className="ellipsis" key={item}>…</span>)}<button type="button" className="direction" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>›</button></nav></div>}
+    </section>
     {preview && <div className="admin-ktp-lightbox" role="dialog" aria-modal="true" aria-label="Bukti transfer internal" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreview(null); }}><div><header><span>Bukti transfer internal · {preview.name}</span><button type="button" onClick={() => setPreview(null)}>×</button></header><img src={preview.src} alt={`Bukti transfer ${preview.name}`}/></div></div>}
   </>;
-}
+});
 
 function AffiliateCommissionModal({ affiliate, onClose, onSaved }) {
   const [loading, setLoading] = useState(true);
@@ -3237,6 +3345,7 @@ function affiliateFirstOrderMeta(affiliate) {
 
 function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus, onSave, onDelete, onCommissionSaved }) {
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const [status, setStatus] = useState('all');
   const [firstOrderFilter, setFirstOrderFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -3244,17 +3353,20 @@ function AffiliateDataPanel({ data, loading, error, working, onReload, onStatus,
   const [editError, setEditError] = useState('');
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [commissionTarget, setCommissionTarget] = useState(null);
-  const affiliates = (data?.affiliates || []).filter((affiliate) => ['active', 'suspended'].includes(affiliate.status));
+  const affiliates = useMemo(
+    () => (data?.affiliates || []).filter((affiliate) => ['active', 'suspended'].includes(affiliate.status)),
+    [data?.affiliates],
+  );
   const filtered = useMemo(() => affiliates.filter((affiliate) => {
     const matchesStatus = status === 'all' || affiliate.status === status;
     const hasFirstPaid = affiliate.first_order_bonus?.has_first_paid_order === true;
     const matchesFirstOrder = firstOrderFilter === 'all'
       || (firstOrderFilter === 'earned' && hasFirstPaid)
       || (firstOrderFilter === 'not_earned' && !hasFirstPaid);
-    const needle = query.trim().toLowerCase();
+    const needle = deferredQuery.trim().toLowerCase();
     const matchesQuery = !needle || `${affiliate.full_name || ''} ${affiliate.email || ''} ${affiliate.phone || ''} ${affiliate.nik || ''} ${affiliate.referral_code || ''}`.toLowerCase().includes(needle);
     return matchesStatus && matchesFirstOrder && matchesQuery;
-  }), [affiliates, query, status, firstOrderFilter]);
+  }), [affiliates, deferredQuery, status, firstOrderFilter]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / 10));
   const pageItems = filtered.slice((page - 1) * 10, page * 10);
   const paginationItems = affiliatePaginationItems(page, pageCount);
@@ -3983,6 +4095,7 @@ export default function AdminPage() {
   const [activePanel, setActivePanel] = useState('');
   const [detailQuery, setDetailQuery] = useState('');
   const [activeView, setActiveView] = useState('report');
+  const [dashboardTab, setDashboardTab] = useState('sales');
   const [mobileTabOpen, setMobileTabOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [reportCarrier, setReportCarrier] = useState('all');
@@ -4193,16 +4306,33 @@ export default function AdminPage() {
     }
   };
 
+  const notifSignatureRef = useRef('');
+
   const loadNotifications = async (showFeedbackToast = false) => {
-    setNotifLoading(true);
+    if (!showFeedbackToast && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      return;
+    }
+    if (showFeedbackToast) setNotifLoading(true);
     try {
       const res = await get('/api/admin/notifications');
       if (res?.ok) {
-        setNotificationsData({
-          counts: res.counts || { total: 0, orders: 0, feedbacks: 0, withdrawals: 0, affiliates: 0 },
-          notifications: res.notifications || { orders: [], feedbacks: [], withdrawals: [], affiliates: [] },
-          refreshed_at: res.refreshed_at || new Date().toISOString(),
+        const nextCounts = res.counts || { total: 0, orders: 0, feedbacks: 0, withdrawals: 0, affiliates: 0 };
+        const nextNotifs = res.notifications || { orders: [], feedbacks: [], withdrawals: [], affiliates: [] };
+        const sig = JSON.stringify({
+          c: nextCounts,
+          o: (nextNotifs.orders || []).map((i) => i.id),
+          f: (nextNotifs.feedbacks || []).map((i) => i.id),
+          w: (nextNotifs.withdrawals || []).map((i) => i.id),
+          a: (nextNotifs.affiliates || []).map((i) => i.id),
         });
+        if (sig !== notifSignatureRef.current || showFeedbackToast) {
+          notifSignatureRef.current = sig;
+          setNotificationsData({
+            counts: nextCounts,
+            notifications: nextNotifs,
+            refreshed_at: res.refreshed_at || new Date().toISOString(),
+          });
+        }
         if (showFeedbackToast) {
           window.showToast?.('Notifikasi terbaru berhasil diperbarui.');
         }
@@ -4213,28 +4343,29 @@ export default function AdminPage() {
         window.showToast?.('Gagal menyegarkan notifikasi.', 'error');
       }
     } finally {
-      setNotifLoading(false);
+      if (showFeedbackToast) setNotifLoading(false);
     }
   };
 
   useEffect(() => {
     loadNotifications();
-    const timer = setInterval(() => loadNotifications(), 45000);
+    const timer = setInterval(() => loadNotifications(false), 60000);
     return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
+    if (!openHeadingNotif && !showNotifications) return undefined;
     const handleOutsideClick = (event) => {
-      if (!event.target.closest('.heading-notif-box')) {
+      if (openHeadingNotif && !event.target.closest('.heading-notif-box')) {
         setOpenHeadingNotif(null);
       }
-      if (!event.target.closest('.admin-notification-wrap')) {
+      if (showNotifications && !event.target.closest('.admin-notification-wrap')) {
         setShowNotifications(false);
       }
     };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
-  }, []);
+  }, [openHeadingNotif, showNotifications]);
 
   const formatRelativeTime = (dateString) => {
     if (!dateString) return '-';
@@ -4658,7 +4789,7 @@ export default function AdminPage() {
     setAffiliateReviews((current) => ({ ...current, loading: true, error: '' }));
     try {
       const result = await get('/api/admin/affiliates');
-      setAffiliateReviews({ data: result, loading: false, error: '' });
+      setAffiliateReviews({ data: { ...result, fullLoaded: true }, loading: false, error: '' });
     } catch (failure) {
       setAffiliateReviews((current) => ({ ...current, loading: false, error: failure.message || 'Pendaftaran affiliate gagal dimuat.' }));
     }
@@ -4678,7 +4809,7 @@ export default function AdminPage() {
     setWithdrawalAdmin((current) => ({ ...current, loading: true, error: '' }));
     try {
       const result = await get('/api/admin/withdrawals');
-      setWithdrawalAdmin({ data: result, loading: false, error: '' });
+      setWithdrawalAdmin({ data: { ...result, settingsLoaded: true }, loading: false, error: '' });
     } catch (failure) {
       setWithdrawalAdmin((current) => ({ ...current, loading: false, error: failure.message || 'Data penarikan gagal dimuat.' }));
     }
@@ -4740,16 +4871,16 @@ export default function AdminPage() {
   }, [activeView, markCategoryAsRead]);
 
   useEffect(() => {
-    if (['report', 'affiliates', 'affiliate-data'].includes(activeView) && !affiliateReviews.data && !affiliateReviews.loading) {
+    if (['affiliates', 'affiliate-data'].includes(activeView) && !affiliateReviews.data?.fullLoaded && !affiliateReviews.loading) {
       loadAffiliateReviews();
     }
-  }, [activeView]);
+  }, [activeView, affiliateReviews.data?.fullLoaded]);
 
   useEffect(() => {
-    if (['report', 'withdrawals'].includes(activeView) && !withdrawalAdmin.data && !withdrawalAdmin.loading) {
+    if (activeView === 'withdrawals' && !withdrawalAdmin.data?.settingsLoaded && !withdrawalAdmin.loading) {
       loadWithdrawals();
     }
-  }, [activeView]);
+  }, [activeView, withdrawalAdmin.data?.settingsLoaded]);
 
   useEffect(() => {
     if (activeView !== 'affiliate-traffic' || loading || error) return;
@@ -4761,7 +4892,8 @@ export default function AdminPage() {
       setWithdrawalAdmin({
         data: {
           withdrawals: data.withdrawals,
-          settings: { min_withdrawal_amount: 50000, fee_percent: 0 },
+          settings: null,
+          settingsLoaded: false,
           summary: {
             pending: data.withdrawals.filter((w) => w.status === 'pending').length,
             processing: data.withdrawals.filter((w) => w.status === 'processing').length,
@@ -5208,10 +5340,10 @@ export default function AdminPage() {
     }
   };
 
-  const savePackageSettings = async (templateCode, packageCode) => {
+  const savePackageSettings = async (templateCode, packageCode, overridePrice, overrideCommission) => {
     const key = `${templateCode}:${packageCode}`;
-    const rawPrice = Number(priceDrafts[key] ?? 0);
-    const commissionPercent = Number(commissionDrafts[key] ?? 0);
+    const rawPrice = Number(overridePrice !== undefined ? overridePrice : (priceDrafts[key] ?? 0));
+    const commissionPercent = Number(overrideCommission !== undefined ? overrideCommission : (commissionDrafts[key] ?? 0));
     if (!Number.isFinite(rawPrice) || rawPrice < 0) {
       window.showToast?.('Harga paket tidak valid.', 'error');
       return;
@@ -5738,7 +5870,8 @@ export default function AdminPage() {
     }
   };
 
-  const printCarrierReport = () => {
+  const printCarrierReport = async () => {
+    const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
     const margin = 16;
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -6054,20 +6187,34 @@ export default function AdminPage() {
         <button className="admin-drawer-close" type="button" onClick={() => setMobileTabOpen(false)} aria-label="Tutup menu">✕</button>
       </div>
       <nav className="admin-sidebar-nav" aria-label="Menu admin" onClick={() => { setShowNotifications(false); setMobileTabOpen(false); }}>
-        <button className={activeView === 'report' ? 'is-active' : ''} type="button" onClick={() => setActiveView('report')}>Laporan</button>
-        <button className={activeView === 'fee' ? 'is-active' : ''} type="button" onClick={() => setActiveView('fee')}>Kelola fee</button>
-        <button className={activeView === 'fee-report' ? 'is-active' : ''} type="button" onClick={() => setActiveView('fee-report')}>Laporan fee</button>
-        <button className={activeView === 'setting' ? 'is-active' : ''} type="button" onClick={() => setActiveView('setting')}>Kelola template</button>
-        <button className={activeView === 'editor' ? 'is-active' : ''} type="button" onClick={() => setActiveView('editor')}>Editor customer</button>
-        <button className={activeView === 'affiliate-data' ? 'is-active' : ''} type="button" onClick={() => setActiveView('affiliate-data')}>Data affiliate</button>
-        <button className={`admin-nav-affiliate-traffic ${activeView === 'affiliate-traffic' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliate-traffic')}>Traffic affiliate</button>
-        <button className={`admin-nav-withdrawals ${activeView === 'withdrawals' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('withdrawals')}>Penarikan affiliate</button>
-        <button className={`admin-nav-review ${activeView === 'affiliates' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliates')}>Review affiliate</button>
-        <button className={activeView === 'order-history' ? 'is-active' : ''} type="button" onClick={() => setActiveView('order-history')}>Riwayat pesanan</button>
-        <button className={`admin-nav-free-orders ${activeView === 'complimentary-orders' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('complimentary-orders')}>Order gratis</button>
-        <button className={`admin-nav-demo-links ${activeView === 'demo-links' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('demo-links')}>Link demo</button>
-        <button className={activeView === 'storage-audit' ? 'is-active' : ''} type="button" onClick={() => setActiveView('storage-audit')}>Audit R2</button>
-        <button className={activeView === 'feedback' ? 'is-active' : ''} type="button" onClick={() => setActiveView('feedback')}>Feedback saran</button>
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-label">Ringkasan</span>
+          <button className={`admin-nav-report ${activeView === 'report' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('report')}>Laporan</button>
+        </div>
+
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-label">Pesanan &amp; Produk</span>
+          <button className={`admin-nav-order-history ${activeView === 'order-history' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('order-history')}>Riwayat pesanan</button>
+          <button className={`admin-nav-editor ${activeView === 'editor' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('editor')}>Editor customer</button>
+          <button className={`admin-nav-free-orders ${activeView === 'complimentary-orders' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('complimentary-orders')}>Order gratis</button>
+          <button className={`admin-nav-setting ${activeView === 'setting' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('setting')}>Kelola template</button>
+          <button className={`admin-nav-demo-links ${activeView === 'demo-links' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('demo-links')}>Link demo</button>
+        </div>
+
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-label">Program Affiliate</span>
+          <button className={`admin-nav-affiliate-data ${activeView === 'affiliate-data' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliate-data')}>Data affiliate</button>
+          <button className={`admin-nav-review ${activeView === 'affiliates' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliates')}>Review affiliate</button>
+          <button className={`admin-nav-affiliate-traffic ${activeView === 'affiliate-traffic' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('affiliate-traffic')}>Traffic affiliate</button>
+          <button className={`admin-nav-withdrawals ${activeView === 'withdrawals' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('withdrawals')}>Penarikan affiliate</button>
+        </div>
+
+        <div className="admin-nav-group">
+          <span className="admin-nav-group-label">Sistem &amp; Masukan</span>
+          <button className={`admin-nav-storage-audit ${activeView === 'storage-audit' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('storage-audit')}>Audit R2</button>
+          <button className={`admin-nav-feedback ${activeView === 'feedback' ? 'is-active' : ''}`.trim()} type="button" onClick={() => setActiveView('feedback')}>Feedback saran</button>
+        </div>
+
         <button className="admin-sidebar-logout" type="button" onClick={logout}>Keluar</button>
       </nav>
     </div>
@@ -6174,7 +6321,9 @@ export default function AdminPage() {
     return <AdminTemplate sidebar={sidebarNavigation}>
       <section className="admin-shell admin-view-storage-audit">
         <div className="admin-heading"><div><span className="eyebrow">STORAGE CLOUDFLARE R2</span><h1>Audit &amp; Kelola Storage R2</h1><p>Lihat kepemilikan setiap file di bucket <code>daymoment-media</code>, unduh ZIP aset customer, dan hapus file yatim langsung dari R2.</p></div>{mobileStandaloneMenu}</div>
-        <AdminStorageAuditPanel />
+        <Suspense fallback={<div className="admin-empty" style={{ padding: '32px' }}>Memuat Audit Storage R2...</div>}>
+          <AdminStorageAuditPanel />
+        </Suspense>
       </section>
     </AdminTemplate>;
   }
@@ -6221,306 +6370,12 @@ export default function AdminPage() {
           </div>
           {mobileStandaloneMenu}
         </div>
-        <FeedbackManagementPanel refreshSignal={feedbackRefreshSignal} />
+        <Suspense fallback={<div className="admin-empty" style={{ padding: '32px' }}>Memuat Feedback &amp; Saran...</div>}>
+          <FeedbackManagementPanel refreshSignal={feedbackRefreshSignal} />
+        </Suspense>
       </section>
     </AdminTemplate>;
   }
-
-  if (activeView === 'fee') {
-    return <AdminTemplate sidebar={sidebarNavigation}>
-      <section className="admin-shell admin-view-fee">
-        <div className="admin-heading"><div><span className="eyebrow">Pusat penjualan · selamat bekerja</span><h1>Kelola fee pembawa</h1><p>Fokus input dan edit fee pembawa tanpa menampilkan filter tanggal di bagian bawah.</p></div>{mobileStandaloneMenu}</div>
-        <ReferralManagementPanel orders={periodOrders} working={working} onSave={saveReferral} />
-      </section>
-    </AdminTemplate>;
-  }
-
-  if (activeView === 'fee-report') {
-    const carrierFilterOptions = [
-      {
-        value: 'all',
-        label: 'Semua nama pembawa',
-        description: `${periodOrders.length} order · ${money(periodOrders.reduce((sum, order) => sum + Number(order.referral_amount || 0), 0))}`
-      },
-      ...referralSummary.map((referral) => ({
-        value: referral.name,
-        label: referral.name,
-        description: `${referral.orders} order · ${money(referral.payout)}`
-      }))
-    ];
-    const isFilterActive = Boolean(startDate || endDate || reportCarrier !== 'all');
-    const feeReportPageSize = 10;
-    const feeReportPageCount = Math.max(1, Math.ceil(reportOrders.length / feeReportPageSize));
-    const currentFeeReportPage = Math.min(feeReportPage, feeReportPageCount);
-    const pagedReportOrders = reportOrders.slice((currentFeeReportPage - 1) * feeReportPageSize, currentFeeReportPage * feeReportPageSize);
-    const feeReportPaginationItems = affiliatePaginationItems(currentFeeReportPage, feeReportPageCount);
-
-    return <AdminTemplate sidebar={sidebarNavigation}>
-      <section className="admin-shell admin-view-fee-report">
-        <div className="admin-heading">
-          <div>
-            <span className="eyebrow">Pusat penjualan · komisi & fee</span>
-            <h1>Laporan fee pembawa</h1>
-            <p>Rekapitulasi fee pembawa berdasarkan order tersimpan untuk keperluan cetak, laporan, dan rekonsiliasi.</p>
-          </div>
-          <div className="admin-heading-actions">
-            <button className="admin-fee-print-btn" type="button" onClick={printCarrierReport} title="Download Laporan PDF">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                <rect x="6" y="14" width="12" height="8" rx="1"/>
-              </svg>
-              <span>Cetak / PDF</span>
-            </button>
-          </div>
-          {mobileStandaloneMenu}
-        </div>
-
-        <div className="admin-fee-report-toolbar">
-          <div className="admin-fee-toolbar-select">
-            <AdminFilterDropdown
-              label="Nama pembawa"
-              value={reportCarrier}
-              options={carrierFilterOptions}
-              onChange={(value) => setReportCarrier(value)}
-            />
-          </div>
-          <div className="admin-fee-toolbar-dates">
-            <label className="admin-fee-date-field">
-              <span>Dari tanggal</span>
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            </label>
-            <label className="admin-fee-date-field">
-              <span>Sampai tanggal</span>
-              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-            </label>
-          </div>
-          {isFilterActive && (
-            <button
-              className="admin-fee-reset-btn"
-              type="button"
-              onClick={() => { setStartDate(''); setEndDate(''); setReportCarrier('all'); }}
-              title="Reset semua filter ke default"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                <path d="M3 3v5h5"/>
-              </svg>
-              <span>Reset filter</span>
-            </button>
-          )}
-        </div>
-
-        <div className="admin-fee-report-summary">
-          <div className="fee-stat-card">
-            <div className="fee-stat-icon fee-stat-icon-calendar">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </div>
-            <div className="fee-stat-content">
-              <span className="fee-stat-kicker">Periode Laporan</span>
-              <strong className="fee-stat-value">{startDate || 'Awal'} — {endDate || 'Sekarang'}</strong>
-              <small className="fee-stat-subtext">{startDate || endDate ? 'Rentang tanggal aktif' : 'Semua riwayat transaksi'}</small>
-            </div>
-          </div>
-
-          <div className="fee-stat-card">
-            <div className="fee-stat-icon fee-stat-icon-orders">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
-            </div>
-            <div className="fee-stat-content">
-              <span className="fee-stat-kicker">Jumlah Order</span>
-              <strong className="fee-stat-value">{reportOrders.length} <span className="fee-stat-unit">order</span></strong>
-              <small className="fee-stat-subtext">{reportCarrier === 'all' ? 'Seluruh nama pembawa' : `Pembawa: ${reportCarrier}`}</small>
-            </div>
-          </div>
-
-          <div className="fee-stat-card fee-stat-card-highlight">
-            <div className="fee-stat-icon fee-stat-icon-payout">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect width="20" height="14" x="2" y="5" rx="2"/>
-                <line x1="2" x2="22" y1="10" y2="10"/>
-              </svg>
-            </div>
-            <div className="fee-stat-content">
-              <span className="fee-stat-kicker">Total Fee Pembawa</span>
-              <strong className="fee-stat-value fee-stat-value-money">{money(reportPayout)}</strong>
-              <small className="fee-stat-subtext">Akumulasi komisi periode ini</small>
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-fee-report-grid">
-          <div className="admin-fee-main-col">
-            <section className="admin-panel admin-fee-table-panel">
-              <div className="admin-panel-heading">
-                <div>
-                  <span className="eyebrow">Rincian data</span>
-                  <h2>Daftar Transaksi Fee</h2>
-                </div>
-                <span className="admin-panel-note">{reportOrders.length} order tercatat</span>
-              </div>
-
-              <div className="report-table-wrap">
-                <table className="report-table">
-                  <thead>
-                    <tr>
-                      <th>Nama pembawa</th>
-                      <th>Order</th>
-                      <th>Customer</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Fee pembawa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedReportOrders.length ? pagedReportOrders.map((order) => (
-                      <tr key={`report-${order.id || order.order_code}`}>
-                        <td>
-                          <div className="carrier-cell-user">
-                            <span className="carrier-avatar-pill">
-                              {(order.referral_name || 'T')[0].toUpperCase()}
-                            </span>
-                            <span className="carrier-name-title">{order.referral_name || 'Tanpa nama pembawa'}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <code className="order-code-badge">{order.order_code}</code>
-                        </td>
-                        <td>
-                          <strong className="customer-name-row">{order.customer_name}</strong>
-                        </td>
-                        <td>
-                          <span className={`admin-pill ${order.payment_status}`}>
-                            {statusLabel(order.payment_status)}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <b className="fee-amount-cell">{money(order.referral_amount)}</b>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan="5" className="admin-empty">
-                          <div className="fee-empty-container">
-                            <span className="fee-empty-icon" aria-hidden="true">🧾</span>
-                            <strong>Belum ada order pada filter ini</strong>
-                            <p>Tidak ditemukan transaksi fee yang sesuai dengan nama pembawa atau periode tanggal yang dipilih.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {reportOrders.length > 0 && (
-                <div className="admin-affiliate-pagination admin-fee-report-pagination">
-                  <span>
-                    Menampilkan {(currentFeeReportPage - 1) * feeReportPageSize + 1}–{Math.min(currentFeeReportPage * feeReportPageSize, reportOrders.length)} dari {reportOrders.length} data
-                  </span>
-                  <nav aria-label="Halaman laporan fee">
-                    <button
-                      type="button"
-                      className="direction"
-                      disabled={currentFeeReportPage === 1}
-                      onClick={() => setFeeReportPage((v) => Math.max(1, v - 1))}
-                    >
-                      ‹
-                    </button>
-                    {feeReportPaginationItems.map((item) => typeof item === 'number' ? (
-                      <button
-                        type="button"
-                        className={item === currentFeeReportPage ? 'is-active' : ''}
-                        aria-current={item === currentFeeReportPage ? 'page' : undefined}
-                        key={item}
-                        onClick={() => setFeeReportPage(item)}
-                      >
-                        {item}
-                      </button>
-                    ) : (
-                      <span className="ellipsis" key={item}>…</span>
-                    ))}
-                    <button
-                      type="button"
-                      className="direction"
-                      disabled={currentFeeReportPage === feeReportPageCount}
-                      onClick={() => setFeeReportPage((v) => Math.min(feeReportPageCount, v + 1))}
-                    >
-                      ›
-                    </button>
-                  </nav>
-                </div>
-              )}
-            </section>
-          </div>
-
-          <aside className="admin-fee-aside-col">
-            <section className="admin-panel admin-carrier-sidebar-panel">
-              <div className="admin-panel-heading">
-                <div>
-                  <span className="eyebrow">Atribusi pembawa</span>
-                  <h2>Daftar Fee</h2>
-                </div>
-                <span className="admin-panel-badge">{referralSummary.length} pembawa</span>
-              </div>
-
-              <div className="referral-list-interactive">
-                {referralSummary.length ? (
-                  <>
-                    <button
-                      type="button"
-                      className={`referral-row-btn ${reportCarrier === 'all' ? 'is-selected' : ''}`}
-                      onClick={() => setReportCarrier('all')}
-                    >
-                      <div className="referral-row-content">
-                        <strong>Semua nama pembawa</strong>
-                        <small>{periodOrders.length} order · seluruh data</small>
-                      </div>
-                      <div className="referral-row-meta">
-                        <b>{money(periodOrders.reduce((sum, order) => sum + Number(order.referral_amount || 0), 0))}</b>
-                        {reportCarrier === 'all' && <span className="referral-active-badge">Aktif</span>}
-                      </div>
-                    </button>
-                    {referralSummary.map((referral) => {
-                      const isSelected = reportCarrier === referral.name;
-                      return (
-                        <button
-                          type="button"
-                          key={referral.name}
-                          className={`referral-row-btn ${isSelected ? 'is-selected' : ''}`}
-                          onClick={() => setReportCarrier(isSelected ? 'all' : referral.name)}
-                          title={`Filter order: ${referral.name}`}
-                        >
-                          <div className="referral-row-content">
-                            <strong>{referral.name}</strong>
-                            <small>{referral.orders} order</small>
-                          </div>
-                          <div className="referral-row-meta">
-                            <b>{money(referral.payout)}</b>
-                            {isSelected && <span className="referral-active-badge">Aktif</span>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <div className="admin-empty">Belum ada nama pembawa.</div>
-                )}
-              </div>
-            </section>
-          </aside>
-        </div>
-      </section>
-    </AdminTemplate>;
-  }
-
 
   if (activeView === 'affiliates') {
     return <AdminTemplate sidebar={sidebarNavigation}>
@@ -6702,9 +6557,8 @@ export default function AdminPage() {
   }
 
   return <AdminTemplate sidebar={sidebarNavigation}>
-    <section className={`admin-shell admin-view-${activeView}`}>
-      {activeView === 'fee' && <ReferralManagementPanel orders={periodOrders} working={working} onSave={saveReferral} />}
-      <div className="admin-heading"><div><span className="eyebrow">Pusat penjualan · selamat bekerja</span><h1>{activeView === 'report' ? 'Dashboard laporan' : activeView === 'fee' ? 'Kelola fee pembawa' : activeView === 'fee-report' ? 'Laporan fee pembawa' : activeView === 'setting' ? 'Kelola katalog template' : 'Editor customer'}</h1><p>{activeView === 'report' ? 'Angka rapi, order terpantau, kepala lebih tenang.' : activeView === 'fee' ? 'Kelola fee pembawa dan pastikan data fee tersimpan dengan benar.' : activeView === 'fee-report' ? 'Laporan fee berdasarkan data yang sudah disimpan di order.' : activeView === 'setting' ? 'Atur sampul, nama, deskripsi, kategori, dan harga template.' : 'Buka dan ubah isi undangan customer yang sudah lunas.'}</p></div><div className="admin-heading-actions"><button className="button button-secondary" type="button" onClick={reload}>Muat ulang</button><button className="button button-secondary" type="button" onClick={logout}>Keluar</button></div></div>
+    <section className={`admin-shell admin-view-${['fee', 'fee-report'].includes(activeView) ? 'report' : activeView}`}>
+      <div className="admin-heading"><div><span className="eyebrow">Pusat penjualan · selamat bekerja</span><h1>{['report', 'fee', 'fee-report'].includes(activeView) ? 'Dashboard laporan' : activeView === 'setting' ? 'Kelola katalog template' : 'Editor customer'}</h1><p>{['report', 'fee', 'fee-report'].includes(activeView) ? 'Angka rapi, order terpantau, kepala lebih tenang.' : activeView === 'setting' ? 'Atur sampul, nama, deskripsi, kategori, dan harga template.' : 'Buka dan ubah isi undangan customer yang sudah lunas.'}</p></div><div className="admin-heading-actions"><button className="button button-secondary" type="button" onClick={reload}>Muat ulang</button><button className="button button-secondary" type="button" onClick={logout}>Keluar</button></div></div>
       {data.mode === 'demo' && <div className="admin-demo-note">Mode demo aktif. Data akan muncul setelah ada order dari alur pemesanan.</div>}
 
       {/* Date & Year Filter Toolbar */}
@@ -6810,466 +6664,685 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="admin-summary-container">
-        {/* Section 1: Ringkasan Order & Penjualan */}
-        <div className="admin-summary-section">
-          <div className="admin-summary-header">
-            <span className="admin-summary-kicker">Ringkasan Order &amp; Penjualan</span>
-            <span className="admin-summary-hint">Klik card untuk membuka modal rincian data lengkap</span>
-          </div>
-          <div className="admin-stat-grid-4">
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'orders',
-                title: 'Semua Order Masuk',
-                subtitle: 'Daftar seluruh order masuk reguler pada periode yang dipilih',
-                items: periodOrders
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Total Order</span>
-                <span className="admin-stat-card-badge badge-blue">Reguler</span>
-              </div>
-              <strong className="admin-stat-card-value">{summary.total_orders}</strong>
-              <small className="admin-stat-card-meta">Lihat semua order masuk <b>→</b></small>
-            </button>
+      {/* Dashboard Laporan: 4 Executive KPI + 4 Category Tabs */}
+      {['report', 'fee', 'fee-report'].includes(activeView) && (() => {
+        const pendingPayCount = Number(summary.total_pending || 0);
+        const pendingAffCount = Number(affiliateStats.pendingCount || 0);
+        const pendingWdCount = Number(withdrawalStats.pendingCount || 0);
+        const totalActionCount = pendingPayCount + pendingAffCount + pendingWdCount;
 
+        const handleOpenPrimaryAction = () => {
+          if (pendingWdCount > 0) {
+            openCardModal({
+              type: 'withdrawals',
+              title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
+              subtitle: 'Permintaan penarikan yang masih menunggu transfer dan bukti transfer',
+              items: withdrawalStats.pending,
+            });
+            return;
+          }
+          if (pendingAffCount > 0) {
+            openCardModal({
+              type: 'affiliates',
+              title: 'Pendaftaran Affiliate Menunggu Review',
+              subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
+              items: affiliateStats.pending,
+            });
+            return;
+          }
+          openCardModal({
+            type: 'orders',
+            title: 'Menunggu Pembayaran',
+            subtitle: 'Pesanan yang belum lunas dan perlu follow-up via WhatsApp',
+            items: periodOrders.filter((o) => o.payment_status === 'pending'),
+          });
+        };
+
+        return <>
+          <div className="admin-kpi-hero-grid" aria-label="Ringkasan utama bisnis">
             <button
-              className="admin-stat-card admin-stat-card-accent"
               type="button"
+              className="admin-kpi-hero-card kpi-emerald"
               onClick={() => openOmsetModal('all')}
             >
-              <div className="admin-stat-card-label">
-                <span>Omzet Lunas</span>
-                <span className="admin-stat-card-badge badge-green">Lunas</span>
+              <div className="admin-kpi-hero-top">
+                <span className="admin-kpi-hero-label">Omzet Lunas</span>
+                <span className="admin-kpi-hero-pill is-emerald">{summary.total_paid} lunas</span>
               </div>
-              <strong className="admin-stat-card-value">{money(summary.total_revenue)}</strong>
-              <div className="admin-stat-card-pills">
-                <span
-                  className="admin-stat-card-subpill direct"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openOmsetModal('direct');
-                  }}
-                  title="Klik untuk melihat pesanan Direct tanpa affiliate"
-                >
-                  Direct: {money(directRevenue)}
-                </span>
-                <span
-                  className="admin-stat-card-subpill affiliate"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openOmsetModal('affiliate');
-                  }}
-                  title="Klik untuk melihat pesanan via Mitra Affiliate"
-                >
-                  Affiliate: {money(affiliateRevenue)}
-                </span>
-              </div>
-              <small className="admin-stat-card-meta">{summary.total_paid} order lunas (Direct &amp; Affiliate) <b>→</b></small>
+              <strong className="admin-kpi-hero-value">{money(summary.total_revenue)}</strong>
+              <span className="admin-kpi-hero-sub">
+                Direct {money(directRevenue)} · Affiliate {money(affiliateRevenue)}
+              </span>
             </button>
 
             <button
-              className="admin-stat-card admin-stat-card-pending"
               type="button"
-              onClick={() => openCardModal({
-                type: 'orders',
-                title: 'Menunggu Pembayaran',
-                subtitle: 'Pesanan yang belum lunas dan perlu follow-up via WhatsApp',
-                items: periodOrders.filter((o) => o.payment_status === 'pending')
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Menunggu Bayar</span>
-                <span className="admin-stat-card-badge badge-amber">Follow-up</span>
-              </div>
-              <strong className="admin-stat-card-value">{summary.total_pending || 0}</strong>
-              <small className="admin-stat-card-meta">Perlu follow-up via WA <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-free"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'free_orders',
-                title: 'Data Order Gratis (Complimentary)',
-                subtitle: 'Daftar undangan gratis yang dibuat khusus oleh admin tanpa pembayaran',
-                items: periodFreeOrders
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Total Order Gratis</span>
-                <span className="admin-stat-card-badge badge-purple">Free</span>
-              </div>
-              <strong className="admin-stat-card-value">{periodFreeOrders.length}</strong>
-              <small className="admin-stat-card-meta">{websiteStats.freeActiveCount} website aktif <b>→</b></small>
-            </button>
-          </div>
-        </div>
-
-        {/* Section 2: Finansial & Komisi Mitra Affiliate */}
-        <div className="admin-summary-section">
-          <div className="admin-summary-header">
-            <span className="admin-summary-kicker">Kinerja &amp; Finansial Mitra Affiliate</span>
-            <span className="admin-summary-hint">Perhitungan omset template &amp; bagi hasil komisi</span>
-          </div>
-          <div className="admin-stat-grid-4">
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliate_sales',
-                title: 'Rincian Komisi Mitra Affiliate',
-                subtitle: 'Komisi yang diperoleh para mitra affiliate dari order template yang sudah lunas',
-                items: paidAffiliateOrders
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Total Komisi Affiliate</span>
-                <span className="admin-stat-card-badge badge-blue">Mitra</span>
-              </div>
-              <strong className="admin-stat-card-value">{money(affiliateFinancials.commission)}</strong>
-              <small className="admin-stat-card-meta">{paidAffiliateOrders.length} order lunas affiliate <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliate_sales',
-                title: 'Omzet Penjualan Template via Affiliate',
-                subtitle: 'Nilai penjualan kotor dari paket undangan yang terjual melalui jalur affiliate',
-                items: paidAffiliateOrders
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Omzet via Affiliate</span>
-                <span className="admin-stat-card-badge badge-green">Penjualan</span>
-              </div>
-              <strong className="admin-stat-card-value">{money(affiliateFinancials.omset)}</strong>
-              <small className="admin-stat-card-meta">Total omset template terjual <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-profit"
-              type="button"
+              className="admin-kpi-hero-card kpi-teal"
               onClick={() => openNetProfitModal('all')}
             >
-              <div className="admin-stat-card-label">
-                <span>Keuntungan Bersih Kita</span>
-                <span className="admin-stat-card-badge badge-green">Laba Bersih</span>
+              <div className="admin-kpi-hero-top">
+                <span className="admin-kpi-hero-label">Keuntungan Bersih</span>
+                <span className="admin-kpi-hero-pill is-teal">Laba Bersih</span>
               </div>
-              <strong className="admin-stat-card-value">{money(totalNetProfit)}</strong>
-              <div className="admin-stat-card-pills">
-                <span
-                  className="admin-stat-card-subpill direct"
+              <strong className="admin-kpi-hero-value">{money(totalNetProfit)}</strong>
+              <span className="admin-kpi-hero-sub">
+                Setelah komisi mitra {money(affiliateFinancials.commission)}
+              </span>
+            </button>
+
+            <div
+              role="button"
+              tabIndex={0}
+              className={`admin-kpi-hero-card ${totalActionCount > 0 ? 'kpi-amber' : 'kpi-slate'}`}
+              onClick={handleOpenPrimaryAction}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleOpenPrimaryAction();
+                }
+              }}
+            >
+              <div className="admin-kpi-hero-top">
+                <span className="admin-kpi-hero-label">Perlu Tindakan</span>
+                <span className={`admin-kpi-hero-pill ${totalActionCount > 0 ? 'is-amber' : 'is-slate'}`}>
+                  {totalActionCount > 0 ? 'Antrean' : 'Aman'}
+                </span>
+              </div>
+              <strong className="admin-kpi-hero-value">{totalActionCount}</strong>
+              <div className="admin-kpi-action-pills">
+                <button
+                  type="button"
+                  className={`admin-kpi-chip ${pendingPayCount > 0 ? 'has-count' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    openNetProfitModal('direct');
+                    openCardModal({
+                      type: 'orders',
+                      title: 'Menunggu Pembayaran',
+                      subtitle: 'Pesanan yang belum lunas dan perlu follow-up via WhatsApp',
+                      items: periodOrders.filter((o) => o.payment_status === 'pending'),
+                    });
                   }}
-                  title="Laba dari pesanan Direct"
                 >
-                  Direct: {money(directRevenue)}
-                </span>
-                <span
-                  className="admin-stat-card-subpill affiliate"
+                  {pendingPayCount} Bayar
+                </button>
+                <button
+                  type="button"
+                  className={`admin-kpi-chip ${pendingAffCount > 0 ? 'has-count' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    openNetProfitModal('affiliate');
+                    openCardModal({
+                      type: 'affiliates',
+                      title: 'Pendaftaran Affiliate Menunggu Review',
+                      subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
+                      items: affiliateStats.pending,
+                    });
                   }}
-                  title="Laba dari pesanan Affiliate setelah komisi"
                 >
-                  Affiliate: {money(Math.max(0, affiliateRevenue - affiliateCommissionTotal))}
-                </span>
+                  {pendingAffCount} Review
+                </button>
+                <button
+                  type="button"
+                  className={`admin-kpi-chip ${pendingWdCount > 0 ? 'has-count' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openCardModal({
+                      type: 'withdrawals',
+                      title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
+                      subtitle: 'Permintaan penarikan yang masih menunggu transfer dan bukti transfer',
+                      items: withdrawalStats.pending,
+                    });
+                  }}
+                >
+                  {pendingWdCount} Tarik
+                </button>
               </div>
-              <small className="admin-stat-card-meta">Omset direct + affiliate dikurang komisi mitra <b>→</b></small>
-            </button>
+            </div>
 
             <button
-              className="admin-stat-card"
               type="button"
-              onClick={() => openCardModal({
-                type: 'orders',
-                title: 'Semua Order Jalur Affiliate',
-                subtitle: 'Pesanan yang masuk melalui link atau kode referral mitra affiliate',
-                items: periodAffiliateOrders
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Order via Affiliate</span>
-                <span className="admin-stat-card-badge badge-blue">Mitra</span>
-              </div>
-              <strong className="admin-stat-card-value">{periodAffiliateOrders.length}</strong>
-              <small className="admin-stat-card-meta">{paidAffiliateOrders.length} lunas · {periodAffiliateOrders.length - paidAffiliateOrders.length} pending <b>→</b></small>
-            </button>
-          </div>
-        </div>
-
-        {/* Section 3: Penarikan Saldo Affiliate */}
-        <div className="admin-summary-section">
-          <div className="admin-summary-header">
-            <span className="admin-summary-kicker">Penarikan Saldo Affiliate (Payout)</span>
-            <span className="admin-summary-hint">Monitoring pencairan saldo komisi para affiliate</span>
-          </div>
-          <div className="admin-stat-grid-4">
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'withdrawals',
-                title: 'Semua Pengajuan Penarikan Saldo Affiliate',
-                subtitle: 'Seluruh riwayat permohonan penarikan saldo komisi para affiliate',
-                items: periodWithdrawals
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Total Pengajuan Penarikan</span>
-                <span className="admin-stat-card-badge badge-blue">Semua</span>
-              </div>
-              <strong className="admin-stat-card-value">{withdrawalStats.totalCount}</strong>
-              <small className="admin-stat-card-meta">Total {money(withdrawalStats.totalAmount)} diajukan <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-accent"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'withdrawals',
-                title: 'Penarikan Selesai (Sudah Ditransfer)',
-                subtitle: 'Permintaan payout affiliate yang telah sukses ditransfer oleh admin',
-                items: withdrawalStats.paid
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Ditransfer Selesai</span>
-                <span className="admin-stat-card-badge badge-green">Selesai</span>
-              </div>
-              <strong className="admin-stat-card-value">{withdrawalStats.paidCount}</strong>
-              <small className="admin-stat-card-meta">{money(withdrawalStats.paidAmount)} berhasil ditransfer <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-pending"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'withdrawals',
-                title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
-                subtitle: 'Permintaan penarikan yang masih menunggu transfer dan bukti transfer',
-                items: withdrawalStats.pending
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Belum Selesai</span>
-                <span className="admin-stat-card-badge badge-amber">Antrean</span>
-              </div>
-              <strong className="admin-stat-card-value">{withdrawalStats.pendingCount}</strong>
-              <small className="admin-stat-card-meta">{money(withdrawalStats.pendingAmount)} menunggu transfer <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-rejected"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'withdrawals',
-                title: 'Penarikan Ditolak / Dibatalkan',
-                subtitle: 'Permintaan penarikan yang ditolak atau dibatalkan karena kendala rekening atau data',
-                items: withdrawalStats.rejected
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Penarikan Ditolak</span>
-                <span className="admin-stat-card-badge badge-red">Ditolak</span>
-              </div>
-              <strong className="admin-stat-card-value">{withdrawalStats.rejectedCount}</strong>
-              <small className="admin-stat-card-meta">{money(withdrawalStats.rejectedAmount)} ditolak / batal <b>→</b></small>
-            </button>
-          </div>
-        </div>
-
-        {/* Section 4: Status Kemitraan & Review Affiliate */}
-        <div className="admin-summary-section">
-          <div className="admin-summary-header">
-            <span className="admin-summary-kicker">Status Kemitraan &amp; Review Affiliate</span>
-            <span className="admin-summary-hint">Manajemen status aktif/nonaktif dan verifikasi identitas KTP &amp; NIK</span>
-          </div>
-          <div className="admin-stat-grid-5">
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliates',
-                title: 'Semua Mitra Affiliate Terdaftar',
-                subtitle: 'Database lengkap seluruh mitra affiliate yang terdaftar di sistem DayMoment',
-                items: periodAffiliates
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Total Affiliate</span>
-                <span className="admin-stat-card-badge badge-blue">Database</span>
-              </div>
-              <strong className="admin-stat-card-value">{affiliateStats.totalCount}</strong>
-              <small className="admin-stat-card-meta">Semua akun mitra <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-accent"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliates',
-                title: 'Mitra Affiliate Aktif & Disetujui',
-                subtitle: 'Mitra resmi yang aktif memiliki link, kode referral, dan siap berpromosi',
-                items: affiliateStats.active
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Mitra Aktif</span>
-                <span className="admin-stat-card-badge badge-green">Aktif</span>
-              </div>
-              <strong className="admin-stat-card-value">{affiliateStats.activeCount}</strong>
-              <small className="admin-stat-card-meta">Mitra resmi berpromosi <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-gray"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliates',
-                title: 'Mitra Affiliate Nonaktif / Ditangguhkan',
-                subtitle: 'Akun mitra yang saat ini berstatus nonaktif atau ditangguhkan oleh admin',
-                items: affiliateStats.inactive
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Mitra Nonaktif</span>
-                <span className="admin-stat-card-badge badge-gray">Nonaktif</span>
-              </div>
-              <strong className="admin-stat-card-value">{affiliateStats.inactiveCount}</strong>
-              <small className="admin-stat-card-meta">Akun dinonaktifkan <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-pending"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliates',
-                title: 'Pendaftaran Affiliate Menunggu Review',
-                subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
-                items: affiliateStats.pending
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Perlu Direview</span>
-                <span className="admin-stat-card-badge badge-amber">Pending</span>
-              </div>
-              <strong className="admin-stat-card-value">{affiliateStats.pendingCount}</strong>
-              <small className="admin-stat-card-meta">Verifikasi KTP <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-rejected"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'affiliates',
-                title: 'Pendaftaran Affiliate Ditolak',
-                subtitle: 'Pendaftaran mitra yang ditolak karena data tidak sesuai atau tidak lengkap',
-                items: affiliateStats.rejected
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Mitra Ditolak</span>
-                <span className="admin-stat-card-badge badge-red">Ditolak</span>
-              </div>
-              <strong className="admin-stat-card-value">{affiliateStats.rejectedCount}</strong>
-              <small className="admin-stat-card-meta">Pendaftaran ditolak <b>→</b></small>
-            </button>
-          </div>
-        </div>
-
-        {/* Section 5: Monitoring Website Aktif */}
-        <div className="admin-summary-section">
-          <div className="admin-summary-header">
-            <span className="admin-summary-kicker">Monitoring Website Aktif</span>
-            <span className="admin-summary-hint">{websiteStats.rate}% ({websiteStats.allActiveCount} dari {combinedPeriodOrders.length}) undangan sedang aktif</span>
-          </div>
-          <div className="admin-stat-grid-4">
-            <button
-              className="admin-stat-card"
-              type="button"
+              className="admin-kpi-hero-card kpi-slate"
               onClick={() => openCardModal({
                 type: 'websites',
                 title: 'Semua Website Undangan yang Aktif',
                 subtitle: 'Seluruh website yang terbit, akses dibuka, dan belum kedaluwarsa',
-                items: websiteStats.allActive
+                items: websiteStats.allActive,
               })}
             >
-              <div className="admin-stat-card-label">
-                <span>Total Website Aktif</span>
-                <span className="admin-stat-card-badge badge-green">{websiteStats.rate}%</span>
+              <div className="admin-kpi-hero-top">
+                <span className="admin-kpi-hero-label">Website Aktif</span>
+                <span className="admin-kpi-hero-pill is-slate">{websiteStats.rate}% aktif</span>
               </div>
-              <strong className="admin-stat-card-value">{websiteStats.allActiveCount}</strong>
-              <small className="admin-stat-card-meta">Seluruh website aktif <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'websites',
-                title: 'Website Aktif: Order Berbayar Langsung DayMoment',
-                subtitle: 'Website aktif dari pemesan langsung tanpa melalui perantara affiliate',
-                items: websiteStats.directActive
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Order Berbayar Langsung</span>
-                <span className="admin-stat-card-badge badge-blue">Direct</span>
-              </div>
-              <strong className="admin-stat-card-value">{websiteStats.directActiveCount}</strong>
-              <small className="admin-stat-card-meta">Langsung dari DayMoment <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'websites',
-                title: 'Website Aktif: Dari Penjualan Affiliate',
-                subtitle: 'Website aktif dari pesanan customer yang dipromosikan oleh mitra affiliate',
-                items: websiteStats.affiliateActive
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Dari Jalur Affiliate</span>
-                <span className="admin-stat-card-badge badge-green">Affiliate</span>
-              </div>
-              <strong className="admin-stat-card-value">{websiteStats.affiliateActiveCount}</strong>
-              <small className="admin-stat-card-meta">Hasil promosi mitra <b>→</b></small>
-            </button>
-
-            <button
-              className="admin-stat-card admin-stat-card-free"
-              type="button"
-              onClick={() => openCardModal({
-                type: 'websites',
-                title: 'Website Aktif: Dari Order Gratis (Complimentary)',
-                subtitle: 'Website aktif yang dibuat langsung dari alur order gratis admin',
-                items: websiteStats.freeActive
-              })}
-            >
-              <div className="admin-stat-card-label">
-                <span>Dari Order Gratis</span>
-                <span className="admin-stat-card-badge badge-purple">Free</span>
-              </div>
-              <strong className="admin-stat-card-value">{websiteStats.freeActiveCount}</strong>
-              <small className="admin-stat-card-meta">Jalur complimentary <b>→</b></small>
+              <strong className="admin-kpi-hero-value">{websiteStats.allActiveCount}</strong>
+              <span className="admin-kpi-hero-sub">
+                Dari {combinedPeriodOrders.length} total undangan periode ini
+              </span>
             </button>
           </div>
-        </div>
-      </div>
 
-      <div className="admin-insight-grid">
+          <div className="admin-dashboard-tabs-bar" role="tablist" aria-label="Kategori laporan dashboard">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dashboardTab === 'sales'}
+              className={`admin-dashboard-tab-btn ${dashboardTab === 'sales' ? 'is-active' : ''}`}
+              onClick={() => setDashboardTab('sales')}
+            >
+              <span>Penjualan</span>
+              <span className="admin-dashboard-tab-count">{summary.total_orders}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dashboardTab === 'affiliate'}
+              className={`admin-dashboard-tab-btn ${dashboardTab === 'affiliate' ? 'is-active' : ''}`}
+              onClick={() => setDashboardTab('affiliate')}
+            >
+              <span>Affiliate</span>
+              <span className="admin-dashboard-tab-count">{affiliateStats.totalCount}</span>
+              {pendingAffCount > 0 && <span className="admin-dashboard-tab-dot" title={`${pendingAffCount} menunggu review`} />}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dashboardTab === 'withdrawals'}
+              className={`admin-dashboard-tab-btn ${dashboardTab === 'withdrawals' ? 'is-active' : ''}`}
+              onClick={() => setDashboardTab('withdrawals')}
+            >
+              <span>Penarikan</span>
+              <span className="admin-dashboard-tab-count">{withdrawalStats.totalCount}</span>
+              {pendingWdCount > 0 && <span className="admin-dashboard-tab-dot" title={`${pendingWdCount} menunggu transfer`} />}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={dashboardTab === 'websites'}
+              className={`admin-dashboard-tab-btn ${dashboardTab === 'websites' ? 'is-active' : ''}`}
+              onClick={() => setDashboardTab('websites')}
+            >
+              <span>Website Aktif</span>
+              <span className="admin-dashboard-tab-count">{websiteStats.allActiveCount}</span>
+            </button>
+          </div>
+
+          <div className="admin-summary-container admin-dashboard-tabpanel" role="tabpanel">
+            {dashboardTab === 'sales' && (
+              <div className="admin-summary-section">
+                <div className="admin-summary-header">
+                  <span className="admin-summary-kicker">Rincian Order &amp; Penjualan</span>
+                  <span className="admin-summary-hint">Klik kartu mana saja untuk membuka daftar data lengkap</span>
+                </div>
+                <div className="admin-stat-grid-4">
+                  <button
+                    className="admin-stat-card"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'orders',
+                      title: 'Semua Order Masuk',
+                      subtitle: 'Daftar seluruh order masuk reguler pada periode yang dipilih',
+                      items: periodOrders
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Total Order</span>
+                      <span className="admin-stat-card-badge badge-blue">Reguler</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{summary.total_orders}</strong>
+                    <small className="admin-stat-card-meta">Lihat semua order masuk <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-accent"
+                    type="button"
+                    onClick={() => openOmsetModal('all')}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Omzet Lunas</span>
+                      <span className="admin-stat-card-badge badge-green">Lunas</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{money(summary.total_revenue)}</strong>
+                    <div className="admin-stat-card-pills">
+                      <span
+                        className="admin-stat-card-subpill direct"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openOmsetModal('direct');
+                        }}
+                        title="Klik untuk melihat pesanan Direct tanpa affiliate"
+                      >
+                        Direct: {money(directRevenue)}
+                      </span>
+                      <span
+                        className="admin-stat-card-subpill affiliate"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openOmsetModal('affiliate');
+                        }}
+                        title="Klik untuk melihat pesanan via Mitra Affiliate"
+                      >
+                        Affiliate: {money(affiliateRevenue)}
+                      </span>
+                    </div>
+                    <small className="admin-stat-card-meta">{summary.total_paid} order lunas (Direct &amp; Affiliate) <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-pending"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'orders',
+                      title: 'Menunggu Pembayaran',
+                      subtitle: 'Pesanan yang belum lunas dan perlu follow-up via WhatsApp',
+                      items: periodOrders.filter((o) => o.payment_status === 'pending')
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Menunggu Bayar</span>
+                      <span className="admin-stat-card-badge badge-amber">Follow-up</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{summary.total_pending || 0}</strong>
+                    <small className="admin-stat-card-meta">Perlu follow-up via WA <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-free"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'free_orders',
+                      title: 'Data Order Gratis (Complimentary)',
+                      subtitle: 'Daftar undangan gratis yang dibuat khusus oleh admin tanpa pembayaran',
+                      items: periodFreeOrders
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Total Order Gratis</span>
+                      <span className="admin-stat-card-badge badge-purple">Free</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{periodFreeOrders.length}</strong>
+                    <small className="admin-stat-card-meta">{websiteStats.freeActiveCount} website aktif <b>→</b></small>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {dashboardTab === 'affiliate' && (
+              <>
+                <div className="admin-summary-section">
+                  <div className="admin-summary-header">
+                    <span className="admin-summary-kicker">Kinerja &amp; Finansial Mitra Affiliate</span>
+                    <button
+                      type="button"
+                      className="admin-summary-jump-link"
+                      onClick={() => setActiveView('affiliates')}
+                    >
+                      Buka Review Affiliate →
+                    </button>
+                  </div>
+                  <div className="admin-stat-grid-4">
+                    <button
+                      className="admin-stat-card"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliate_sales',
+                        title: 'Rincian Komisi Mitra Affiliate',
+                        subtitle: 'Komisi yang diperoleh para mitra affiliate dari order template yang sudah lunas',
+                        items: paidAffiliateOrders
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Total Komisi Affiliate</span>
+                        <span className="admin-stat-card-badge badge-blue">Mitra</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{money(affiliateFinancials.commission)}</strong>
+                      <small className="admin-stat-card-meta">{paidAffiliateOrders.length} order lunas affiliate <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliate_sales',
+                        title: 'Omzet Penjualan Template via Affiliate',
+                        subtitle: 'Nilai penjualan kotor dari paket undangan yang terjual melalui jalur affiliate',
+                        items: paidAffiliateOrders
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Omzet via Affiliate</span>
+                        <span className="admin-stat-card-badge badge-green">Penjualan</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{money(affiliateFinancials.omset)}</strong>
+                      <small className="admin-stat-card-meta">Total omset template terjual <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card admin-stat-card-profit"
+                      type="button"
+                      onClick={() => openNetProfitModal('all')}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Keuntungan Bersih Kita</span>
+                        <span className="admin-stat-card-badge badge-green">Laba Bersih</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{money(totalNetProfit)}</strong>
+                      <div className="admin-stat-card-pills">
+                        <span
+                          className="admin-stat-card-subpill direct"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNetProfitModal('direct');
+                          }}
+                          title="Laba dari pesanan Direct"
+                        >
+                          Direct: {money(directRevenue)}
+                        </span>
+                        <span
+                          className="admin-stat-card-subpill affiliate"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNetProfitModal('affiliate');
+                          }}
+                          title="Laba dari pesanan Affiliate setelah komisi"
+                        >
+                          Affiliate: {money(Math.max(0, affiliateRevenue - affiliateCommissionTotal))}
+                        </span>
+                      </div>
+                      <small className="admin-stat-card-meta">Omset direct + affiliate dikurang komisi <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'orders',
+                        title: 'Semua Order Jalur Affiliate',
+                        subtitle: 'Pesanan yang masuk melalui link atau kode referral mitra affiliate',
+                        items: periodAffiliateOrders
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Order via Affiliate</span>
+                        <span className="admin-stat-card-badge badge-blue">Mitra</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{periodAffiliateOrders.length}</strong>
+                      <small className="admin-stat-card-meta">{paidAffiliateOrders.length} lunas · {periodAffiliateOrders.length - paidAffiliateOrders.length} pending <b>→</b></small>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-summary-section">
+                  <div className="admin-summary-header">
+                    <span className="admin-summary-kicker">Status Kemitraan &amp; Review Affiliate</span>
+                    <span className="admin-summary-hint">Status aktif/nonaktif dan verifikasi identitas KTP &amp; NIK</span>
+                  </div>
+                  <div className="admin-stat-grid-5">
+                    <button
+                      className="admin-stat-card"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliates',
+                        title: 'Semua Mitra Affiliate Terdaftar',
+                        subtitle: 'Database lengkap seluruh mitra affiliate yang terdaftar di sistem DayMoment',
+                        items: periodAffiliates
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Total Affiliate</span>
+                        <span className="admin-stat-card-badge badge-blue">Database</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{affiliateStats.totalCount}</strong>
+                      <small className="admin-stat-card-meta">Semua akun mitra <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card admin-stat-card-accent"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliates',
+                        title: 'Mitra Affiliate Aktif & Disetujui',
+                        subtitle: 'Mitra resmi yang aktif memiliki link, kode referral, dan siap berpromosi',
+                        items: affiliateStats.active
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Mitra Aktif</span>
+                        <span className="admin-stat-card-badge badge-green">Aktif</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{affiliateStats.activeCount}</strong>
+                      <small className="admin-stat-card-meta">Mitra resmi berpromosi <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card admin-stat-card-gray"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliates',
+                        title: 'Mitra Affiliate Nonaktif / Ditangguhkan',
+                        subtitle: 'Akun mitra yang saat ini berstatus nonaktif atau ditangguhkan oleh admin',
+                        items: affiliateStats.inactive
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Mitra Nonaktif</span>
+                        <span className="admin-stat-card-badge badge-gray">Nonaktif</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{affiliateStats.inactiveCount}</strong>
+                      <small className="admin-stat-card-meta">Akun dinonaktifkan <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card admin-stat-card-pending"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliates',
+                        title: 'Pendaftaran Affiliate Menunggu Review',
+                        subtitle: 'Calon mitra affiliate yang membutuhkan verifikasi identitas (KTP & NIK)',
+                        items: affiliateStats.pending
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Perlu Direview</span>
+                        <span className="admin-stat-card-badge badge-amber">Pending</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{affiliateStats.pendingCount}</strong>
+                      <small className="admin-stat-card-meta">Verifikasi KTP <b>→</b></small>
+                    </button>
+
+                    <button
+                      className="admin-stat-card admin-stat-card-rejected"
+                      type="button"
+                      onClick={() => openCardModal({
+                        type: 'affiliates',
+                        title: 'Pendaftaran Affiliate Ditolak',
+                        subtitle: 'Pendaftaran mitra yang ditolak karena data tidak sesuai atau tidak lengkap',
+                        items: affiliateStats.rejected
+                      })}
+                    >
+                      <div className="admin-stat-card-label">
+                        <span>Mitra Ditolak</span>
+                        <span className="admin-stat-card-badge badge-red">Ditolak</span>
+                      </div>
+                      <strong className="admin-stat-card-value">{affiliateStats.rejectedCount}</strong>
+                      <small className="admin-stat-card-meta">Pendaftaran ditolak <b>→</b></small>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {dashboardTab === 'withdrawals' && (
+              <div className="admin-summary-section">
+                <div className="admin-summary-header">
+                  <span className="admin-summary-kicker">Penarikan Saldo Affiliate (Payout)</span>
+                  <button
+                    type="button"
+                    className="admin-summary-jump-link"
+                    onClick={() => setActiveView('withdrawals')}
+                  >
+                    Kelola Penarikan Affiliate →
+                  </button>
+                </div>
+                <div className="admin-stat-grid-4">
+                  <button
+                    className="admin-stat-card"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'withdrawals',
+                      title: 'Semua Pengajuan Penarikan Saldo Affiliate',
+                      subtitle: 'Seluruh riwayat permohonan penarikan saldo komisi para affiliate',
+                      items: periodWithdrawals
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Total Pengajuan Penarikan</span>
+                      <span className="admin-stat-card-badge badge-blue">Semua</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{withdrawalStats.totalCount}</strong>
+                    <small className="admin-stat-card-meta">Total {money(withdrawalStats.totalAmount)} diajukan <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-accent"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'withdrawals',
+                      title: 'Penarikan Selesai (Sudah Ditransfer)',
+                      subtitle: 'Permintaan payout affiliate yang telah sukses ditransfer oleh admin',
+                      items: withdrawalStats.paid
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Ditransfer Selesai</span>
+                      <span className="admin-stat-card-badge badge-green">Selesai</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{withdrawalStats.paidCount}</strong>
+                    <small className="admin-stat-card-meta">{money(withdrawalStats.paidAmount)} berhasil ditransfer <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-pending"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'withdrawals',
+                      title: 'Penarikan Belum Selesai (Menunggu / Diproses)',
+                      subtitle: 'Permintaan penarikan yang masih menunggu transfer dan bukti transfer',
+                      items: withdrawalStats.pending
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Belum Selesai</span>
+                      <span className="admin-stat-card-badge badge-amber">Antrean</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{withdrawalStats.pendingCount}</strong>
+                    <small className="admin-stat-card-meta">{money(withdrawalStats.pendingAmount)} menunggu transfer <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-rejected"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'withdrawals',
+                      title: 'Penarikan Ditolak / Dibatalkan',
+                      subtitle: 'Permintaan penarikan yang ditolak atau dibatalkan karena kendala rekening atau data',
+                      items: withdrawalStats.rejected
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Penarikan Ditolak</span>
+                      <span className="admin-stat-card-badge badge-red">Ditolak</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{withdrawalStats.rejectedCount}</strong>
+                    <small className="admin-stat-card-meta">{money(withdrawalStats.rejectedAmount)} ditolak / batal <b>→</b></small>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {dashboardTab === 'websites' && (
+              <div className="admin-summary-section">
+                <div className="admin-summary-header">
+                  <span className="admin-summary-kicker">Monitoring Website Aktif</span>
+                  <span className="admin-summary-hint">{websiteStats.rate}% ({websiteStats.allActiveCount} dari {combinedPeriodOrders.length}) undangan sedang aktif</span>
+                </div>
+                <div className="admin-stat-grid-4">
+                  <button
+                    className="admin-stat-card"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'websites',
+                      title: 'Semua Website Undangan yang Aktif',
+                      subtitle: 'Seluruh website yang terbit, akses dibuka, dan belum kedaluwarsa',
+                      items: websiteStats.allActive
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Total Website Aktif</span>
+                      <span className="admin-stat-card-badge badge-green">{websiteStats.rate}%</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{websiteStats.allActiveCount}</strong>
+                    <small className="admin-stat-card-meta">Seluruh website aktif <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'websites',
+                      title: 'Website Aktif: Order Berbayar Langsung DayMoment',
+                      subtitle: 'Website aktif dari pemesan langsung tanpa melalui perantara affiliate',
+                      items: websiteStats.directActive
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Order Berbayar Langsung</span>
+                      <span className="admin-stat-card-badge badge-blue">Direct</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{websiteStats.directActiveCount}</strong>
+                    <small className="admin-stat-card-meta">Langsung dari DayMoment <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'websites',
+                      title: 'Website Aktif: Dari Penjualan Affiliate',
+                      subtitle: 'Website aktif dari pesanan customer yang dipromosikan oleh mitra affiliate',
+                      items: websiteStats.affiliateActive
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Dari Jalur Affiliate</span>
+                      <span className="admin-stat-card-badge badge-green">Affiliate</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{websiteStats.affiliateActiveCount}</strong>
+                    <small className="admin-stat-card-meta">Hasil promosi mitra <b>→</b></small>
+                  </button>
+
+                  <button
+                    className="admin-stat-card admin-stat-card-free"
+                    type="button"
+                    onClick={() => openCardModal({
+                      type: 'websites',
+                      title: 'Website Aktif: Dari Order Gratis (Complimentary)',
+                      subtitle: 'Website aktif yang dibuat langsung dari alur order gratis admin',
+                      items: websiteStats.freeActive
+                    })}
+                  >
+                    <div className="admin-stat-card-label">
+                      <span>Dari Order Gratis</span>
+                      <span className="admin-stat-card-badge badge-purple">Free</span>
+                    </div>
+                    <strong className="admin-stat-card-value">{websiteStats.freeActiveCount}</strong>
+                    <small className="admin-stat-card-meta">Jalur complimentary <b>→</b></small>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>;
+      })()}
+
+      {['report', 'fee', 'fee-report'].includes(activeView) && dashboardTab === 'sales' && <div className="admin-insight-grid">
         <section className="admin-panel revenue-panel">
           <div className="admin-panel-heading">
             <div>
@@ -7346,15 +7419,16 @@ export default function AdminPage() {
             )}
           </div>
         </section>
-      </div>
+      </div>}
 
-      <section className="admin-settings-panel admin-panel">
+      {activeView === 'setting' && <section className="admin-settings-panel admin-panel">
         <div className="admin-panel-heading admin-catalog-heading"><div><span className="eyebrow">Katalog template</span><h2>Sampul dan informasi produk</h2></div><span className="admin-panel-note">Perubahan digunakan di website utama dan etalase affiliate</span></div>
-        <div className="admin-template-pricing-grid">{templateCatalog.map((template) => <TemplateCatalogEditor key={template.code} template={template} priceDrafts={priceDrafts} setPriceDrafts={setPriceDrafts} commissionDrafts={commissionDrafts} setCommissionDrafts={setCommissionDrafts} working={working} onSavePackage={savePackageSettings} onReload={reload} onOpenEditorDemo={setEditorDemoModalTemplate} />)}</div>
-      </section>
+        <div className="admin-template-pricing-grid">{templateCatalog.map((template, idx) => <TemplateCatalogEditor key={template.code} template={template} eagerCover={idx < 2} working={working} onSavePackage={savePackageSettings} onReload={reload} onOpenEditorDemo={setEditorDemoModalTemplate} />)}</div>
+      </section>}
 
-      {/* Permanent Bottom Tables with Independent Sub-Table Pagination */}
-      <AdminBottomTables
+      {/* Tabbed Data Table synced with active dashboard category */}
+      {['report', 'fee', 'fee-report'].includes(activeView) && <AdminBottomTables
+        activeCategory={dashboardTab}
         orders={periodOrders}
         freeOrders={periodFreeOrders}
         withdrawals={periodWithdrawals}
@@ -7365,47 +7439,51 @@ export default function AdminPage() {
         whatsappUrl={whatsappUrl}
         onView={openViewModal}
         onEdit={openEditModal}
-      />
+      />}
 
-      {/* Pop-up Modal when clicking stat cards */}
-      <CardDetailModal
-        modal={cardModal}
-        query={cardModalQuery}
-        onQueryChange={setCardModalQuery}
-        page={cardModalPage}
-        onPageChange={setCardModalPage}
-        onClose={() => setCardModal(null)}
-        onView={openViewModal}
-        onEdit={openEditModal}
-        isAffiliateOrder={isAffiliateOrder}
-        statusLabel={statusLabel}
-        whatsappUrl={whatsappUrl}
-      />
+      {/* Lazy Pop-up Modals — mounted ONLY when open */}
+      <Suspense fallback={null}>
+        {Boolean(cardModal) && <CardDetailModal
+          modal={cardModal}
+          query={cardModalQuery}
+          onQueryChange={setCardModalQuery}
+          page={cardModalPage}
+          onPageChange={setCardModalPage}
+          onClose={() => setCardModal(null)}
+          onView={openViewModal}
+          onEdit={openEditModal}
+          isAffiliateOrder={isAffiliateOrder}
+          statusLabel={statusLabel}
+          whatsappUrl={whatsappUrl}
+        />}
 
-      {/* View Item Detail Modal */}
-      <ViewItemDetailModal
-        viewModal={viewItemModal}
-        onClose={() => setViewItemModal(null)}
-        onEdit={openEditModal}
-        statusLabel={statusLabel}
-        orderStatusLabel={orderStatusLabel}
-        whatsappUrl={whatsappUrl}
-      />
+        {Boolean(viewItemModal) && <ViewItemDetailModal
+          viewModal={viewItemModal}
+          onClose={() => setViewItemModal(null)}
+          onEdit={openEditModal}
+          statusLabel={statusLabel}
+          orderStatusLabel={orderStatusLabel}
+          whatsappUrl={whatsappUrl}
+        />}
 
-      {/* Edit Item Modal */}
-      <EditItemModal
-        editModal={editItemModal}
-        working={working === 'modal-edit'}
-        onClose={() => setEditItemModal(null)}
-        onSave={handleSaveModalEdit}
-      />
+        {Boolean(editItemModal) && <EditItemModal
+          editModal={editItemModal}
+          working={working === 'modal-edit'}
+          onClose={() => setEditItemModal(null)}
+          onSave={handleSaveModalEdit}
+        />}
+      </Suspense>
     </section>
-    <AdminTemplateEditorModal
-      isOpen={Boolean(editorDemoModalTemplate)}
-      onClose={() => setEditorDemoModalTemplate(null)}
-      template={editorDemoModalTemplate}
-      onReload={reload}
-    />
+    {Boolean(editorDemoModalTemplate) && (
+      <Suspense fallback={null}>
+        <AdminTemplateEditorModal
+          isOpen={Boolean(editorDemoModalTemplate)}
+          onClose={() => setEditorDemoModalTemplate(null)}
+          template={editorDemoModalTemplate}
+          onReload={reload}
+        />
+      </Suspense>
+    )}
   </AdminTemplate>;
 }
 
